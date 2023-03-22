@@ -1,0 +1,6 @@
+class ConduitConfigurationError(Exception):
+    ...
+
+
+class ConduitIterationOverflow(Exception):
+    ...
