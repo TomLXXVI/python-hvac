@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "python-hvac"
 version = "0.1.0"
-description = "A package for designing and analyzing HVAC systems"
+description = "A package for HVAC engineering"
 authors = ["Tom Christiaens <tom.chr@proximus.be>"]
 readme = "README.md"
-packages = [{include = "python_hvac"}]
+packages = [{include = "hvac"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.12"
