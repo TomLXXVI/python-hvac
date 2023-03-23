@@ -126,7 +126,7 @@ insulation layer `insulation` is created from a parallel combination of the
 wooden frame and the insulation material.
 
 #### Building Materials Shelf
-As it may obviously become a burden to re-enter the same building material over 
+As it obviously may become a burden to re-enter the same building material over 
 and over again, some kind of database is provided in which building materials 
 can be stored. This database is called a "shelf" here, because it is implemented 
 using the `shelve` module from Python's Standard Library. You can use the class 
