@@ -54,6 +54,10 @@ class Geometry:
     w: Quantity = Q_(float('inf'), 'm')
     h: Quantity = Q_(float('inf'), 'm')
 
+    def __post_init__(self):
+        if self.w != float('inf') and self.h != float('inf'):
+            self.A = self.w * self.h
+
 
 class HeatFlowDirection(Enum):
     HORIZONTAL = 'horizontal'
@@ -373,7 +377,7 @@ class AirSpace(ThermalComponent):
         SIGMA = Q_(5.67e-8, 'W / (m ** 2 * K ** 4)')
         hro = 4 * SIGMA * Tmn.to('K') ** 3
         e1, e2 = surface_emissivities
-        if self.geometry.w < 10.0 * self.geometry.t:
+        if self.geometry.w <= 10.0 * self.geometry.t:
             r = self.geometry.t / self.geometry.w
             d = 1 + math.sqrt(1 + r ** 2) - r
             hr = hro / ((1 / e1) + (1 / e2) - 2 + 2 / d)
