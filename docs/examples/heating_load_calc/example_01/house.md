@@ -123,7 +123,7 @@ and `SurfaceLayer` can be added in series (using the +-operator) or in parallel
 (using the //-operator). In the example above, the wooden frame and the 
 insulation form two thermal resistances connected in parallel. As such, the final
 insulation layer `insulation` is created from a parallel combination of the 
-wooden frame and the insulation.
+wooden frame and the insulation material.
 
 #### Building Materials Shelf
 As it may obviously become a burden to re-enter the same building material over 
