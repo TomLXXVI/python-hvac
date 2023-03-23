@@ -111,7 +111,7 @@ insulation = insulation_ // wood_
 insulation.ID = 'insulation'
 ```
 In this second example the usage of parameter `A` in the geometry is 
-demonstrated. In the example a building component composed of a wooden
+demonstrated. In the example, a building component composed of a wooden
 frame filled up with insulation is being considered. The area fraction of wood 
 is 12 % and therefore the area fraction of insulation is 88 %. Consequently, we 
 assign the parameter `A` of wood to be equal to 0.12 m² and the area of 
