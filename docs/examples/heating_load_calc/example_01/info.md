@@ -1,3 +1,24 @@
+<!-- TOC -->
+* [Heating Load Calculation of a House](#heating-load-calculation-of-a-house)
+  * [Construction assembly](#construction-assembly)
+    * [Building Component](#building-component)
+      * [Building Materials Shelf](#building-materials-shelf)
+    * [Airspace](#airspace)
+    * [Surface Film](#surface-film)
+    * [Creation of a Construction Assembly](#creation-of-a-construction-assembly)
+      * [Construction Assemblies Shelf](#construction-assemblies-shelf)
+  * [Window Thermal Properties](#window-thermal-properties)
+    * [Window Properties Shelf](#window-properties-shelf)
+  * [Building Elements](#building-elements)
+  * [Building Hierarchy](#building-hierarchy)
+  * [Programming a Heat Load Calculation](#programming-a-heat-load-calculation)
+    * [1. Imports](#1-imports)
+    * [2. Set up the Shelves](#2-set-up-the-shelves)
+    * [3. Create the Construction Assemblies](#3-create-the-construction-assemblies)
+    * [4. Create the Building](#4-create-the-building)
+    * [5. Run the Heating Load Calculation](#5-run-the-heating-load-calculation)
+<!-- TOC -->
+
 # Heating Load Calculation of a House
 
 This document explains the build-up of package `hvac.heating_load_calc` and
