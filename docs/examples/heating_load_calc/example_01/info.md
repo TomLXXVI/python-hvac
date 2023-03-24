@@ -498,22 +498,22 @@ detail and to explain all the associated input parameters required to perform th
 calculations. More explanation about the meaning of the parameters can be found 
 in the docstrings that document the classes and methods. It's also recommended
 to have the standard EN 12831-1 (2017) at your own disposal. Many input parameters
-have been assigned already reasonable default values that can be found in this 
+have already been assigned reasonable default values that can be found in this 
 standard.
 
 ## Programming a Heat Load Calculation 
-In the following, a concrete example will be used to demonstrate how to program 
-the heating load calculation of a building and which classes and functions from 
-the package are required or can be used for this. In the script `house.py`, in 
-the same directory as this document, the heating load calculation of a simple
-two-storey house has been programmed. Also in this directory is the floor plan 
-of this house (`floor_plan.pdf`). The bottom of the floor plan is oriented to 
-the South, the right side of the floor plan points to the East. At the east, the 
-north, and south side the house is open. At the west side there is a neighboring 
-house. The toilet on the first floor and the hallway are considered to be 
-unheated spaces. The house is ventilated mechanically, as well for the supply, 
-as the exhaust of air. The supply, exhaust and transfer volume flow rates are
-indicated on the floor plan.
+In the following, an example will be used to explain how a program for the 
+heating load calculation of a building can be structured and which classes and 
+functions from the package are required or can be used for this. 
+In the script `house.py`, in the same directory as this document, the heating load
+calculation of a simple two-storey house has been programmed. Also in this 
+directory is the floor plan of this house (`floor_plan.pdf`). The bottom of the 
+floor plan is oriented to the South, the right side of the floor plan points to 
+the East. At the east, the north, and south side the house is open. At the west 
+side a neighboring house is built against it. The toilet on the first floor and 
+the hallway are considered to be unheated spaces. The house is mechanically 
+ventilated, as well for the supply, as the exhaust of air. The supply, exhaust 
+and transfer volume flow rates are indicated on the floor plan.
 
 ### 1. Imports
 Of course the first step when writing a Python script is to import everything
@@ -657,7 +657,7 @@ class ConstructionAssemblies:
 
 ### 4. Create the Building
 We will encapsulate the creation of the building inside a class called `House`. 
-The following grand steps must be taken:
+The following grand steps need to be taken:
 
 1. In the `__init__`-method we load the construction assemblies by 
 instantiating class `ConstructionAssemblies` and referring it to an instance 
@@ -786,10 +786,10 @@ that is needed to perform the heating load calculations.
         )
 ```
 
-After all spaces are created, as a final step 4, we need to further configure 
-the heated spaces by adding the building elements that surround them. Here, only
-the programming code for the configuration of the kitchen and dining room is 
-shown.
+After all spaces are created, as the final grand step 4, we need to further 
+configure the heated spaces by adding the building elements that surround them. 
+Here, only the programming code for the configuration of the kitchen and dining 
+room is shown.
 ```python
     def _config_kitchen_and_dining_room(self) -> None:
         # add exterior wall at the north side of the kitchen and dining room
