@@ -1,3 +1,5 @@
+[TOC]
+
 # Heating Load Calculation of a House
 
 The script `house.py` demonstrates how package `heating_load_calc` can be
@@ -13,6 +15,7 @@ A "thermal component" represents any physical object that has thermal resistance
 and through which heat can flow from the building's interior environment to the 
 outdoor environment or vice versa. There can be three different types of 
 "thermal components" in a construction assembly:
+
 - a **building component** is an opaque layer of building material 
 - an **airspace** or air layer inside a construction assembly
 - a **surface film** layer at both the exterior and the interior side of a 
@@ -463,7 +466,7 @@ Each type of building element is represented by its own class:
 
 These classes are defined in the module `building_element.py` of sub-package
 `hvac.heating_load_calc.core`. 
- 
+
 Although it is possible, we don't need to instantiate these classes directly.
 The building elements will be created when we add them to a space as explained
 in the next section.
