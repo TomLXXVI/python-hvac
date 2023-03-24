@@ -8,7 +8,8 @@ from ..cooling_load_calc.core import (
     SurfaceLayer,
     BuildingComponent,
     AirSpace,
-    ConstructionAssembly
+    ConstructionAssembly,
+    WindowThermalProperties
 )
 from ..cooling_load_calc.shelves import (
     MaterialsShelf,

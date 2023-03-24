@@ -65,13 +65,15 @@ class ConstructionAssemblies:
         # interior doors
         self.int_door = ConstructionAssembly.create(
             ID='door_int',
-            U=Q_(4.0, 'W / (m ** 2 * K)')
+            U=Q_(4.0, 'W / (m ** 2 * K)'),
+            geometry=Geometry(t=Q_(4, 'cm'))
         )
 
         # exterior doors
         self.ext_door = ConstructionAssembly.create(
             ID='door_ext',
-            U=Q_(3.0, 'W / (m ** 2 * K)')
+            U=Q_(3.0, 'W / (m ** 2 * K)'),
+            geometry=Geometry(t=Q_(8, 'cm'))
         )
 
     @staticmethod
