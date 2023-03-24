@@ -32,7 +32,7 @@ MaterialsShelf.path = "C:/Users/Tom/wtcb_database/wtcb_materials.db"
 
 
 class ConstructionAssemblies:
-    # prepare the construction assemblies used in the building
+    # prepare the construction assemblies used for the building
 
     def __init__(self):
         # exterior walls
@@ -125,7 +125,7 @@ class House:
         # load construction assemblies
         self.constr_assem = ConstructionAssemblies()
 
-        # declare building attributes
+        # declare the building attributes
         self.building = Building()
         self.building_entity = BuildingEntity()
         self.ventilation_zone = VentilationZone()
@@ -155,13 +155,10 @@ class House:
                 T_ext_min=Q_(0.0, 'degC')
             )
         )
-
         # add building entity to building
         self.building_entity = self.building.add_building_entity(ID='house')
-
         # add ventilation zone to building entity
         self.ventilation_zone = self.building_entity.add_ventilation_zone(ID='house')
-
         # add heated spaces to ventilation zone
         self.kitchen_and_dining_room = self.ventilation_zone.add_heated_space(
             ID='kitchen_and_dining_room',

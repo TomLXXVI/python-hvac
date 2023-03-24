@@ -1,22 +1,17 @@
-<!-- TOC -->
-* [Heating Load Calculation of a House](#heating-load-calculation-of-a-house)
-  * [Construction assembly](#construction-assembly)
-    * [Building Component](#building-component)
-      * [Building Materials Shelf](#building-materials-shelf)
-    * [Airspace](#airspace)
-    * [Surface Film](#surface-film)
-    * [Creation of a Construction Assembly](#creation-of-a-construction-assembly)
-      * [Construction Assemblies Shelf](#construction-assemblies-shelf)
-  * [Window Thermal Properties](#window-thermal-properties)
-    * [Window Properties Shelf](#window-properties-shelf)
-  * [Building Elements](#building-elements)
-<!-- TOC -->
-
 # Heating Load Calculation of a House
 
-The script `house.py` demonstrates how package `heating_load_calc` can be
-used to program the heating load calculation of a house. Opening `floor_plan.pdf`
-will show the floor plan of this example house.
+This document explains the build-up of package `hvac.heating_load_calc` and
+how it should be used to program the heating load calculation of a building. 
+This package implements the "standard method" (§ 6) of standard EN 12831-1 
+(2017) *Energy performance of buildings - Method for calculation of the 
+design heat load - Part 1: Space heating load.*
+In the text that follows, we first go over the main concepts and classes that 
+are needed to understand how to program the heat loss calculation of a building.
+
+The script `house.py` in the same folder as this document demonstrates 
+how package `hvac.heating_load_calc` can be used to program the heating load 
+calculation of a simple house. Opening `floor_plan.pdf` will show the floor plan 
+of this example house.
 
 ## Construction assembly
 The first step in a heating load calculation is to determine the construction 
@@ -28,8 +23,8 @@ and through which heat can flow from the building's interior environment to the
 outdoor environment or vice versa. There can be three different types of 
 "thermal components" in a construction assembly:
 
-- a **building component** is an opaque layer of building material 
-- an **airspace** or air layer inside a construction assembly
+- a **building component** is an opaque layer made of some building material 
+- an **airspace** or air layer can be present inside a construction assembly
 - a **surface film** layer at both the exterior and the interior side of a 
 construction assembly
 
@@ -461,24 +456,444 @@ found in the module `window_properties.py` of sub-package
 
 ## Building Elements
 Once the construction assemblies are created or loaded from their respective 
-shelf, we can create the building elements that constitute the building spaces.
+shelf, we can create the building elements that will surround the building spaces.
 In a heating load calculation there are three types of building elements to
-be distinguished:
-- exterior building elements separate the indoor environment of a heated space 
-from the outdoor environment,
-- adjacent building elements separate a heated space from another adjacent 
-heated or unheated space, an adjacent building entity in the same building, or an
-adjacent building.
-- building elements which are in contact with the ground
-
-Each type of building element is represented by its own class:
-- `ExteriorBuildingElement`
-- `AdjacentBuildingElement`
-- `GroundBuildingElement`
-
-These classes are defined in the module `building_element.py` of sub-package
-`hvac.heating_load_calc.core`. 
+be distinguished, each represented by its own class, located in the module 
+`building_element.py` of sub-package `hvac.heating_load_calc.core`:
+- Class **`ExteriorBuildingElement`** represents an exterior building element that
+separates the indoor environment of a heated space from the outdoor environment.
+- Class **`AdjacentBuildingElement`** represents an adjacent building element that
+separates a heated space from another adjacent heated or unheated space, an 
+adjacent building entity in the same building, or an adjacent building.
+- Class **`GroundBuildingElement`** represents a building element in contact with 
+the ground.
 
 Although it is possible, we don't need to instantiate these classes directly.
 The building elements will be created when we add them to a space as explained
-in the next section.
+in the following section.
+
+## Building Hierarchy
+The standard method §6 of EN 12831-1 divides a building into one or more building
+entities, e.g. apartments in an apartment building. Each building entity can have
+one or more ventilation zones. A ventilation zone is defined in the standard as: 
+*group of rooms that are air-connected by design, either directly or indirectly 
+(through other rooms there between); e.g. through internally mounted air transfer
+devices / shortened door leafs, etc. By design, there is no air transfer between 
+ventilation zones. Usually, each building entity is considered a separate zone.*
+Each ventilation zone can have one or more heated or unheated spaces.
+
+The table below shows which class represents each "physical object" and in 
+which module each of these classes is implemented.
+
+| physical object  | class             | module                                                |
+|------------------|-------------------|-------------------------------------------------------|
+| building         | `Building`        | `hvac.heating_load_calc.building.building.py`         |
+| building entity  | `BuildingEntity`  | `hvac.heating_load_calc.building.building_entity.py`  |
+| ventilation zone | `VentilationZone` | `hvac.heating_load_calc.building.ventilation_zone.py` |
+| heated space     | `HeatedSpace`     | `hvac.heating_load_calc.building.space.py`            |
+| unheated space   | `UnheatedSpace`   | `hvac.heating_load_calc.building.space.py`            |
+
+It is not the purpose of this document to explain the calculation method in 
+detail and to explain all the associated input parameters required to perform the 
+calculations. More explanation about the meaning of the parameters can be found 
+in the docstrings that document the classes and methods. It's also recommended
+to have the standard EN 12831-1 (2017) at your own disposal. Many input parameters
+have been assigned already reasonable default values that can be found in this 
+standard.
+
+## Programming a Heat Load Calculation 
+In the following, a concrete example will be used to demonstrate how to program 
+the heating load calculation of a building and which classes and functions from 
+the package are required or can be used for this. In the script `house.py`, in 
+the same directory as this document, the heating load calculation of a simple
+two-storey house has been programmed. Also in this directory is the floor plan 
+of this house (`floor_plan.pdf`). The bottom of the floor plan is oriented to 
+the South, the right side of the floor plan points to the East. At the east, the 
+north, and south side the house is open. At the west side there is a neighboring 
+house. The toilet on the first floor and the hallway are considered to be 
+unheated spaces. The house is ventilated mechanically, as well for the supply, 
+as the exhaust of air. The supply, exhaust and transfer volume flow rates are
+indicated on the floor plan.
+
+### 1. Imports
+Of course the first step when writing a Python script is to import everything
+we'll need:
+```python
+from hvac import Quantity
+from hvac.heating_load_calc import (
+    ClimateDesignData,
+    Building,
+    BuildingEntity,
+    VentilationZone,
+    HeatedSpace,
+    UnheatedSpace,
+    ConstructionAssembliesShelf,
+    WindowPropertiesShelf,
+    ConstructionAssembly,
+    HeatFlowDirection,
+    Geometry,
+    BuildingComponent,
+    SurfaceLayer,
+    MaterialsShelf
+)
+
+import hvac.cooling_load_calc.wtcb_catalog.exterior_walls as ew
+import hvac.cooling_load_calc.wtcb_catalog.interior_walls as iw
+import hvac.cooling_load_calc.wtcb_catalog.floors as fl
+import hvac.cooling_load_calc.wtcb_catalog.roofs as rf
+
+Q_ = Quantity
+```
+I will use the sub-package `wtcb_catalog` in `hvac.cooling_load_calc` that contains
+a number of modules in which I have programmed the construction assemblies from
+the WTCB catalog, already mentioned above. Each construction assembly is 
+implemented inside a function with some arguments that allow adapting the U-value
+of a construction assembly depending on some specific parameters, e.g. to set
+the insulation thickness of an exterior wall.
+
+### 2. Set up the Shelves
+I will use the shelves installed in my home directory to retrieve building 
+materials, construction assemblies and window properties. To use them, the paths
+to the appropriate db-files must be set first:
+````python
+ConstructionAssembliesShelf.path = "C:/Users/Tom/wtcb_database/wtcb_construction_assemblies.db"
+WindowPropertiesShelf.path = "C:/Users/Tom/wtcb_database/window_properties.db"
+MaterialsShelf.path = "C:/Users/Tom/wtcb_database/wtcb_materials.db"
+````
+If you ran the scripts in the `hvac.cooling_load_calc.shelves` package, the
+'wtcb_database' directory will be installed in your own home directory, and you
+would have to change the file paths in your program script accordingly.
+
+### 3. Create the Construction Assemblies
+Now, the construction assemblies of the building elements that surround
+the spaces of the building can be created. This is done in a separate class.
+(For larger projects, instead of class, you could also use a separate module for
+this.) The construction assemblies are instance attributes created in 
+the `__init__()`-method of the class. The script also demonstrates how to create 
+project-specific construction assemblies or construction assemblies that are
+not already available on the shelf, inside a static method of the class.
+````python
+class ConstructionAssemblies:
+    # prepare the construction assemblies used for the building
+    
+    def __init__(self):
+        # exterior walls
+        self.ext_wall_WTCB1 = ew.create_ca_ext_wall_wtcbF1(
+            t_ins=Q_(12, 'cm')
+        )
+        # interior walls
+        self.int_wall_WTCB1 = iw.create_ca_int_wall_wtcbF1(
+            t_ins=Q_(6, 'cm')
+        )
+        self.int_wall_PROJ1 = self._create_ca_int_wall_projF1()
+        # floors
+        self.floor_WTCB4 = fl.create_ca_floor_wtcbF4(
+            t_ins=Q_(12, 'cm'),
+            heat_flow_direction=HeatFlowDirection.DOWNWARDS
+        )
+        # ceilings
+        self.ceiling_WTCB13 = rf.create_ca_ceiling_wtcbF13(
+            t_ins=Q_(12, 'cm'),
+            heat_flow_direction=HeatFlowDirection.UPWARDS,
+            T_ext=Q_(10, 'degC')
+        )
+        # windows
+        self.window_ASHRAE5a = WindowPropertiesShelf.load('window_5a_operable_wood/vinyl')
+        # interior doors
+        self.int_door = ConstructionAssembly.create(
+            ID='door_int',
+            U=Q_(4.0, 'W / (m ** 2 * K)'),
+            geometry=Geometry(t=Q_(4, 'cm'))
+        )
+        # exterior doors
+        self.ext_door = ConstructionAssembly.create(
+            ID='door_ext',
+            U=Q_(3.0, 'W / (m ** 2 * K)'),
+            geometry=Geometry(t=Q_(8, 'cm'))
+        )
+
+    @staticmethod
+    def _create_ca_int_wall_projF1():
+        # create interior wall construction assembly "à la carte"
+        ext_surf_film = SurfaceLayer.create(
+            ID='ext_surf_film',
+            geometry=Geometry(),
+            heat_flow_direction=HeatFlowDirection.HORIZONTAL,
+            Tmn=Q_(10, 'degC')
+        )
+        gypsum_layer_ext = BuildingComponent.create(
+            ID='gypsum_layer_ext',
+            geometry=Geometry(t=Q_(1.5, 'cm')),
+            material=MaterialsShelf.load('gipspleister')
+        )
+        brick_layer = BuildingComponent.create(
+            ID='brick_layer',
+            geometry=Geometry(t=Q_(9, 'cm')),
+            material=MaterialsShelf.load('blokken gebakken aarde, 1200 kg/m3')
+        )
+        gypsum_layer_int = BuildingComponent.create(
+            ID='gypsum_layer_int',
+            geometry=Geometry(t=Q_(1.5, 'cm')),
+            material=MaterialsShelf.load('gipspleister')
+        )
+        int_surf_film = SurfaceLayer.create(
+            ID='int_surf_film',
+            geometry=Geometry(),
+            heat_flow_direction=HeatFlowDirection.HORIZONTAL,
+            Tmn=Q_(20, 'degC')
+        )
+        int_wall_projF1 = ConstructionAssembly.create(
+            ID='int_wall_projF1',
+            layers=[
+                ext_surf_film,
+                gypsum_layer_ext,
+                brick_layer,
+                gypsum_layer_int,
+                int_surf_film
+            ]
+        )
+        return int_wall_projF1
+````
+
+### 4. Create the Building
+We will encapsulate the creation of the building inside a class called `House`. 
+The following grand steps must be taken:
+
+1. In the `__init__`-method we load the construction assemblies by 
+instantiating class `ConstructionAssemblies` and referring it to an instance 
+attribute `self.constr_assem`. 
+
+2. Next we declare the building and all of its sub-parts (namely the building 
+entity, the ventilation zone and all the spaces of the building) as instance 
+attributes of the class. 
+
+3. Then, the building and all of its sub-parts are created inside the method 
+`_create_building`, which will be called when instantiating class `House`.
+
+4. Finally, all heated spaces inside the building are further configured in 
+separate methods, that will also be called when instantiating class `House`. In
+this step the building elements are added to each of the heated spaces. For 
+unheated spaces it won't be necessary to add building elements, as these 
+spaces don't lose heat; they only accept it from heated spaces. However, they
+do play a role in the determination of the ventilation heat loss.
+
+```python
+    def __init__(self):
+        # load construction assemblies
+        self.constr_assem = ConstructionAssemblies()
+
+        # declare the attributes of the building
+        self.building = Building()
+        self.building_entity = BuildingEntity()
+        self.ventilation_zone = VentilationZone()
+        self.kitchen_and_dining_room = HeatedSpace()
+        self.living_room = HeatedSpace()
+        self.bedroom_1 = HeatedSpace()
+        self.bedroom_2 = HeatedSpace()
+        self.bathroom = HeatedSpace()
+        self.hall_way = UnheatedSpace()
+        self.toilet = UnheatedSpace()
+
+        # create building and configure all heated spaces
+        self._create_building()
+        self._config_kitchen_and_dining_room()
+        self._config_living_room()
+        self._config_bedroom_1()
+        self._config_bedroom_2()
+        self._config_bathroom()
+```
+
+To create the building layout in step 3, we have to go from top to bottom:
+
+3.1. Create a `Building` instance. This instance takes the climatic design data
+that is needed to perform the heating load calculations.
+
+3.2. Add a single building entity to the building.
+
+3.3. Add a single ventilation zone to this building entity.
+
+3.4. Add the heated and unheated spaces to this ventilation zone.
+
+```python
+    def _create_building(self):
+        # create building
+        self.building = Building.create(
+            ID='house',
+            climate_data=ClimateDesignData(
+                T_ext_d=Q_(-7.0, 'degC'),
+                T_ext_an=Q_(10.0, 'degC'),
+                T_ext_min=Q_(0.0, 'degC')
+            )
+        )
+        # add building entity to building
+        self.building_entity = self.building.add_building_entity(ID='house')
+        # add ventilation zone to building entity
+        self.ventilation_zone = self.building_entity.add_ventilation_zone(ID='house')
+        # add heated spaces to ventilation zone
+        self.kitchen_and_dining_room = self.ventilation_zone.add_heated_space(
+            ID='kitchen_and_dining_room',
+            height=Q_(3.0, 'm'),
+            area=Q_(27.0, 'm ** 2'),
+            T_int_d=Q_(20, 'degC'),
+            V_exh=Q_(75.0, 'm ** 3 /hr'),
+            V_sup=Q_(100.0, 'm ** 3 / hr')
+        )
+        self.living_room = self.ventilation_zone.add_heated_space(
+            ID='living_room',
+            height=Q_(3.0, 'm'),
+            area=Q_(14.0, 'm ** 2'),
+            T_int_d=Q_(20, 'degC'),
+            V_sup=Q_(75.0, 'm ** 3 / hr')
+        )
+        self.bedroom_1 = self.ventilation_zone.add_heated_space(
+            ID='bedroom_1',
+            height=Q_(3, 'm'),
+            area=Q_(18, 'm ** 2'),
+            T_int_d=Q_(18.0, 'degC'),
+            V_sup=Q_(72, 'm ** 3 / hr')
+        )
+        self.bedroom_2 = self.ventilation_zone.add_heated_space(
+            ID='bedroom_2',
+            height=Q_(3, 'm'),
+            area=Q_(11, 'm ** 2'),
+            T_int_d=Q_(18.0, 'degC'),
+            V_sup=Q_(72, 'm ** 3 / hr')
+        )
+        self.bathroom = self.ventilation_zone.add_heated_space(
+            ID='bathroom',
+            height=Q_(3, 'm'),
+            area=Q_(7.5, 'm ** 2'),
+            T_int_d=Q_(24.0, 'degC'),
+            V_exh=Q_(50.0, 'm ** 3 / hr'),
+            V_trf=Q_(50.0, 'm ** 3 / hr'),
+            T_trf=Q_(10.0, 'degC')
+        )
+        self.hall_way = self.ventilation_zone.add_unheated_space(
+            ID='hallway',
+            height=Q_(6, 'm'),
+            area=Q_(11.5, 'm ** 2'),
+            T_int_d=Q_(10, 'degC'),
+            V_exh=Q_(169, 'm ** 3 / hr'),
+            V_trf=Q_(75, 'm ** 3 / hr')
+        )
+        self.toilet = self.ventilation_zone.add_unheated_space(
+            ID='toilet',
+            height=Q_(3, 'm'),
+            area=Q_(1.75, 'm ** 2'),
+            T_int_d=Q_(10, 'degC'),
+            V_exh=Q_(25, 'm ** 3 / hr'),
+            V_trf=Q_(25, 'm ** 3 / hr')
+        )
+```
+
+After all spaces are created, as a final step 4, we need to further configure 
+the heated spaces by adding the building elements that surround them. Here, only
+the programming code for the configuration of the kitchen and dining room is 
+shown.
+```python
+    def _config_kitchen_and_dining_room(self) -> None:
+        # add exterior wall at the north side of the kitchen and dining room
+        self.kitchen_and_dining_room.add_exterior_building_element(
+            ID='ext_wall_north',
+            area=(Q_(5.6, 'm'), Q_(3.0, 'm')),
+            construction_assembly=self.constr_assem.ext_wall_WTCB1
+        )
+        # add wall adjacent to neighbouring house
+        self.kitchen_and_dining_room.add_adjacent_building_element(
+            ID='adj_wall_west',
+            area=(Q_(4.65, 'm'), Q_(3.0, 'm')),
+            construction_assembly=self.constr_assem.int_wall_WTCB1,
+            kind_of_adjacent_space='unheated',
+            T_adj=Q_(10, 'degC')
+        )
+        # add exterior wall at the east side of the kitchen and dining room
+        ext_wall_east = self.kitchen_and_dining_room.add_exterior_building_element(
+            ID='ext_wall_east',
+            area=(Q_(6.225, 'm'), Q_(3, 'm')),
+            construction_assembly=self.constr_assem.ext_wall_WTCB1
+        )
+        # add window and backdoor to east wall
+        ext_wall_east.add_building_element(
+            ID='window_east',
+            area=(Q_(3.7, 'm'), Q_(2.7, 'm')),
+            construction_assembly=self.constr_assem.window_ASHRAE5a
+        )
+        ext_wall_east.add_building_element(
+            ID='door_east',
+            area=(Q_(0.8, 'm'), Q_(2.7, 'm')),
+            construction_assembly=self.constr_assem.ext_door
+        )
+        # add interior wall adjacent to toiletroom
+        int_wall_toilet = self.kitchen_and_dining_room.add_adjacent_building_element(
+            ID='int_wall_toilet',
+            area=(Q_(3.025, 'm'), Q_(3, 'm')),
+            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            T_adj=Q_(10, 'degC')
+        )
+        # add door to interior wall
+        int_wall_toilet.add_building_element(
+            ID='door_toilet',
+            area=(Q_(0.8, 'm'), Q_(2.1, 'm')),
+            construction_assembly=self.constr_assem.int_door
+        )
+        # add floor to kitchen and dining room
+        self.kitchen_and_dining_room.add_ground_building_element(
+            ID='floor',
+            area=Q_(27.0, 'm ** 2'),
+            construction_assembly=self.constr_assem.floor_WTCB4,
+            A_slab=Q_(59.36, 'm ** 2'),
+            P_slab=Q_(32.4, 'm'),
+            z=Q_(0, 'm')
+        )
+        # add ceiling to kitchen and dining room
+        self.kitchen_and_dining_room.add_adjacent_building_element(
+            ID='ceiling',
+            area=Q_(27.0, 'm ** 2'),
+            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            kind_of_adjacent_space='heated',
+            T_adj=Q_(18.60, 'degC')  # area-weighted average adjacent space temperature
+        )
+```
+
+### 5. Run the Heating Load Calculation
+To run the heating load calculation, it suffices to instantiate class `House`.
+As soon as the instantiation is finished, the results of the heating load 
+calculations are available.
+
+```python
+def main():
+    house = House()
+    with pd.option_context(
+        'display.max_rows', None,
+        'display.max_columns', None,
+        'display.width', None
+    ):
+        print(house.ventilation_zone.get_summary())
+        print()
+        print(house.building_entity.get_summary())
+
+
+if __name__ == '__main__':
+    main()
+```
+
+To get the results of the heated spaces, you can call `get_summary()` on the 
+`ventilation_zone` attribute of the `House` instance. This will return the 
+results for all the heated spaces that are part of the ventilation zone in a 
+Pandas `DataFrame` object.
+
+```text
+heated space                Q transmission [kW]  Q ventilation [kW]  Q heating-up [kW]  Q total [kW]
+0  kitchen_and_dining_room                2.366               0.422                0.0         2.787
+1              living_room                2.217               0.308                0.0         2.525
+2                bedroom_1                1.349               0.290                0.0         1.639
+3                bedroom_2                0.581               0.231                0.0         0.812
+4                 bathroom                0.626               0.288                0.0         0.914
+```
+
+Getting the global results of the ventilation zone, is similar:
+
+```text
+  ventilation zone  Q transmission [kW]  Q ventilation [kW]  Q heating-up [kW]  Q total [kW]
+0            house                7.139                 1.2                0.0         8.339
+```
