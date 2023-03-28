@@ -900,7 +900,7 @@ if __name__ == '__main__':
 
 To get the results of the heated spaces, you can call `get_summary()` on the 
 `ventilation_zone` attribute of the `House` instance. This will return the 
-results for all the heated spaces that are part of the ventilation zone in a 
+results of all heated spaces that are part of the ventilation zone in a 
 Pandas `DataFrame` object.
 
 ```text
@@ -912,7 +912,7 @@ heated space                Q transmission [kW]  Q ventilation [kW]  Q heating-u
 4                 bathroom                0.626               0.288                0.0         0.914
 ```
 
-Getting the global results of the ventilation zone, is similar:
+Getting the global results of the ventilation zone, happens in a similar way:
 
 ```text
   ventilation zone  Q transmission [kW]  Q ventilation [kW]  Q heating-up [kW]  Q total [kW]
