@@ -467,7 +467,7 @@ as in ASHRAE Fundamentals 2017, table 4 and 10) with an operable frame made from
 wood or vinyl are gathered in a `WindowThermalProperties` object.
 
 ### Window Properties Shelf
-For the same reason as for building materials and building materials,
+For the same reason as for building materials and construction assemblies,
 `WindowThermalProperties` objects can, once they are created, be "shelved" for 
 re-using them afterwards, using the class `WindowPropertiesShelf` in module 
 `hvac.cooling_load_calc.shelves.window_properties.py`. A usage example can be 
