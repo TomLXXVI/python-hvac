@@ -27,7 +27,7 @@ This package implements the "standard method" (§ 6) of standard EN 12831-1
 (2017) *Energy performance of buildings - Method for calculation of the 
 design heat load - Part 1: Space heating load.*
 In the text that follows, we first go over the main concepts and classes that 
-are needed to understand how to program the heat loss calculation of a building.
+are needed to program the heat loss calculation of a building.
 
 The script `house.py` in the same folder as this document demonstrates 
 how package `hvac.heating_load_calc` can be used to program the heating load 

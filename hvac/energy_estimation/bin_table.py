@@ -27,8 +27,7 @@ class Month(IntEnum):
 
 @dataclass
 class TimeSegment:
-    """
-    Helper class to add time segments to a bin table.
+    """Helper class to add time segments to a bin table.
 
     Parameters
     ----------
@@ -65,8 +64,7 @@ class BinTableCreator:
         time_segments: Optional[List[TimeSegment]] = None,
         T_unit: str = 'degC',
     ) -> None:
-        """
-        Creates a dictionary of monthly temperature bin tables from a csv-file
+        """Creates a dictionary of monthly temperature bin tables from a csv-file
         with TMY hourly averaged outdoor air temperatures. After instantiation,
         use method `get_bin_table` to get the bin table of a given month. A bin
         table is represented as a Pandas DataFrame object. Each temperature bin

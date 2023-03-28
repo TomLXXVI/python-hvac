@@ -28,37 +28,37 @@ class VRFSystem:
         h_pipe: Quantity = Q_(0, 'm'),
         working_mode: WorkingMode = WorkingMode.COOLING,
         vrf_model_heating: VRFModel | None = None,
-        vrf_model_cooling: VRFModel | None = None
-    ):
-        """
-        Create VRF system.
+        vrf_model_cooling: VRFModel | None = None,
+        indoor_units: list[tuple[IndoorUnit, Quantity]] | None = None
+    ) -> None:
+        """Creates a `VRFSystem` instance.
 
         Parameters
         ----------
         Q_rated: Quantity
             The available (full-load) cooling/heating capacity of the system at
             rated conditions.
-            If working_mode is set to WorkingMode.COOLING, Q_rated should be the
-            rated cooling capacity. If working_mode is set to WorkingMode.HEATING,
-            Q_rated should be the rated heating capacity.
+            If `working_mode` is set to `WorkingMode.COOLING`, `Q_rated` should
+            be the rated cooling capacity. If `working_mode` is set to
+            `WorkingMode.HEATING`, `Q_rated` should be the rated heating capacity.
         W_rated: Quantity
-            The input power taken up by the VRV-system at rated cooling/heating
+            The input power taken by the VRF-system at rated cooling/heating
             conditions. This value must also be adapted according to the set
             working mode.
         model_size: int
             The model size of the outdoor unit.
         CR_system: float, optional, default None
             The installed combination ratio of the VRF-system. This is the
-            ratio of the installed total indoor unit capacity (i.e. the sum of
+            ratio of the installed total indoor unit capacity (or the sum of
             the model sizes of the indoor units) to the rated capacity of the
-            outdoor unit (also based on the model size of the outdoor unit).
+            outdoor unit (or the model size of the outdoor unit).
             If indoor units are added to the `VRFSystem` instance using the
             method `add_indoor_unit`, this parameter won't be used and can
             be left to `None`.
         Leq_pipe: Quantity
             The maximum equivalent length of piping, i.e. the equivalent length
             (which must take the number of bends in the piping trajectory
-            into account) between the outdoor unit and the farthest indoor unit.
+            into account) between the outdoor unit and the furthest indoor unit.
         h_pipe: Quantity, default None
             The maximum of the heights between the outdoor unit and the indoor
             units or between indoor units.
@@ -70,12 +70,17 @@ class VRFSystem:
             and input power depending on indoor air temperature, outdoor air
             temperature, equivalent piping length, combination ratio, part
             load ratio (PLR), and defrost cycli (only for heating). If working
-            mode is set to heating, then the vrf_model_heating parameter must
-            be set to a valid VRFDataModel object and cannot be left to None.
+            mode is set to heating, then the `vrf_model_heating` parameter must
+            be set to a valid `VRFModel` object and cannot be left `None`.
         vrf_model_cooling: VRFModel, default None
             The VRF model that applies to cooling mode. If working
-            mode is set to cooling, then the vrf_model_cooling parameter must
-            be set to a valid VRFDataModel object and cannot be left to None.
+            mode is set to cooling, then the `vrf_model_cooling` parameter must
+            be set to a valid `VRFModel` object and cannot be left `None`.
+        indoor_units: list[tuple[IndoorUnit, Quantity]], default None
+            List of the indoor units, together with the corresponding indoor air
+            setpoint temperature of the room where they are installed. Indoor
+            units can also be added after instantiation, using method
+            `add_indoor_unit`.
         """
         self.Q_rated = Q_rated
         self.W_rated = W_rated
@@ -87,18 +92,23 @@ class VRFSystem:
         self.vrf_model_heating = vrf_model_heating
         self.vrf_model_cooling = vrf_model_cooling
         if (
-            (self.working_mode == WorkingMode.COOLING) and
-            (self.vrf_model_cooling is not None)
+            self.working_mode == WorkingMode.COOLING and
+            self.vrf_model_cooling is not None
         ):
             self.vrf_model = self.vrf_model_cooling
         elif (
-            (self.working_mode == WorkingMode.HEATING) and
-            (self.vrf_model_heating is not None)
+            self.working_mode == WorkingMode.HEATING and
+            self.vrf_model_heating is not None
         ):
             self.vrf_model = self.vrf_model_heating
         else:
             raise TypeError('no valid VRF model attached')
         self.indoor_units: dict[str, tuple[IndoorUnit, Quantity]] = {}
+        if indoor_units is not None:
+            self.indoor_units = {
+                iu.name: (iu, Tia)
+                for iu, Tia in indoor_units
+            }
 
     @staticmethod
     def _check_number_of_arguments(f: Callable) -> int:
@@ -106,9 +116,30 @@ class VRFSystem:
         num_args = len(sig.parameters)
         return num_args
 
-    def add_indoor_unit(self, iu: IndoorUnit, Tai: Quantity):
+    @property
+    def Tia_avg(self) -> Quantity:
+        """Gets the load-weighted average indoor air temperature of the building.
+
+        Raises
+        ------
+        This property implies that indoor units are added to the VRF-systems. If
+        no indoor units are added, a `ValueError` exception will be raised.
         """
-        Add new indoor unit to the VRF system.
+        if self.indoor_units is not None:
+            Qiu_tot = sum(
+                iu.get_capacity(Tia)
+                for iu, Tia in self.indoor_units.values()
+            )
+            Tia_avg = sum(
+                Tia.to('K') * iu.get_capacity(Tia)
+                for iu, Tia in self.indoor_units.values()
+            ) / Qiu_tot
+            return Tia_avg
+        else:
+            raise ValueError('no indoor units were added to the VRF-system')
+
+    def add_indoor_unit(self, iu: IndoorUnit, Tai: Quantity):
+        """Adds a new or replaces an existing indoor unit of the VRF system.
 
         Parameters
         ----------
@@ -128,15 +159,32 @@ class VRFSystem:
         else:
             return self.CR_system
 
-    def get_full_load_outdoor_unit_capacity(self, Tia_avg: Quantity, Toa: Quantity) -> Quantity:
-        """
-        Get the available cooling/heating capacity of the VRF outdoor unit at
-        the given (load-weighted average) indoor air temperature Tai_avg and
-        outdoor air temperature Tao.
-        In cooling mode, indoor air temperature is wet-bulb, and outdoor air
+    def get_full_load_outdoor_unit_capacity(
+        self,
+        Tia_avg: Quantity | None,
+        Toa: Quantity
+    ) -> Quantity:
+        """Get the available cooling/heating capacity of the VRF outdoor unit at
+        the given (load-weighted average) indoor air temperature `Tai_avg` and
+        outdoor air temperature `Tao`.
+
+        Notes
+        -----
+        1. If parameter `Tia_avg` is set to None, property `Tia_avg` of this
+        class will be used to calculate the load-weighted average indoor air
+        temperature based on the indoor air setpoint temperatures that were
+        associated to the indoor units of the VRF-system.
+
+        2. In cooling mode, indoor air temperature is wet-bulb, and outdoor air
         temperature is dry-bulb. In heating mode, indoor air temperature is
         dry-bulb, and outdoor air temperature wet-bulb.
+
+        Raises
+        ------
+        If parameter `Tia_avg` is None and no indoor units were added to the
+        VRF-system, a `ValueError` exception will be raised.
         """
+        if Tia_avg is None: Tia_avg = self.Tia_avg
         Tia_avg = Tia_avg.to(self.vrf_model.units['temperature']).m
         Toa = Toa.to(self.vrf_model.units['temperature']).m
         
@@ -172,12 +220,18 @@ class VRFSystem:
                 Leq_pipe_corr = self.vrf_model.Leq_pipe_corr_fun(Leq_pipe)
 
         # Correction for defrost cycles if heating mode active
-        if self.working_mode == WorkingMode.HEATING and self.vrf_model.defrost_corr_fun is not None:
+        if (
+            self.working_mode == WorkingMode.HEATING and
+            self.vrf_model.defrost_corr_fun is not None
+        ):
             defrost_corr = self.vrf_model.defrost_corr_fun(Toa)
         else:
             defrost_corr = 1.0
 
-        logger.debug(f"calculate available capacity with 'Tia_avg' = {Tia_avg} and 'Toa' = {Toa}")
+        logger.debug(
+            "calculate available capacity with 'Tia_avg' ="
+            f" {Tia_avg} and 'Toa' = {Toa}"
+        )
         logger.debug(f"CAPFT: {CAPFT}")
         logger.debug(f"CR_corr: {CR_corr}")
         logger.debug(f"Leq_pipe_corr: {Leq_pipe_corr}")
@@ -187,37 +241,74 @@ class VRFSystem:
         return Q_ou
 
     def get_full_load_total_indoor_unit_capacity(self) -> Quantity:
-        """
-        Get the maximum deliverable cooling/heating power of all indoor units
-        in the VRF system.
-        """
-        Q_iu = sum(iu.get_capacity(Tia) for iu, Tia in self.indoor_units.values())
-        return Q_iu
+        """Get the maximum deliverable cooling/heating power of all indoor units
+        in the VRF system, depending on their associated indoor air setpoint
+        temperature.
 
-    def get_available_capacity(self, Tia_avg: Quantity, Toa: Quantity) -> Quantity:
+        Raises
+        ------
+        `ValueError` exception if no indoor units were added to the VRF-system.
         """
-        Get the available cooling/heating power that the VRF-system can deliver
-        at the given operating conditions under full-load.
+        if self.indoor_units is not None:
+            Q_iu = sum(
+                iu.get_capacity(Tia)
+                for iu, Tia in self.indoor_units.values()
+            )
+            return Q_iu
+        else:
+            raise ValueError('no indoor units were added to the VRF-system')
+
+    def get_available_capacity(
+        self,
+        Toa: Quantity
+    ) -> Quantity:
+        """Get the available cooling/heating power that the VRF-system can
+        deliver at the given operating conditions under full-load. This is the
+        smallest value returned from methods `get_full_load_outdoor_unit_capacity`
+        and `get_full_load_total_indoor_unit_capacity`.
 
         Parameters
         ----------
-        Tia_avg:
-            Load-weighted average indoor air temperature of the building.
-            Dry-bulb when heating; wet-bulb when cooling.
         Toa:
-            Outdoor air temperature. Wet-bulb when heating; dry-bulb when
-            cooling.
+            Outdoor air temperature (wet-bulb when heating, or dry-bulb when
+            cooling).
+
+        Raises
+        ------
+        This method implies that indoor units are added to the VRF-systems. If
+        no indoor units are added, a `ValueError` exception will be raised.
         """
-        Q_ou_fl = self.get_full_load_outdoor_unit_capacity(Tia_avg, Toa)
+        Q_ou_fl = self.get_full_load_outdoor_unit_capacity(self.Tia_avg, Toa)
         Q_iu_fl = self.get_full_load_total_indoor_unit_capacity()
         return min(Q_ou_fl, Q_iu_fl)
 
-    def get_input_power(self, Tia_avg: Quantity, Toa: Quantity, PLR: Quantity) -> Quantity:
+    def get_input_power(
+        self,
+        Tia_avg: Quantity | None,
+        Toa: Quantity,
+        PLR: Quantity
+    ) -> Quantity:
+        """Get the input power taken up by VRF system at the given
+        (load-weighted average) indoor air temperature `Tia_avg` and outdoor air
+        temperature `Toa`, when the part-load ratio equals `PLR`.
+
+        Notes
+        -----
+        1. If parameter `Tia_avg` is set to None, property `Tia_avg` of this
+        class will be used to calculate the load-weighted average indoor air
+        temperature based on the indoor air setpoint temperatures that were
+        associated to the indoor units of the VRF-system.
+
+        2. In cooling mode, indoor air temperature is wet-bulb, and outdoor air
+        temperature is dry-bulb. In heating mode, indoor air temperature is
+        dry-bulb, and outdoor air temperature wet-bulb.
+
+        Raises
+        ------
+        If parameter `Tia_avg` is None and no indoor units were added to the
+        VRF-system, a `ValueError` exception will be raised.
         """
-        Get the input power taken up by VRF system at the given (load-weighted
-        average) indoor air temperature Tai_avg and outdoor air temperature Tao,
-        when the part-load ratio equals PLR.
-        """
+        if Tia_avg is None: Tia_avg = self.Tia_avg
         Tia_avg = Tia_avg.to(self.vrf_model.units['temperature']).m
         Toa = Toa.to(self.vrf_model.units['temperature']).m
         PLR = PLR.to('frac').m
@@ -228,10 +319,15 @@ class VRFSystem:
         EIRFT = self.vrf_model.EIRFT_fun(Tia_avg, Toa)
         EIRFPLR = self.vrf_model.EIRFPLR_fun(PLR)
         HPRTF = self.vrf_model.HPRTF_fun(PLR)
-        logger.debug(f"calculate input power with 'Tia_avg' = {Tia_avg}, 'Toa' = {Toa}, and 'PLR' = {PLR}")
+
+        logger.debug(
+            "calculate input power with 'Tia_avg' ="
+            f" {Tia_avg}, 'Toa' = {Toa}, and 'PLR' = {PLR}"
+        )
         logger.debug(f"CAPFT: {CAPFT}")
         logger.debug(f"EIRFT: {EIRFT}")
         logger.debug(f"EIRFPLR: {EIRFPLR}")
         logger.debug(f"HPRTF: {HPRTF}")
+
         W_input = self.W_rated * CAPFT * EIRFT * EIRFPLR * HPRTF
         return W_input
