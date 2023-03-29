@@ -81,6 +81,14 @@ def create_indoor_unit_50(name: str) -> IndoorUnit:
 
 
 def get_indoor_units() -> list[tuple[IndoorUnit, Quantity]]:
+    """Creates and returns the indoor units of the VRF-systems.
+
+    Notes
+    -----
+    Next to each indoor unit, the space indoor air setpoint temperature is
+    provided to determine the load-weighted average indoor air setpoint
+    temperature of the entire building.
+    """
     iu_list = [
         (create_indoor_unit_25('room_A'), Q_(23, 'degC')),
         (create_indoor_unit_25('room_B'), Q_(23, 'degC')),
