@@ -8,11 +8,11 @@ from hvac import Quantity
 class Variable:
 
     def __init__(
-            self,
-            name: str,
-            value: Union[float, int, None] = None,
-            unit: Optional[str] = None
-    ):
+        self,
+        name: str,
+        value: Union[float, int, None] = None,
+        unit: Optional[str] = None
+    ) -> None:
         self.name = name
         self.symbol = sympy.Symbol(name)
         self.base_value: Union[float, int, None] = None
@@ -20,13 +20,20 @@ class Variable:
         self.default_unit: Optional[str] = None
         self._configure_variable(value, unit)
 
-    def _configure_variable(self, value: Union[float, int, None], unit: Union[str, pint.Unit, None] = None):
-        """Configure the data attributes of `Variable` object depending on parameters `value` and `unit`"""
+    def _configure_variable(
+        self,
+        value: Union[float, int, None],
+        unit: Union[str, pint.Unit, None] = None
+    ) -> None:
+        """Configure the data attributes of `Variable` object depending on
+        parameters `value` and `unit`.
+        """
         if (isinstance(value, (int, float)) and not math.isnan(value)) and (unit is not None):
             # the variable contains a quantity
             value = Quantity(value, unit)
             self.default_unit = value.units
-            # convert quantity to its base unit (all calculations will be done in base units)
+            # convert quantity to its base unit (all calculations will be done
+            # in base units)
             value.ito_base_units()
             self.base_value = value.magnitude
             self.base_unit = value.units
@@ -38,7 +45,8 @@ class Variable:
             value.ito_base_units()
             self.base_unit = value.units
         else:
-            # the variable contains a numeric value that may not be defined yet (= None or NaN)
+            # the variable contains a numeric value that may not be defined
+            # yet (= None or NaN)
             if value is None or math.isnan(value):
                 self.base_value = None
             else:
@@ -55,13 +63,15 @@ class Variable:
         if self.default_unit:
             # the variable contains a `Quantity` value
             if self.base_value is not None:
-                # the `Variable` object has been assigned a real value (not None): return the variable with its
-                # default unit (the unit that was passed when creating the `Variable` object)
+                # the `Variable` object has been assigned a real value
+                # (not None): return the variable with its default unit (the
+                # unit that was passed when creating the `Variable` object)
                 value = Quantity(self.base_value, self.base_unit)
                 return value.to(self.default_unit)
             else:
-                # the `Variable` object hasn't been assigned a real value (is None): return `Quantity` object with
-                # undefined magnitude (= NaN).
+                # the `Variable` object hasn't been assigned a real value
+                # (is None): return `Quantity` object with undefined magnitude
+                # (= NaN).
                 return Quantity(float('nan'), self.default_unit)
         else:
             # the `Variable` object contains only a numeric value (float or int)
@@ -89,8 +99,9 @@ class Equation:
         variables: List[Variable]
             List of `Variable` objects that make up the equation.
         lhs: str
-            Left-hand side of the equation. Right-hand side must always be zero. The variable names in the expression
-            must correspond with the variable names in the list of `Variable` objects.
+            Left-hand side of the equation. Right-hand side must always be zero.
+            The variable names in the expression must correspond with the
+            variable names in the list of `Variable` objects.
         """
         self.variables: Dict[str, Variable] = {v.name: v for v in variables}
         for variable in self.variables.values():
@@ -104,17 +115,27 @@ class Equation:
 
     def solve(self, unknown_variable_name: Optional[str] = None) -> Variable:
         """
-        Solve equation for unknown variable with name `unknown_variable_name`. If no name is given, try to solve
-        for any unknown variable in the equation. If there is more than 1 unknown variable in the equation, a
-        `ValueError` is raised to inform that there are too many unknowns. If there are no unknown variables and no
-        variable name was given, a `ValueError` is also raised to inform that the equation is already solved. However,
-        in case a variable name was given, the corresponding variable will be returned.
+        Solve equation for unknown variable with name `unknown_variable_name`.
+        If no name is given, try to solve for any unknown variable in the
+        equation. If there is more than 1 unknown variable in the equation, a
+        `ValueError` is raised to inform that there are too many unknowns.
+        If there are no unknown variables and no variable name was given, a
+        `ValueError` is also raised to inform that the equation is already
+        solved. However, in case a variable name was given, the corresponding
+        variable will be returned.
         """
         # get symbols and values of all known variables
-        known_vars = [(var.symbol, var.base_value) for var in self.variables.values() if var.base_value is not None]
+        known_vars = [
+            (var.symbol, var.base_value)
+            for var in self.variables.values()
+            if var.base_value is not None
+        ]
 
         # get all unknown variables
-        unknown_vars = tuple(var for var in self.variables.values() if var.base_value is None)
+        unknown_vars = tuple(
+            var for var in self.variables.values()
+            if var.base_value is None
+        )
         if len(unknown_vars) == 0:
             # equation already solved
             try:

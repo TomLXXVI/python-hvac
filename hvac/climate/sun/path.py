@@ -52,9 +52,8 @@ class SunPath:
 
     @property
     def table(self) -> pd.DataFrame:
-        """
-        Returns a Pandas DataFrame with the coordinates of the sun path (azimuth and elevation) for each hour of the
-        day.
+        """Returns a Pandas DataFrame with the coordinates of the sun path
+        (azimuth and elevation) for each hour of the day.
         """
         return self._table
 
@@ -69,10 +68,10 @@ class SunPath:
 class HorizonPoint:
 
     def __init__(self, azimuth: Quantity, elevation: Quantity, planar_distance: Quantity):
-        """
-        Define a point on a horizon profile. The position of the horizon point is determined by its azimuth angle and
-        elevation angle as seen by an observer. The planar distance is the distance between the observer and the horizon
-        point measured in a horizontal plane (top view).
+        """Define a point on a horizon profile. The position of the horizon point
+        is determined by its azimuth angle and elevation angle as seen by an
+        observer. The planar distance is the distance between the observer and
+        the horizon point measured in a horizontal plane (top view).
         """
         self._azi = azimuth.to('rad').m
         self._elev = elevation.to('rad').m
@@ -82,15 +81,21 @@ class HorizonPoint:
         """
         Recalculates the position of the horizon point when the origin is moved.
 
-        The position of a horizon point is relative to its observer whose standing in the origin of the reference frame.
-        When the observer and a such the origin of the reference frame moves to a different position, the observed
-        position of the horizon point will also change.
+        The position of a horizon point is relative to its observer who is
+        standing in the origin of the reference frame. When the observer and
+        as such the origin of the reference frame moves to a different position,
+        the observed position of the horizon point will also change.
 
         Parameters
         ----------
-        deltaS : movement along the North-South-axis. Movement is positive in the South direction.
-        deltaE : movement along the West-East-axis. Movement is positive in the East direction.
-        deltaH : change of height
+        deltaS :
+            movement along the North-South-axis. Movement is positive in the
+            South direction.
+        deltaE :
+            movement along the West-East-axis. Movement is positive in the
+            East direction.
+        deltaH :
+            change of height
         """
         S_orig, E_orig, H_orig = self._rectangular_coords(self._azi, self._elev, self._dist)
         S_new = S_orig - deltaS.to('m').m
@@ -147,42 +152,50 @@ class _Segment:
         )
 
     def elevation(self, azimuth: Quantity) -> Quantity:
-        """Get elevation [deg] of point on segment of which the azimuth [deg] is given."""
+        """Get elevation [deg] of point on segment of which the azimuth [deg]
+        is given."""
         elev = self._interpolate(azimuth.to('deg').m)
         return Q_(elev, 'deg')
 
 
 class HorizonProfile:
     """
-    Represents the contour of the horizon formed by obstacles that may block the sun rays at certain times during
-    the day at the location under interest. A horizon profile is tied to a specific position from where the horizon
+    Represents the contour of the horizon formed by obstacles that may block
+    the sun rays at certain times during the day at the location under interest.
+    A horizon profile is tied to a specific position from where the horizon
     profile is observed.
     """
 
     def __init__(self, name: str, points: List[HorizonPoint]):
         """
-        A horizon profile is described by a list of `HorizonPoint` objects. These points are interconnected by
-        line segments.
+        A horizon profile is described by a list of `HorizonPoint` objects.
+        These points are interconnected by line segments.
 
         Parameters
         ----------
         name: str
             Identifier for the horizon profile.
         points: List[HorizonPoint]
-            A list of all horizon points that define the horizon profile. Horizon points will internally be sorted
-            according to their azimuth angle in ascending order.
+            A list of all horizon points that define the horizon profile.
+            Horizon points will internally be sorted according to their azimuth
+            angle in ascending order.
         """
         self.name = name
         self.points = sorted(points, key=lambda pt: pt.azimuth)
         num_of_segments = len(self.points) - 1
-        self._segments = [_Segment(self.points[i], self.points[i + 1]) for i in range(num_of_segments)]
+        self._segments = [
+            _Segment(self.points[i], self.points[i + 1])
+            for i in range(num_of_segments)
+        ]
 
     def elevation(self, azimuth: Quantity) -> Quantity:
         """
-        Get the elevation angle of the horizon profile at the specified azimuth angle.
+        Get the elevation angle of the horizon profile at the specified azimuth
+        angle.
 
-        Using linear interpolation between two successive horizon points, it is possible to calculate the elevation of
-        intermediary points on the horizon profile.
+        Using linear interpolation between two successive horizon points, it is
+        possible to calculate the elevation of intermediary points on the
+        horizon profile.
         """
         for segment in self._segments:
             if segment.start_point.azimuth <= azimuth <= segment.end_point.azimuth:
@@ -192,44 +205,54 @@ class HorizonProfile:
 
     @property
     def axes(self) -> Tuple[List[float], List[float]]:
-        """Get the azimuth and elevation coordinates of the horizon profile in degrees."""
+        """Get the azimuth and elevation coordinates of the horizon profile
+        in degrees."""
         return (
             [pt.azimuth.to('deg').m for pt in self.points],
             [pt.elevation.to('deg').m for pt in self.points]
         )
 
     def move_origin(self, deltaS: Quantity, deltaE: Quantity, deltaH: Quantity):
-        """
-        Calculate the new coordinates of the horizon profile when the observer moves to a new position.
+        """Calculate the new coordinates of the horizon profile when the observer
+        moves to a new position.
 
-        The position of an obstacle point measured by an observer will depend on his position relative to the obstacle
-        point. If the observer moves to a new position, the coordinates of the obstacle point will change also.
+        The position of an obstacle point measured by an observer will depend on
+        his position relative to the obstacle point. If the observer moves to a
+        new position, the coordinates of the obstacle point will change also.
 
         Parameters
         ----------
         deltaS: Quantity
-            The distance the observer moves along the S-axis relative to the original reference frame. A positive
-            movement is in the direction of the S-axis; a movement in the opposite direction is negative.
+            The distance the observer moves along the S-axis relative to the
+            original reference frame. A positive movement is in the direction
+            of the S-axis; a movement in the opposite direction is negative.
         deltaE: Quantity
-            The distance the observer moves along the E-axis relative to the original reference frame. A positive
-            movement is in the direction of the E-axis; a movement in the opposite direction is negative.
+            The distance the observer moves along the E-axis relative to the
+            original reference frame. A positive movement is in the direction
+            of the E-axis; a movement in the opposite direction is negative.
         deltaH: Quantity
-            The height difference between the original position and the new position. A positive value
-            means that the observer is at a higher position than his original position; a negative value means that
+            The height difference between the original position and the new
+            position. A positive value means that the observer is at a higher
+            position than his original position; a negative value means that
             the observer is now at a lower position than before.
-
         """
         for pt in self.points:
             pt.move_origin(deltaS, deltaE, deltaH)
         # recreate line segments of horizon profile
         num_of_segments = len(self.points) - 1
-        self._segments = [_Segment(self.points[i], self.points[i + 1]) for i in range(num_of_segments)]
+        self._segments = [
+            _Segment(self.points[i], self.points[i + 1])
+            for i in range(num_of_segments)
+        ]
 
 
-def plot_sun_paths(sun_paths: List[SunPath], horizon_profile: Optional[HorizonProfile] = None, **kwargs):
-    """
-    Draw one or more sun paths on a cartesian diagram, possibly combined with a horizon profile as seen at the specific
-    location.
+def plot_sun_paths(
+    sun_paths: List[SunPath],
+    horizon_profile: Optional[HorizonProfile] = None,
+    **kwargs
+):
+    """Draw one or more sun paths on a cartesian diagram, possibly combined with
+    a horizon profile as seen at the specific location.
 
     Parameters
     ----------
@@ -238,9 +261,11 @@ def plot_sun_paths(sun_paths: List[SunPath], horizon_profile: Optional[HorizonPr
     horizon_profile: HorizonProfile, optional
         A horizon profile.
     **kwargs: dict
-        Optional keyword arguments for setting the size (keyword `fig_size`) and dpi (keyword `dpi`) of the diagram.
-        Keyword `fig_size` expects a 2-tuple of *int* representing respectively the width and the height of the
-        diagram. Keyword `dpi` expects an *int* representing the dots-per-inch of the diagram plot.
+        Optional keyword arguments for setting the size (keyword `fig_size`)
+        and dpi (keyword `dpi`) of the diagram. Keyword `fig_size` expects a
+        2-tuple of *int* representing respectively the width and the height of
+        the diagram. Keyword `dpi` expects an *int* representing the
+        dots-per-inch of the diagram plot.
     """
     graph = LineChart(
         size=kwargs.get('fig_size', (10, 6)),
@@ -271,10 +296,10 @@ def plot_sun_paths(sun_paths: List[SunPath], horizon_profile: Optional[HorizonPr
 
 
 def create_horizon_profile(name: str, file_path: str) -> HorizonProfile:
-    """
-    Create a horizon profile from CSV-file.
+    """Create a horizon profile from CSV-file.
 
-    The CSV-file has 3 columns. The first row is considered as a header and will be skipped.
+    The CSV-file has 3 columns. The first row is considered as a header and will
+    be skipped.
 
     - 1st column : azimuth angle of horizon points in decimal degrees.
     - 2nd column : elevation angle of horizon points in decimal degrees.

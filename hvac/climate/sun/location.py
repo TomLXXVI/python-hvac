@@ -23,15 +23,14 @@ class SunPosition:
 
     def __str__(self):
         return (
-            f"azimuth {self.azimuth.to('deg'):~P.4f}° (CW N) | "
-            f"elevation {self.elevation.to('deg'):~P.4f}° (zenith {self.zenith.to('deg'):~P.4f}°)"
+            f"azimuth {self.azimuth.to('deg'):~P.4f} (CW N) | "
+            f"elevation {self.elevation.to('deg'):~P.4f} "
+            f"(zenith {self.zenith.to('deg'):~P.4f})"
         )
 
 
 class Location:
-    """
-    Represents a geographic location on Earth.
-    """
+    """Represents a geographical location on Earth."""
 
     def __init__(
         self,
@@ -41,7 +40,8 @@ class Location:
         alt: Quantity = Q_(0.0, 'm'),
         tz: str = DEFAULT_TZ
     ):
-        """
+        """Creates `Location` instance.
+
         Parameters
         ----------
         name: str
@@ -79,7 +79,8 @@ class Location:
 
     def _localize(self, datetime: DateTime) -> DateTime:
         if datetime.tzinfo is None:
-            # make naive datetime timezone aware using the timezone of the location
+            # make naive datetime timezone aware using the timezone
+            # of the location
             return self._tzinfo.localize(datetime, is_dst=True)
         elif datetime.tzinfo.zone != self._tzinfo.zone:
             # convert datetime to timezone of the location
@@ -88,23 +89,24 @@ class Location:
             return datetime
 
     def sun_position(self, datetime: DateTime, tz_aware: bool = True) -> SunPosition:
-        """
-        Get position of the sun at the given datetime.
+        """Get position of the sun at the given datetime.
 
         Parameters
         ----------
         datetime: DateTime
-            Naive Python datetime at which the position of the sun is to be calculated.
+            Naive Python datetime at which the position of the sun is to be
+            calculated.
         tz_aware: bool, optional
-            Flag to indicate if the datetime should be considered as a local standard time using the time zone of the
-            location (`True`) or in UTC (`False`). Default value is `True`.
+            Flag to indicate if the datetime should be considered as a local
+            standard time using the time zone of the location (`True`) or in
+            UTC (`False`). Default value is `True`.
 
         Returns
         -------
         SunPosition
 
-        The position of the sun is specified by its azimuth angle, measured clockwise from North, and its elevation or
-        zenith angle.
+        The position of the sun is specified by its azimuth angle, measured
+        clockwise from North, and its elevation or zenith angle.
         """
         if tz_aware: datetime = self._localize(datetime)
         azi = astral.sun.azimuth(self._observer, datetime)
@@ -117,58 +119,54 @@ class Location:
         )
 
     def sunrise(self, date: Date, tz_aware: bool = True) -> DateTime:
-        """
-        Get sunrise time at given date.
+        """Get sunrise time at given date.
 
-        If `tz_aware` is `True`, time will be returned in local standard time of the location, otherwise in UTC.
+        If `tz_aware` is `True`, time will be returned in local standard time
+        of the location, otherwise in UTC.
         """
         tzinfo = self._tzinfo if tz_aware else None
         return astral.sun.sunrise(self._observer, date, tzinfo=tzinfo)
 
     def noon(self, date: Date, tz_aware: bool = True) -> DateTime:
-        """
-        Get time of solar noon at given date.
+        """Get time of solar noon at given date.
 
-        If `tz_aware` is `True`, time will be returned in local standard time of the location, otherwise in UTC.
+        If `tz_aware` is `True`, time will be returned in local standard time
+        of the location, otherwise in UTC.
         """
         tzinfo = self._tzinfo if tz_aware else None
         return astral.sun.noon(self._observer, date, tzinfo=tzinfo)
 
     def sunset(self, date: Date, tz_aware: bool = True) -> DateTime:
-        """
-        Get time of sunset at current day.
+        """Get time of sunset at current day.
 
-        If `tz_aware` is `True`, time will be returned in local standard time of the location, otherwise in UTC.
+        If `tz_aware` is `True`, time will be returned in local standard time
+        of the location, otherwise in UTC.
         """
         tzinfo = self._tzinfo if tz_aware else None
         return astral.sun.sunset(self._observer, date, tzinfo=tzinfo)
 
     def daylight_duration(self, date: Date) -> TimeDelta:
-        """
-        Get daylight duration at given date.
-        """
+        """Get daylight duration at given date."""
         sunrise, sunset = astral.sun.daylight(self._observer, date)
         return sunset - sunrise
 
     def solar_time(self, datetime: DateTime) -> Time:
-        """
-        Get solar time at given date and local standard time at the location.
+        """Get solar time at given date and local standard time
+        at the location.
         """
         datetime = self._localize(datetime)
         return solar_time(datetime, self.lon.to('deg').m)
 
     def hour_angle(self, datetime: DateTime) -> Quantity:
-        """
-        Get solar hour angle at given date and local standard time at the location.
+        """Get solar hour angle at given date and local standard time at the
+        location.
         """
         datetime = self._localize(datetime)
         hra = hour_angle(datetime, self.lon.to('deg').m)
         return Q_(hra, 'deg')
 
     def sunset_hour_angle(self, date: Date) -> Quantity:
-        """
-        Get solar hour angle at sunset on the given date.
-        """
+        """Get solar hour angle at sunset on the given date."""
         sunset = self.sunset(date)
         hra_sunset = hour_angle(sunset, self.lon.to('deg').m)
         return Q_(hra_sunset, 'deg')

@@ -11,13 +11,12 @@ Q_ = Quantity
 
 
 class ExteriorSurface(Surface):
-    """
-    Intended for internal use only. It is an attribute of `ExteriorBuildingElement`
-    and `Window`. Used for:
+    """Intended for internal use only. It is an attribute of
+    `ExteriorBuildingElement` and `Window`. Used for:
     - calculating the daily hourly values of global solar irradiance incident on
-    the surface using the `AnisotropicSkyModel`
+      the surface using the `AnisotropicSkyModel`
     - calculating the daily hourly average sol-air temperatures on the exterior
-    surface of a building element
+      surface of a building element
     """
 
     def __init__(
@@ -31,8 +30,7 @@ class ExteriorSurface(Surface):
         surface_absorptance: Quantity | None = None,
         surface_color: str = 'dark-colored'
     ) -> None:
-        """
-        Create `ExteriorSurface` object.
+        """Create `ExteriorSurface` object.
 
         Parameters
         ----------
@@ -255,48 +253,43 @@ class ExteriorSurface(Surface):
         return interpolant
 
     def T_sol(self, t: float) -> float:
-        """
-        Get sol-air temperature in degC at time t in seconds from 00:00:00.
+        """Get sol-air temperature in degC at time t in seconds
+        from 00:00:00.
         """
         return self._T_sol_fun(t)
 
     def theta_i(self, t: float) -> float:
-        """
-        Get incidence angle of sun rays on surface in radians at time t in
+        """Get incidence angle of sun rays on surface in radians at time t in
         seconds from 00:00:00.
         """
         return self._theta_i_fun(t)
 
     def I_dir(self, t: float) -> float:
-        """
-        Get solar direct irradiance on surface in W/m² at time t in seconds from
-        00:00:00.
+        """Get solar direct irradiance on surface in W/m² at time t in seconds
+        from 00:00:00.
         """
         return float(self._I_dir_fun(t))
 
     def I_dif(self, t: float) -> float:
-        """
-        Get solar diffuse irradiance on surface in W/m² at time t in seconds from
-        00:00:00.
+        """Get solar diffuse irradiance on surface in W/m² at time t in seconds
+        from 00:00:00.
         """
         return float(self._I_dif_fun(t))
 
     def I_glo(self, t: float) -> float:
-        """
-        Get solar global irradiance on surface in W/m² at time t in seconds from
-        00:00:00.
+        """Get solar global irradiance on surface in W/m² at time t in seconds
+        from 00:00:00.
         """
         return float(self._I_glo_fun(t))
 
     def sun_altitude(self, t: float) -> float:
-        """
-        Get sun altitude angle in radians at time t in seconds from 00:00:00.
+        """Get sun altitude angle in radians at time t in seconds
+        from 00:00:00.
         """
         return self._sun_alt_fun(t)
 
     def sun_surface_azimuth(self, t: float) -> float:
-        """
-        Get the solar-surface azimuth angle in radians at time t in seconds
+        """Get the solar-surface azimuth angle in radians at time t in seconds
         from 00:00:00.
         """
         return self._sun_surf_azi_fun(t)

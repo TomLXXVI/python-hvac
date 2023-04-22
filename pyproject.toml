@@ -17,13 +17,13 @@ astral = ">=3.2"
 iapws = ">=1.5.3"
 dill = ">=0.3.6"
 pint = ">=0.20.1"
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = ">=3.5.0"
 jupyter-lsp = "^2.0.1"
 jupyterlab-lsp = "^4.0.1"
 python-lsp-server = "^1.7.1"
 jupyterlab-spellchecker = "^0.7.3"
-
-[tool.poetry.group.dev.dependencies]
-jupyterlab = ">=3.5.0"
 
 [build-system]
 requires = ["poetry-core"]

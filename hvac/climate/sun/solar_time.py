@@ -28,9 +28,8 @@ def day_number(date: Date) -> int:
 
 
 def equation_of_time(day_num: int) -> float:
-    """
-    Returns the time difference in hours between solar noon and noon at local civil time due to the nature of the
-    earth's orbital motion around the sun.
+    """Returns the time difference in hours between solar noon and noon at local
+    civil time due to the nature of the earth's orbital motion around the sun.
     """
     B = 2 * math.pi * (day_num - 81) / 364.0
     E_t = 9.87 * math.sin(2 * B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
@@ -38,8 +37,8 @@ def equation_of_time(day_num: int) -> float:
 
 
 def solar_time(datetime: DateTime, lon: float) -> Time:
-    """
-    Returns the solar time corresponding with the given datetime at the given longitude.
+    """Returns the solar time corresponding with the given datetime at the
+    given longitude.
     """
     utc_offset = datetime.utcoffset().total_seconds() / 3600.0
     lon_ref = 15.0 * utc_offset
@@ -61,8 +60,8 @@ def solar_time(datetime: DateTime, lon: float) -> Time:
 
 
 def hour_angle(datetime: DateTime, lon: float) -> float:
-    """
-    Get solar hour angle in degrees at given date and time at the given longitude.
+    """Get solar hour angle in degrees at given date and time at the given
+    longitude.
     """
     t_sol = time_to_decimal_hour(solar_time(datetime, lon))
     return 15 * (t_sol - 12)

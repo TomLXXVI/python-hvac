@@ -16,8 +16,7 @@ class WindowThermalProperties:
     db_path: str
 
     class SolarHeatGainCoefficient:
-        """
-        The solar heat gain coefficient (SHGC) takes into account the solar
+        """The solar heat gain coefficient (SHGC) takes into account the solar
         radiation that is transmitted directly through the window and the
         solar radiation that is first absorbed by the window and then released
         to the interior.
@@ -40,8 +39,7 @@ class WindowThermalProperties:
         SHGC_cog_dif: float,
         SHGC_wnd: float
     ) -> None:
-        """
-        Initialize a `WindowThermalProperties` instance.
+        """Initialize a `WindowThermalProperties` instance.
 
         Parameters
         ----------
@@ -92,8 +90,7 @@ class WindowThermalProperties:
 
 @dataclass
 class ExteriorShadingDevice:
-    """
-    Overhang over window or a recessed window.
+    """Overhang over window or a recessed window.
 
     Parameters
     ----------
@@ -116,8 +113,7 @@ class ExteriorShadingDevice:
 
 @dataclass
 class InteriorShadingDevice:
-    """
-    Louvered shades, roller shades, draperies or insect screens
+    """Louvered shades, roller shades, draperies or insect screens
     (see ASHRAE Fundamentals 2017, Ch. 15, §5.2 and tables 14A to 14G).
 
     Parameters
@@ -174,8 +170,7 @@ class Window:
         ext_shading_dev: ExteriorShadingDevice | None = None,
         int_shading_dev: InteriorShadingDevice | None = None
     ) -> 'Window':
-        """
-        Create `Window` instance.
+        """Create `Window` instance.
 
         Parameters
         ----------
@@ -242,8 +237,7 @@ class Window:
         t: float,
         T_int: float
     ) -> dict[str, float]:
-        """
-        Get conductive heat gain through window (positive from outdoors to
+        """Get conductive heat gain through window (positive from outdoors to
         indoors) at time t seconds from 00:00:00.
 
         Returns a dict. The value of key `rad` is the radiative fraction of the
@@ -304,8 +298,7 @@ class Window:
             return self._int_shading_dev.IAC_dif
 
     def get_solar_heat_gain(self, t: float) -> dict[str, float]:
-        """
-        Get solar heat gain through window (positive from outdoors to indoors)
+        """Get solar heat gain through window (positive from outdoors to indoors)
         at time t seconds from 00:00:00.
 
         Returns a dict. The value of key `rad` is the radiative fraction of the
@@ -345,8 +338,7 @@ class Window:
         T_int: Quantity,
         units: dict[str, str] | None = None
     ) -> pd.DataFrame:
-        """
-        Get the conductive and solar heat transfers through the window at each
+        """Get the conductive and solar heat transfers through the window at each
         hour of the design day.
 
         Parameters

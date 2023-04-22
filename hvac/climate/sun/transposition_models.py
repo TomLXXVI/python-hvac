@@ -18,8 +18,7 @@ Q_ = Quantity
 
 
 class Surface:
-    """
-    Define a surface.
+    """Define a surface.
 
     Attributes
     ----------
@@ -54,8 +53,7 @@ class Surface:
 
 
 class TranspositionModel:
-    """
-    Calculate irradiance on a titled surface when solar irradiance on the
+    """Calculate irradiance on a titled surface when solar irradiance on the
     horizontal surface is known.
     """
     F_sky: float = float('nan')  # correction factor for diffuse sky radiation
@@ -78,7 +76,8 @@ class TranspositionModel:
         loc: Location
             The geographic location under consideration.
         datetime : DateTime
-            Local standard time at location where solar irradiance is investigated.
+            Local standard time at location where solar irradiance is
+            investigated.
         surface : Surface
             Surface under investigation.
         I_beam : Quantity
@@ -177,8 +176,7 @@ class TranspositionModel:
         rho_grd: float = 0.2,
         pv: bool = False
     ) -> Dict[str, List[Any]]:
-        """
-        Returns daily profile of:
+        """Returns daily profile of:
         - incidence angle of the sun on the tilted surface,
         - the direct, diffuse and global irradiance on the tilted surface
         when the daily profile of beam irradiance and diffuse
@@ -250,20 +248,20 @@ class TranspositionModel:
 
 
 class IsotropicSkyModel(TranspositionModel):
-    """
-    Radiation from the sky is isotropic, i.e. sky-diffuse and ground-reflected solar components are uniformly
-    distributed over the sky dome.
+    """Radiation from the sky is isotropic, i.e. sky-diffuse and
+    ground-reflected solar components are uniformly distributed over
+    the sky dome.
     """
     def __init__(
-            self,
-            loc: Location,
-            datetime: DateTime,
-            surface: Surface,
-            I_beam: Quantity,
-            I_dif: Quantity,
-            I_glo_hor: Optional[Quantity] = None,
-            rho_grd: float = 0.2,
-            pv: bool = False
+        self,
+        loc: Location,
+        datetime: DateTime,
+        surface: Surface,
+        I_beam: Quantity,
+        I_dif: Quantity,
+        I_glo_hor: Optional[Quantity] = None,
+        rho_grd: float = 0.2,
+        pv: bool = False
     ):
         super().__init__(loc, datetime, surface, I_beam, I_dif, I_glo_hor, rho_grd, pv)
         theta_p = self.surface.tilt.to('rad').m
@@ -272,20 +270,20 @@ class IsotropicSkyModel(TranspositionModel):
 
 
 class AnisotropicSkyModel(TranspositionModel):
-    """
-    Implements the ASHRAE anisotropic sky model, recommended for building load calculations. It applies only to
-    clear-sky conditions and should not be used for cloudy conditions.
+    """Implements the ASHRAE anisotropic sky model, recommended for building load
+    calculations. It applies only to clear-sky conditions and should not be used
+    for cloudy conditions.
     """
     def __init__(
-            self,
-            loc: Location,
-            datetime: DateTime,
-            surface: Surface,
-            I_beam: Quantity,
-            I_dif: Quantity,
-            I_glo_hor: Optional[Quantity] = None,
-            rho_grd: float = 0.2,
-            pv: bool = False
+        self,
+        loc: Location,
+        datetime: DateTime,
+        surface: Surface,
+        I_beam: Quantity,
+        I_dif: Quantity,
+        I_glo_hor: Optional[Quantity] = None,
+        rho_grd: float = 0.2,
+        pv: bool = False
     ):
         super().__init__(loc, datetime, surface, I_beam, I_dif, I_glo_hor, rho_grd, pv)
         theta_p = self.surface.tilt.to('rad').m

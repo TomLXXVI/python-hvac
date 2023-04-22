@@ -33,7 +33,8 @@ class Fluid:
         'cv': (CoolProp.iCvmass, 'J / kg / K'),
         'x': (CoolProp.iQ, 'frac'),
         'k': (CoolProp.iconductivity, 'W / m / K'),
-        'mu': (CoolProp.iviscosity, 'Pa * s')
+        'mu': (CoolProp.iviscosity, 'Pa * s'),
+        'beta': (CoolProp.iisobaric_expansion_coefficient, '1 / K')
     }
 
     def __init__(

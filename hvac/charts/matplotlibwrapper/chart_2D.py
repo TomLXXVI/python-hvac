@@ -172,13 +172,34 @@ class FilledLineChart(Chart):
                     self._y1_img = self.y1.axes.fill_between(
                         dataset['x1_values'],
                         dataset['y1_values'],
-                        label,
+                        label=label,
                         **dataset['style_props']
                     )
                 if dataset['y2_values']:
                     self._y2_img = self.y2.axes.fill_between(
                         dataset['x1_values'],
                         dataset['y2_values'],
+                        label=label,
+                        **dataset['style_props']
+                    )
+
+
+class BarChart(Chart):
+
+    def _draw_xy_data(self):
+        for label, dataset in self.datasets.items():
+            if dataset['x1_values']:
+                if dataset['y1_values']:
+                    self._y1_img = self.y1.axes.bar(
+                        dataset['x1_values'],
+                        dataset['y1_values'],
+                        label=label,
+                        **dataset['style_props']
+                    )
+                if dataset['y2_values']:
+                    self._y2_img = self.y2.axes.bar(
+                        dataset['x1_values'],
+                        dataset['y1_values'],
                         label=label,
                         **dataset['style_props']
                     )

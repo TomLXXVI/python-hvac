@@ -1,6 +1,5 @@
-"""
-Derive from measured insolation data the components of solar irradiance on the
-horizontal surface at a given instance of time.
+"""Derive from measured insolation data the components of solar irradiance on
+the horizontal surface at a given instance of time.
 """
 from typing import Tuple, List
 import math
@@ -26,8 +25,7 @@ def solar_declination(day_num: int) -> float:
 
 
 class MonthlyCorrelationModel:
-    """
-    Estimate the average hourly beam, diffuse sky and global irradiance on the
+    """Estimate the average hourly beam, diffuse sky and global irradiance on the
     horizontal surface from the monthly mean daily global irradiation `H_glo_hor`
     on the horizontal surface.
     """
@@ -65,13 +63,15 @@ class MonthlyCorrelationModel:
         return H0
 
     def _calc_KT(self) -> float:
-        # daily clearness index: measure for the relative daily amount of global irradiation on the horizontal surface
-        # with reference to the extraterrestrial daily amount of irradiation.
+        # daily clearness index: measure for the relative daily amount of global
+        # irradiation on the horizontal surface with reference to the
+        # extraterrestrial daily amount of irradiation.
         H0_glo_hor = self._calc_H0_glo_hor()
         return self.H_glo_hor / H0_glo_hor
 
     def _estimate_H_dif(self) -> float:
-        # estimate monthly average daily diffuse irradiation on the horizontal surface
+        # estimate monthly average daily diffuse irradiation on the horizontal
+        # surface
         KT = self._calc_KT()
         pi = math.pi
         cos = math.cos
@@ -80,7 +80,8 @@ class MonthlyCorrelationModel:
         return H_dif
 
     def _r_dif(self) -> float:
-        # correlation function `I_dif = f(H_dif)` for the diffuse irradiance on the horizontal surface
+        # correlation function `I_dif = f(H_dif)` for the diffuse irradiance on
+        # the horizontal surface
         tau_day = 86400
         pi = math.pi
         cos = math.cos
@@ -91,7 +92,8 @@ class MonthlyCorrelationModel:
         return r_dif
 
     def _r_glo(self) -> float:
-        # correlation function `I_glo_hor = f(H_glo_hor)` for the global irradiance on the horizontal surface
+        # correlation function `I_glo_hor = f(H_glo_hor)` for the global
+        # irradiance on the horizontal surface
         a = 0.4090 + 0.5016 * math.sin(self._w_ss - math.pi / 3.0)
         b = 0.6609 - 0.4767 * math.sin(self._w_ss - math.pi / 3.0)
         r_glo = (a + b * math.cos(self._w)) * self._r_dif()
@@ -112,9 +114,8 @@ class MonthlyCorrelationModel:
         return I_beam
 
     def estimate(self) -> Tuple[Quantity, ...]:
-        """
-        Returns an estimate for the beam, diffuse and global irradiance on the horizontal surface at the location on
-        the specified date and time.
+        """Returns an estimate for the beam, diffuse and global irradiance on the
+        horizontal surface at the location on the specified date and time.
 
         Returns
         -------
@@ -129,21 +130,31 @@ class MonthlyCorrelationModel:
             I_glo_hor = self._calc_I_glo_hor()
             I_dif = self._calc_I_dif()
             I_beam = self._calc_I_beam(I_glo_hor, I_dif)
-            return Q_(I_beam, 'W / m ** 2'), Q_(I_dif, 'W / m ** 2'), Q_(I_glo_hor, 'W / m ** 2')
+            return (
+                Q_(I_beam, 'W / m ** 2'),
+                Q_(I_dif, 'W / m ** 2'),
+                Q_(I_glo_hor, 'W / m ** 2')
+            )
         else:
-            return Q_(0.0, 'W / m ** 2'), Q_(0.0, 'W / m ** 2'), Q_(0.0, 'W / m ** 2')
+            return (
+                Q_(0.0, 'W / m ** 2'),
+                Q_(0.0, 'W / m ** 2'),
+                Q_(0.0, 'W / m ** 2')
+            )
 
     @classmethod
     def daily_profile(cls, loc: Location, date: Date, H_glo_hor: Quantity) -> pd.DataFrame:
-        """
-        Returns a Pandas Dataframe with the daily profile of hourly average beam, diffuse and global irradiance on the
-        horizontal surface at the given location on the given date, knowing the monthly mean daily irradiation at this
-        location.
+        """Returns a Pandas Dataframe with the daily profile of hourly average
+        beam, diffuse and global irradiance on the horizontal surface at the
+        given location on the given date, knowing the monthly mean daily
+        irradiation at this location.
         """
         t_ax = [Time(h, 0, 0) for h in range(24)]
         t_ax.append(Time(23, 59, 59))
         t_ax = [DateTime.combine(date, t) for t in t_ax]
-        I_beam_profile: List[Quantity] = []; I_dif_profile: List[Quantity] = []; I_glo_hor_profile: List[Quantity] = []
+        I_beam_profile: List[Quantity] = []
+        I_dif_profile: List[Quantity] = []
+        I_glo_hor_profile: List[Quantity] = []
         for t in t_ax:
             mcm = cls(loc, t, H_glo_hor)
             I_beam, I_dif, I_glo_hor = mcm.estimate()
@@ -162,9 +173,9 @@ class MonthlyCorrelationModel:
 
 
 class HourlyCorrelationModel:
-    """
-    Estimate average hourly beam and diffuse sky irradiance on the horizontal surface from the measured hourly
-    average global irradiance `I_glo_hor` on that horizontal surface.
+    """Estimate average hourly beam and diffuse sky irradiance on the horizontal
+    surface from the measured hourly average global irradiance `I_glo_hor` on
+    that horizontal surface.
     """
 
     def __init__(self, loc: Location, datetime: DateTime, I_glo_hor: Quantity):
@@ -174,7 +185,8 @@ class HourlyCorrelationModel:
         loc: Location
             The geographic location under consideration.
         datetime : DateTime
-            The date and time the average hourly irradiance components need to be calculated.
+            The date and time the average hourly irradiance components need to
+            be calculated.
         I_glo_hor : Quantity
              The hourly average global irradiance on the horizontal surface.
         """
@@ -186,8 +198,9 @@ class HourlyCorrelationModel:
         # self._w = self.loc.hour_angle(self._datetime)('rad')
 
     def _calc_KT(self) -> float:
-        # hourly clearness index: measure for the relative amount of global irradiance on the horizontal surface
-        # with reference to the extraterrestrial amount of irradiance.
+        # hourly clearness index: measure for the relative amount of global
+        # irradiance on the horizontal surface with reference to the
+        # extraterrestrial amount of irradiance.
         I0 = get_I0_norm(day_number(self._date))
         theta_s = self.loc.sun_position(self._datetime).zenith.to('rad').m
         KT = self.I_glo_hor / (I0 * math.cos(theta_s))
@@ -210,8 +223,8 @@ class HourlyCorrelationModel:
         return I_beam
 
     def estimate(self) -> Tuple[Quantity, ...]:
-        """
-        Returns an estimate for the beam and sky diffuse irradiance on the horizontal surface.
+        """Returns an estimate for the beam and sky diffuse irradiance on the
+        horizontal surface.
         """
         sunrise = self.loc.sunrise(self._date)
         sunset = self.loc.sunset(self._date)
