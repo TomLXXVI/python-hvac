@@ -217,21 +217,21 @@ class Conduit(AbstractConduit):
             specific_pressure_drop=None,
             machine_coefficients=deepcopy(conduit.machine_coefficients)
         )
-        obj.length = kwargs.get('length', obj.length)
-        obj.wall_roughness = kwargs.get('wall_roughness', obj.wall_roughness)
-        obj.fluid = kwargs.get('fluid', obj.fluid)
-        obj._cross_section = kwargs.get('cross_section', obj._cross_section)
-        obj._volume_flow_rate = kwargs.get('volume_flow_rate', obj._volume_flow_rate)
-        obj._pressure_drop = kwargs.get('pressure_drop', obj._pressure_drop)
+        obj.length = kwargs.get('length', conduit.length)
+        obj.wall_roughness = kwargs.get('wall_roughness', conduit.wall_roughness)
+        obj.fluid = kwargs.get('fluid', conduit.fluid)
+        obj._cross_section = kwargs.get('cross_section', conduit._cross_section)
+        obj._volume_flow_rate = kwargs.get('volume_flow_rate', conduit._volume_flow_rate)
+        obj._pressure_drop = kwargs.get('pressure_drop', conduit._pressure_drop)
         if (specific_pressure_drop := kwargs.get('specific_pressure_drop')) is not None:
             obj._pressure_drop = specific_pressure_drop * obj.length
-        obj._fittings = kwargs.get('fittings', obj._fittings)
-        obj.ID = kwargs.get('ID', obj.ID)
-        obj.start_node = kwargs.get('start_node', obj.start_node)
-        obj.end_node = kwargs.get('end_node', obj.end_node)
-        obj.flow_sign = kwargs.get('flow_sign', obj.flow_sign)
-        obj.loops = kwargs.get('loops', obj.loops)
-        obj.machine_coefficients = kwargs.get('machine_coefficients', obj.machine_coefficients)
+        obj._fittings = kwargs.get('fittings', conduit._fittings)
+        obj.ID = kwargs.get('ID', conduit.ID)
+        obj.start_node = kwargs.get('start_node', conduit.start_node)
+        obj.end_node = kwargs.get('end_node', conduit.end_node)
+        obj.flow_sign = kwargs.get('flow_sign', conduit.flow_sign)
+        obj.loops = kwargs.get('loops', conduit.loops)
+        obj.machine_coefficients = kwargs.get('machine_coefficients', conduit.machine_coefficients)
         return obj
 
     def _calculate_darcy_friction_factor(self, Re: float, e: float) -> float:
