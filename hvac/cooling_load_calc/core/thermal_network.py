@@ -276,6 +276,7 @@ class ThermalStorageNode(AbstractNode):
             self.T_sol = ext_doors[0].T_sol
         else:
             self.UA_edr = 0.0
+            self.T_sol = lambda t: 0.0
         if int_doors:
             self.int_doors = int_doors
             self.UA_idr = sum(
@@ -395,6 +396,7 @@ class ZoneAirNode(AbstractNode):
             )
             self.T_sol = ext_doors[0].T_sol
         else:
+            self.T_sol = lambda t: 0.0
             self.UA_edr = 0.0
         if int_doors:
             self.int_doors = int_doors

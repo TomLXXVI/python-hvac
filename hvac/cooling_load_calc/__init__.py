@@ -14,7 +14,11 @@ from .core import (
     InteriorShadingDevice,
     TemperatureSchedule,
     OnOffSchedule,
-    OccupancySchedule
+    OccupancySchedule,
+    InternalHeatGain,
+    PeopleHeatGain,
+    EquipmentHeatGain,
+    LightingHeatGain
 )
 
 from .building import (

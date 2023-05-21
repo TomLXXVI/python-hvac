@@ -91,16 +91,16 @@ class VAVSystem:
             self.V_supply = self.m_supply * self.supply_air.v
 
         def determine_cooling_coil_exit_air(
-                self,
-                supply_fan_pressure: Optional[Quantity] = None,
-                supply_fan_efficiency: Optional[Quantity] = None,
-                supply_duct_heat_gain: Optional[Quantity] = None
+            self,
+            supply_fan_pressure: Optional[Quantity] = None,
+            supply_fan_efficiency: Optional[Quantity] = None,
+            supply_duct_heat_gain: Optional[Quantity] = None
         ):
             if supply_fan_pressure is not None:
                 fan = Fan(
                     air_out=self.supply_air,
-                    fan_efficiency=supply_fan_efficiency if supply_fan_efficiency is not None else Q_(100, 'pct'),
-                    fan_pressure=supply_fan_pressure
+                    eta_fan=supply_fan_efficiency if supply_fan_efficiency is not None else Q_(100, 'pct'),
+                    dP_fan=supply_fan_pressure
                 )
                 dT_supply_fan = fan.air_out.Tdb - fan.air_in.Tdb
             else:
@@ -120,10 +120,10 @@ class VAVSystem:
             self.cooled_air = HumidAir(Tdb=self.T_cold, W=self.supply_air.W)
         
         def determine_return_air(
-                self,
-                return_fan_pressure: Optional[Quantity] = None,
-                return_fan_efficiency: Optional[Quantity] = None,
-                return_duct_heat_gain: Optional[Quantity] = None
+            self,
+            return_fan_pressure: Optional[Quantity] = None,
+            return_fan_efficiency: Optional[Quantity] = None,
+            return_duct_heat_gain: Optional[Quantity] = None
         ):
             for zone in self.system.zones:
                 p = AirConditioningProcess(
@@ -142,8 +142,8 @@ class VAVSystem:
             if return_fan_pressure is not None:
                 fan = Fan(
                     air_in=self.return_air,
-                    fan_efficiency=return_fan_efficiency if return_fan_efficiency is not None else Q_(100, 'pct'),
-                    fan_pressure=return_fan_pressure
+                    eta_fan=return_fan_efficiency if return_fan_efficiency is not None else Q_(100, 'pct'),
+                    dP_fan=return_fan_pressure
                 )
                 dT_return_fan = fan.air_out.Tdb - fan.air_in.Tdb
             else:
@@ -213,7 +213,7 @@ class VAVSystem:
                 T_ao=self.system.summer.T_cold,
                 m_da=self.m_vent
             )
-            self.Q_preheat_peak_load = preheat_coil.Q_sen
+            self.Q_preheat_peak_load = max(Q_(0.0, 'W'), preheat_coil.Q_sen)
 
         def determine_m_supply(self):
             for zone in self.system.zones:
@@ -247,10 +247,10 @@ class VAVSystem:
             self.V_supply = self.m_supply * self.supply_air.v
 
         def determine_return_air(
-                self,
-                return_fan_pressure: Optional[Quantity] = None,
-                return_fan_efficiency: Optional[Quantity] = None,
-                return_duct_heat_gain: Optional[Quantity] = None
+            self,
+            return_fan_pressure: Optional[Quantity] = None,
+            return_fan_efficiency: Optional[Quantity] = None,
+            return_duct_heat_gain: Optional[Quantity] = None
         ):
             self.m_return = sum(z.winter.m_return for z in self.system.zones)
             h_return = sum(z.winter.zone_air.h * z.winter.m_return for z in self.system.zones) / self.m_return
@@ -261,8 +261,8 @@ class VAVSystem:
             if return_fan_pressure is not None:
                 fan = Fan(
                     air_out=self.return_air,
-                    fan_efficiency=return_fan_efficiency if return_fan_efficiency is not None else Q_(100, 'pct'),
-                    fan_pressure=return_fan_pressure
+                    eta_fan=return_fan_efficiency if return_fan_efficiency is not None else Q_(100, 'pct'),
+                    dP_fan=return_fan_pressure
                 )
                 dT_return_fan = fan.air_out.Tdb - fan.air_in.Tdb
             else:
@@ -292,16 +292,16 @@ class VAVSystem:
             self.mixed_air = mixing_chamber.stream_out.state
 
         def determine_cooling_coil_exit_air(
-                self,
-                supply_fan_pressure: Optional[Quantity] = None,
-                supply_fan_efficiency: Optional[Quantity] = None,
-                supply_duct_heat_gain: Optional[Quantity] = None
+            self,
+            supply_fan_pressure: Optional[Quantity] = None,
+            supply_fan_efficiency: Optional[Quantity] = None,
+            supply_duct_heat_gain: Optional[Quantity] = None
         ):
             if supply_fan_pressure is not None:
                 fan = Fan(
                     air_out=self.supply_air,
-                    fan_efficiency=supply_fan_efficiency if supply_fan_efficiency is not None else Q_(100, 'pct'),
-                    fan_pressure=supply_fan_pressure
+                    eta_fan=supply_fan_efficiency if supply_fan_efficiency is not None else Q_(100, 'pct'),
+                    dP_fan=supply_fan_pressure
                 )
                 dT_supply_fan = fan.air_out.Tdb - fan.air_in.Tdb
             else:
@@ -349,11 +349,11 @@ class VAVSystem:
             self.Q_reheat = sum(z.reheat_coil.Q_sen for z in self.system.zones)
 
     def __init__(
-            self,
-            zones: List[Zone],
-            outdoor_air_summer: HumidAir,
-            outdoor_air_winter: HumidAir,
-            V_vent: Quantity
+        self,
+        zones: List[Zone],
+        outdoor_air_summer: HumidAir,
+        outdoor_air_winter: HumidAir,
+        V_vent: Quantity
     ):
         self.zones = zones
         self.summer = VAVSystem.Summer(outdoor_air_summer, V_vent, self)

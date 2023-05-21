@@ -145,15 +145,15 @@ class Conduit(AbstractConduit):
 
     @classmethod
     def create(
-            cls,
-            length: Quantity,
-            wall_roughness: Quantity,
-            fluid: FluidState,
-            cross_section: TCrossSection,
-            volume_flow_rate: Optional[Quantity] = None,
-            pressure_drop: Optional[Quantity] = None,
-            specific_pressure_drop: Optional[Quantity] = None,
-            machine_coefficients: Optional[List[Quantity]] = None
+        cls,
+        length: Quantity,
+        wall_roughness: Quantity,
+        fluid: FluidState,
+        cross_section: TCrossSection,
+        volume_flow_rate: Optional[Quantity] = None,
+        pressure_drop: Optional[Quantity] = None,
+        specific_pressure_drop: Optional[Quantity] = None,
+        machine_coefficients: Optional[List[Quantity]] = None
     ) -> 'Conduit':
         obj = cls()
         obj.length = length
@@ -185,9 +185,38 @@ class Conduit(AbstractConduit):
             raise exceptions.ConduitConfigurationError('arguments missing')
         return obj
 
+    # @staticmethod
+    # def duplicate(conduit: 'Conduit', **kwargs) -> 'Conduit':
+    #     obj = deepcopy(conduit) --> throws TypeError as deepcopy fails on CoolProp.CoolProp.AbstractState
+    #     obj.length = kwargs.get('length', obj.length)
+    #     obj.wall_roughness = kwargs.get('wall_roughness', obj.wall_roughness)
+    #     obj.fluid = kwargs.get('fluid', obj.fluid)
+    #     obj._cross_section = kwargs.get('cross_section', obj._cross_section)
+    #     obj._volume_flow_rate = kwargs.get('volume_flow_rate', obj._volume_flow_rate)
+    #     obj._pressure_drop = kwargs.get('pressure_drop', obj._pressure_drop)
+    #     if (specific_pressure_drop := kwargs.get('specific_pressure_drop')) is not None:
+    #         obj._pressure_drop = specific_pressure_drop * obj.length
+    #     obj._fittings = kwargs.get('fittings', obj._fittings)
+    #     obj.ID = kwargs.get('ID', obj.ID)
+    #     obj.start_node = kwargs.get('start_node', obj.start_node)
+    #     obj.end_node = kwargs.get('end_node', obj.end_node)
+    #     obj.flow_sign = kwargs.get('flow_sign', obj.flow_sign)
+    #     obj.loops = kwargs.get('loops', obj.loops)
+    #     obj.machine_coefficients = kwargs.get('machine_coefficients', obj.machine_coefficients)
+    #     return obj
+
     @staticmethod
     def duplicate(conduit: 'Conduit', **kwargs) -> 'Conduit':
-        obj = deepcopy(conduit)
+        obj = Conduit.create(
+            length=deepcopy(conduit.length),
+            wall_roughness=deepcopy(conduit.wall_roughness),
+            fluid=conduit.fluid.fluid(T=conduit.fluid.T, P=conduit.fluid.P),
+            cross_section=deepcopy(conduit.cross_section),
+            volume_flow_rate=deepcopy(conduit.volume_flow_rate),
+            pressure_drop=deepcopy(conduit._pressure_drop),
+            specific_pressure_drop=None,
+            machine_coefficients=deepcopy(conduit.machine_coefficients)
+        )
         obj.length = kwargs.get('length', obj.length)
         obj.wall_roughness = kwargs.get('wall_roughness', obj.wall_roughness)
         obj.fluid = kwargs.get('fluid', obj.fluid)

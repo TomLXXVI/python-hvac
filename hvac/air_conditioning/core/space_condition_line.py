@@ -11,12 +11,12 @@ Q_ = Quantity
 class SpaceConditionLine:
 
     def __init__(
-            self,
-            space_air: HumidAir,
-            Q_sen: Optional[Quantity] = None,
-            Q_lat: Optional[Quantity] = None,
-            Q: Optional[Quantity] = None,
-            SHR: Optional[Quantity] = None
+        self,
+        space_air: HumidAir,
+        Q_sen: Optional[Quantity] = None,
+        Q_lat: Optional[Quantity] = None,
+        Q: Optional[Quantity] = None,
+        SHR: Optional[Quantity] = None
     ):
         """
         Define space condition line.

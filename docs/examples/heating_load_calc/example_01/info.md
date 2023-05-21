@@ -266,6 +266,9 @@ example is taken from the module `exterior_walls.py` in sub-package
 `hvac.cooling_load_calc.wtcb_catalog`, that was already mentioned above and where 
 more examples can be found by examining the modules in that package.
 
+**It is important to keep in mind that the layers of a construction assembly
+are always ordered from outdoors to indoors!**
+
 **Example 1:**
 ```python
 from hvac import Quantity

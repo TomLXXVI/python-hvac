@@ -942,7 +942,7 @@ class ConvergingJunctionA10C(AbstractFitting):
         self.duct_s = duct_s
         Vb = duct_b.volume_flow_rate.to('m ** 3 / s').magnitude
         Vc = duct_c.volume_flow_rate.to('m ** 3 / s').magnitude
-        vc = duct_c.velocity.to('fpm').magnitude
+        vc = duct_c.velocity.to('ft / min').magnitude
         self.Vb_on_Vc = Vb / Vc
         self.interp_zeta_c = interpolate.interp1d(self._Vb_on_Vc, self._zeta_c)
         if vc < 1200:
@@ -997,7 +997,7 @@ class ConvergingJunctionA10D(AbstractFitting):
         self.duct_s = duct_s
         Vb = duct_b.volume_flow_rate.to('m ** 3 / s').magnitude
         Vc = duct_c.volume_flow_rate.to('m ** 3 / s').magnitude
-        vc = duct_c.velocity.to('fpm').magnitude
+        vc = duct_c.velocity.to('ft / min').magnitude
         self.Vb_on_Vc = Vb / Vc
         self.interp_zeta_c = interpolate.interp1d(self._Vb_on_Vc, self._zeta_c)
         if vc < 1200:
@@ -1165,7 +1165,7 @@ class ConvergingJunctionA10F(AbstractFitting):
         Vb = duct_b.volume_flow_rate.to('m ** 3 / s').magnitude
         Vc = duct_c.volume_flow_rate.to('m ** 3 / s').magnitude
         Vs = duct_s.volume_flow_rate.to('m ** 3 / s').magnitude
-        vc = duct_c.velocity.to('fpm').magnitude
+        vc = duct_c.velocity.to('ft / min').magnitude
         self.Vb_on_Vc = Vb / Vc
         self.Vb_on_Vs = Vb / Vs
         As = duct_s.cross_section.area.to('m ** 2').magnitude

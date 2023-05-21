@@ -19,7 +19,32 @@ class FluidState:
 
     def __post_init__(self):
         for k, v in self.state_dict.items():
+            if k == 'phase':
+                v = self._get_phase_description(v)
             setattr(self, k, v)
+
+    @staticmethod
+    def _get_phase_description(phase_index: Quantity) -> str:
+        phase_index = phase_index.m
+        match phase_index:
+            case CoolProp.iphase_liquid:
+                return 'sub-critical liquid'
+            case CoolProp.iphase_supercritical:
+                return 'super-critical (P > Pc, T > Tc)'
+            case CoolProp.iphase_supercritical_gas:
+                return 'super-critical gas (P < Pc, T > Tc)'
+            case CoolProp.iphase_supercritical_liquid:
+                return 'super-critical liquid (P > Pc, T < Tc)'
+            case CoolProp.iphase_critical_point:
+                return 'at the critical point'
+            case CoolProp.iphase_gas:
+                return 'sub-critical gas'
+            case CoolProp.iphase_twophase:
+                return 'two phase'
+            case CoolProp.iphase_unknown:
+                return 'unknown'
+            case CoolProp.iphase_not_imposed:
+                return 'not imposed'
 
 
 class Fluid:
@@ -34,7 +59,9 @@ class Fluid:
         'x': (CoolProp.iQ, 'frac'),
         'k': (CoolProp.iconductivity, 'W / m / K'),
         'mu': (CoolProp.iviscosity, 'Pa * s'),
-        'beta': (CoolProp.iisobaric_expansion_coefficient, '1 / K')
+        'beta': (CoolProp.iisobaric_expansion_coefficient, '1 / K'),
+        'sigma': (CoolProp.isurface_tension, 'N / m'),
+        'phase': (CoolProp.iPhase, '')
     }
 
     def __init__(
@@ -42,6 +69,7 @@ class Fluid:
         name: str,
         backend: str = 'HEOS',
         mass_fractions: Optional[List[Quantity]] = None,
+        vol_fractions: Optional[List[Quantity]] = None,
         reference: str = 'DEF'
     ):
         """
@@ -56,9 +84,19 @@ class Fluid:
         backend: str, default: 'HEOS'
             The backend CoolProp must use to perform state calculations. See
             CoolProp's documentation for which backends are possible.
-        mass_fractions: List[float], default `None`
-            Only for mixtures. The mass fractions of the constituents in the
-            same order as the constituents given in `name`.
+        mass_fractions: List[Quantity], default `None`
+            Only for mixtures or incompressible fluids which are mass-based
+            binary mixtures (i.e. water-based mixtures). The mass fractions of
+            the constituents in the mixture in the same order as the
+            constituents given in `name`. In case of a binary, water-based
+            mixture only the mass fraction of the constituent which is not water
+            needs to be specified.
+        vol_fractions: List[Quantity], default `None`
+            Only for mixtures or incompressible fluids which are volume-based
+            binary mixtures (i.e. water-based mixtures). The volume fractions
+            of the constituents in the same order as the constituents given in
+            `name`. In case of a binary, water-based mixture only the volume
+            fraction of the constituent which is not water needs to be specified.
         reference: str, default 'DEF'
             Determines the reference state for enthalpy and entropy. See
             CoolProp's documentation for the available possibilities.
@@ -66,14 +104,15 @@ class Fluid:
         self.fluid_name = name
         self.backend = backend
         self.mass_fractions = [mf.to('frac').m for mf in mass_fractions] if mass_fractions else None
+        self.vol_fractions = [vf.to('frac').m for vf in vol_fractions] if vol_fractions else None
         self.reference = reference
         self._constituents: List[str] = []
-
         self._create_state_object()
 
     def _create_state_object(self) -> None:
-        """Create CoolProp's AbstractState-object (we will call it the state object)
-        with the given backend for the given fluid."""
+        """Create CoolProp's AbstractState-object (we will call it the state
+        object) with the given backend for the given fluid.
+        """
         # Set the reference state for enthalpy and entropy.
         if self.reference != 'DEF':
             if not self._is_mixture():
@@ -89,6 +128,10 @@ class Fluid:
         if self.mass_fractions is not None:
             self._state.set_mass_fractions(self.mass_fractions)
 
+        # In case of mixture: set the volume fractions of the constituents
+        if self.vol_fractions is not None:
+            self._state.set_volu_fractions(self.vol_fractions)
+
     def _is_mixture(self) -> bool:
         """Check whether the fluid is a mixture."""
         self._constituents = self.fluid_name.split('&')
@@ -98,7 +141,8 @@ class Fluid:
 
     def _update(self, **input_qties: Quantity) -> None:
         """Updates the state object of the `Fluid`-instance based on the
-        given state variables in `input_qties`."""
+        given state variables in `input_qties`.
+        """
         if len(input_qties) == 2:  # normal case
             input_qty_names = list(input_qties.keys())
             input_qty_values = list(input_qties.values())
@@ -175,8 +219,8 @@ class Fluid:
                 self._coolprop_qties[qty_name][1]  # get the corresponding Coolprop-unit
             )
             return qty
-        except ValueError:
-            fluid_logger.warning(f"CoolProp could not solve for quantity '{qty_name}'")
+        except ValueError as err:
+            fluid_logger.warning(f"CoolProp could not solve for quantity '{qty_name}: {err}'")
             return None
 
     def _get_state(self) -> FluidState:

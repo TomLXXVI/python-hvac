@@ -11,30 +11,29 @@ Q_ = Quantity
 class AirConditioningProcess(Process):
     
     def __init__(
-            self,
-            air_in: Optional[HumidAir] = None,
-            T_ai: Optional[Quantity] = None,
-            W_ai: Optional[Quantity] = None,
-            h_ai: Optional[Quantity] = None,
-            air_out: Optional[HumidAir] = None,
-            T_ao: Optional[Quantity] = None,
-            W_ao: Optional[Quantity] = None,
-            h_ao: Optional[Quantity] = None,
-            m_da: Optional[Quantity] = None,
-            m_w: Optional[Quantity] = None,
-            h_w: Optional[Quantity] = None,
-            Q: Optional[Quantity] = None,
-            Q_sen: Optional[Quantity] = None,
-            Q_lat: Optional[Quantity] = None,
-            SHR: Optional[Quantity] = None,
-            ADP: Optional[HumidAir] = None,
-            T_adp: Optional[Quantity] = None,
-            W_adp: Optional[Quantity] = None,
-            h_adp: Optional[Quantity] = None,
-            beta: Optional[Quantity] = None
+        self,
+        air_in: Optional[HumidAir] = None,
+        T_ai: Optional[Quantity] = None,
+        W_ai: Optional[Quantity] = None,
+        h_ai: Optional[Quantity] = None,
+        air_out: Optional[HumidAir] = None,
+        T_ao: Optional[Quantity] = None,
+        W_ao: Optional[Quantity] = None,
+        h_ao: Optional[Quantity] = None,
+        m_da: Optional[Quantity] = None,
+        m_w: Optional[Quantity] = None,
+        h_w: Optional[Quantity] = None,
+        Q: Optional[Quantity] = None,
+        Q_sen: Optional[Quantity] = None,
+        Q_lat: Optional[Quantity] = None,
+        SHR: Optional[Quantity] = None,
+        ADP: Optional[HumidAir] = None,
+        T_adp: Optional[Quantity] = None,
+        W_adp: Optional[Quantity] = None,
+        h_adp: Optional[Quantity] = None,
+        beta: Optional[Quantity] = None
     ):
-        """
-        Create `AirConditioningProcess` object.
+        """Creates an `AirConditioningProcess` object.
 
         Parameters
         ----------
@@ -258,66 +257,84 @@ class AirConditioningProcess(Process):
 
     @property
     def Q(self) -> Quantity:
+        """Heat transfer rate to the air in the process."""
         return self['Q']
 
     @property
     def m_da(self) -> Quantity:
+        """Mass flow rate of dry air through the process."""
         return self['m_da']
 
     @property
     def h_ai(self) -> Quantity:
+        """Enthalpy of air at the inlet of the process."""
         return self['h_ai']
 
     @property
     def h_ao(self) -> Quantity:
+        """Enthalpy of air at the outlet of the process"""
         return self['h_ao']
 
     @property
     def m_w(self) -> Quantity:
+        """Mass flow rate of make-up water to or condensate from the process."""
         return self['m_w']
 
     @property
     def h_w(self) -> Quantity:
+        """Enthalpy of make-up water to or condensate from the process."""
         return self['h_w']
 
     @property
     def Q_lat(self) -> Quantity:
+        """Latent heat transfer rate to the air in the process."""
         return self['Q_lat']
 
     @property
     def W_ai(self) -> Quantity:
+        """Humidity ratio of air at the inlet of the process."""
         return self['W_ai']
 
     @property
     def W_ao(self) -> Quantity:
+        """Humidity ratio of air at the outlet of the process."""
         return self['W_ao']
 
     @property
     def Q_sen(self) -> Quantity:
+        """Sensible heat transfer rate to the air in the process."""
         return self['Q_sen']
 
     @property
     def T_ai(self) -> Quantity:
+        """Dry-bulb temperature of air at the inlet of the process."""
         return self['T_ai']
 
     @property
     def T_ao(self) -> Quantity:
+        """Dry-bulb temperature of air at the outlet of the process."""
         return self['T_ao']
 
     @property
     def SHR(self) -> Quantity:
+        """Sensible heat ratio of the process."""
         return self['SHR']
 
     @property
     def beta(self) -> Quantity:
+        """Contact factor of air cooler or efficiency/effectiveness of
+        humidifier/dehumidifier
+        """
         return self['beta']
 
     @property
     def T_adp(self) -> Quantity:
+        """Apparatus dew point temperature of the process."""
         return self['T_adp']
 
     @property
     def ADP(self) -> Optional[HumidAir]:
+        """Air state at Apparatus Dew Point of the process."""
         MAX_ITER = 100
         if self._ADP is None:
             T_ai = self.T_ai.to('K').magnitude
@@ -351,6 +368,7 @@ class AirConditioningProcess(Process):
 
     @property
     def air_in(self) -> HumidAir:
+        """Air state at the inlet of the process."""
         if self._air_in is None:
             try:
                 self._air_in = HumidAir(Tdb=self.T_ai, W=self.W_ai)
@@ -362,6 +380,7 @@ class AirConditioningProcess(Process):
 
     @property
     def air_out(self) -> HumidAir:
+        """Air state at the outlet of the process."""
         if self._air_out is None:
             try:
                 self._air_out = HumidAir(Tdb=self.T_ao, W=self.W_ao)
@@ -376,7 +395,8 @@ class AirConditioningProcess(Process):
 @dataclass
 class AirStream:
     """
-    Class that groups the properties of an air stream.
+    Class that groups the properties of an air stream. This class is used
+    together with the `AdiabaticMixing` class.
 
     Parameters
     ----------
@@ -388,7 +408,6 @@ class AirStream:
         dry-bulb temperature of the air in the stream
     W: Quantity, optional
         humidity ratio of the air in the stream
-
     """
     state: Optional[HumidAir] = None
     m_da: Optional[Quantity] = None
@@ -407,13 +426,12 @@ class AirStream:
 class AdiabaticMixing(Process):
 
     def __init__(
-            self,
-            in1: Optional[AirStream] = None,
-            in2: Optional[AirStream] = None,
-            out: Optional[AirStream] = None
-    ):
-        """
-        Create `AdiabaticMixing` object.
+        self,
+        in1: Optional[AirStream] = None,
+        in2: Optional[AirStream] = None,
+        out: Optional[AirStream] = None
+    ) -> None:
+        """Create `AdiabaticMixing` object.
 
         Parameters
         ----------
@@ -423,7 +441,6 @@ class AdiabaticMixing(Process):
             second air stream entering the mixing process
         out : AirStream, optional
             air stream coming out of the mixing process
-
         """
         # The equations that describe adiabatic air mixing
         equations = {
@@ -568,66 +585,80 @@ class AdiabaticMixing(Process):
 
     @property
     def m_da_o(self) -> Quantity:
+        """Mass flow rate of the leaving air stream."""
         self._out.m_da = self['m_da_o']
         return self['m_da_o']
 
     @property
     def m_da_i1(self) -> Quantity:
+        """Mass flow rate of the first entering air stream."""
         self._in1.m_da = self['m_da_i1']
         return self['m_da_i1']
 
     @property
     def m_da_i2(self) -> Quantity:
+        """Mass flow rate of the second entering air stream."""
         self._in2.m_da = self['m_da_i2']
         return self['m_da_i2']
 
     @property
     def T_ai1(self) -> Quantity:
+        """Dry-bulb temperature of the first entering air stream."""
         self._in1.Tdb = self['T_ai1']
         return self['T_ai1']
 
     @property
     def W_ai1(self) -> Quantity:
+        """Humidity ratio of the first entering air stream."""
         self._in1.W = self['W_ai1']
         return self['W_ai1']
 
     @property
     def h_ai1(self) -> Quantity:
+        """Enthalpy of the first entering air stream."""
         self._in1.h = self['h_ai1']
         return self['h_ai1']
 
     @property
     def T_ai2(self) -> Quantity:
+        """Dry-bulb temperature of the second entering air stream."""
         self._in2.Tdb = self['T_ai2']
         return self['T_ai2']
 
     @property
     def W_ai2(self) -> Quantity:
+        """Humidity ratio of the second entering air stream."""
         self._in2.W = self['W_ai2']
         return self['W_ai2']
 
     @property
     def h_ai2(self) -> Quantity:
+        """Enthalpy of the second entering air stream."""
         self._in2.h = self['h_ai2']
         return self['h_ai2']
 
     @property
     def T_ao(self) -> Quantity:
+        """Dry-bulb temperature of the leaving air stream."""
         self._out.Tdb = self['T_ao']
         return self['T_ao']
 
     @property
     def W_ao(self) -> Quantity:
+        """Humidity ratio of the leaving air stream."""
         self._out.W = self['W_ao']
         return self['W_ao']
 
     @property
     def h_ao(self) -> Quantity:
+        """Enthalpy of the leaving air stream."""
         self._out.h = self['h_ao']
         return self['h_ao']
 
     @property
     def stream_in1(self) -> AirStream:
+        """Returns the state and mass flow rate of the first entering air
+        stream inside an `AirStream` object."""
         try:
             self._in1.state = HumidAir(Tdb=self.T_ai1, W=self.W_ai1)
             self['h_ai1'] = self._in1.state.h
@@ -642,6 +673,8 @@ class AdiabaticMixing(Process):
 
     @property
     def stream_in2(self) -> AirStream:
+        """Returns the state and mass flow rate of the second entering air
+        stream inside an `AirStream` object."""
         try:
             self._in2.state = HumidAir(Tdb=self.T_ai2, W=self.W_ai2)
             self['h_ai2'] = self._in2.state.h
@@ -656,6 +689,8 @@ class AdiabaticMixing(Process):
 
     @property
     def stream_out(self) -> AirStream:
+        """Returns the state and mass flow rate of the leaving air
+        stream inside an `AirStream` object."""
         try:
             self._out.state = HumidAir(Tdb=self.T_ao, W=self.W_ao)
             self['h_ao'] = self._out.state.h
@@ -676,10 +711,14 @@ class AdiabaticMixing(Process):
 
     @property
     def m_da_i1_fractional(self) -> Quantity:
+        """Returns the mass flow rate of the first entering air stream as a
+        fraction of the mass flow rate of the leaving air stream."""
         return self['x']
 
     @property
     def m_da_i2_fractional(self) -> Quantity:
+        """Returns the mass flow rate of the second entering air stream as a
+        fraction of the mass flow rate of the leaving air stream."""
         x = self.m_da_i1_fractional
         return 1 - x
 
@@ -687,17 +726,35 @@ class AdiabaticMixing(Process):
 class Fan(Process):
 
     def __init__(
-            self,
-            air_in: Optional[HumidAir] = None,
-            air_out: Optional[HumidAir] = None,
-            fan_efficiency: Optional[Quantity] = None,
-            motor_efficiency: Optional[Quantity] = None,
-            fan_pressure: Optional[Quantity] = None,
-            m_da: Optional[Quantity] = None
-    ):
+        self,
+        air_in: Optional[HumidAir] = None,
+        air_out: Optional[HumidAir] = None,
+        eta_fan: Optional[Quantity] = None,
+        eta_motor: Optional[Quantity] = None,
+        dP_fan: Optional[Quantity] = None,
+        m_da: Optional[Quantity] = None
+    ) -> None:
+        """Creates `Fan` instance
+
+        Parameters
+        ----------
+        air_in: optional
+            The air state at the fan inlet.
+        air_out: optional
+            The air state at the fan outlet.
+        eta_fan: optional
+            Fan efficiency.
+        eta_motor: optional
+            Motor efficiency.
+        dP_fan:
+            The pressure difference across the fan at the known volume flow rate
+            of air the fan delivers.
+        m_da:
+            The mass flow rate of air through the fan.
+        """
         self.m_da = m_da
 
-        # Set up the equation that describe heating of air due to fan inefficiency
+        # Set up the equation that describes heating of air due to fan inefficiency
         equations = {
             'fan_heating': Equation(
                 variables=[
@@ -714,8 +771,8 @@ class Fan(Process):
         }
         super().__init__(equations)
 
-        # Assign known input values (not None) of the fan heating process to the values of the corresponding
-        # variables in the equation.
+        # Assign known input values (not None) of the fan heating process to the
+        # values of the corresponding variables in the equation.
         self._air_in = air_in
         if isinstance(self._air_in, HumidAir):
             self['T_ai'] = self._air_in.Tdb
@@ -728,8 +785,8 @@ class Fan(Process):
         else:
             self['T_ao'] = None
 
-        if fan_efficiency is not None: self['eta_f'] = fan_efficiency
-        self['eta_m'] = Q_(1.0, 'frac') if motor_efficiency is None else motor_efficiency
+        if eta_fan is not None: self['eta_f'] = eta_fan
+        self['eta_m'] = Q_(1.0, 'frac') if eta_motor is None else eta_motor
 
         if isinstance(self._air_in, HumidAir):
             self['c_pa'] = self._air_in.cp
@@ -738,10 +795,11 @@ class Fan(Process):
             self['c_pa'] = self._air_out.cp
             self['rho_a'] = self._air_out.rho
 
-        if fan_pressure is not None: self['dp'] = fan_pressure
+        if dP_fan is not None: self['dp'] = dP_fan
 
     @property
     def air_out(self) -> HumidAir:
+        """The air state at the fan outlet."""
         if self._air_out is None:
             T_ao = self['T_ao']
             W_ao = self._air_in.W   # fan heating is sensible process: humidity ratio = cst.
@@ -750,6 +808,7 @@ class Fan(Process):
 
     @property
     def air_in(self) -> HumidAir:
+        """The air state at the fan outlet."""
         if self._air_in is None:
             T_ai = self['T_ai']
             W_ai = self._air_out.W
@@ -758,6 +817,7 @@ class Fan(Process):
 
     @property
     def Q(self) -> Quantity:
+        """The heat given off by the fan to the air."""
         T_ai = self.air_in.Tdb.to('K')
         T_ao = self.air_out.Tdb.to('K')
         dT = T_ao - T_ai

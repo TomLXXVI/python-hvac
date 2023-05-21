@@ -110,7 +110,7 @@ class LightingHeatGain(InternalHeatGain):
             if light.schedule(t):
                 light.calculate_heat_gain()
                 Q_light = light.Q_light.to('W').m
-                Q_sen_rad += light.F_rad * Q_light
+                Q_sen_rad += light.F_rad.m * Q_light
                 Q_sen_conv += Q_light - Q_sen_rad
         return {'rad': Q_sen_rad, 'conv': Q_sen_conv}
 
@@ -156,7 +156,7 @@ class PeopleHeatGain(InternalHeatGain):
         phg = cls(ID)
         phg.Q_sen_person = Q_sen_person.to('W')
         phg.Q_lat_person = Q_lat_person.to('W')
-        phg.F_rad = F_rad.to('frac')
+        phg.F_rad = F_rad.to('frac').m
         phg.schedule = schedule
         return phg
 
