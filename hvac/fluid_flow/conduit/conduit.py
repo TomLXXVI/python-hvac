@@ -227,8 +227,8 @@ class Conduit(AbstractConduit):
             obj._pressure_drop = specific_pressure_drop * obj.length
         obj._fittings = kwargs.get('fittings', deepcopy(conduit._fittings))
         obj.ID = kwargs.get('ID', deepcopy(conduit.ID))
-        obj.start_node = kwargs.get('start_node', deepcopy(conduit.start_node))
-        obj.end_node = kwargs.get('end_node', deepcopy(conduit.end_node))
+        obj.start_node = kwargs.get("start_node", conduit.start_node)
+        obj.end_node = kwargs.get("end_node", conduit.end_node)
         obj.flow_sign = kwargs.get('flow_sign', deepcopy(conduit.flow_sign))
         obj.loops = kwargs.get('loops', deepcopy(conduit.loops))
         obj.machine_coefficients = kwargs.get('machine_coefficients', obj.machine_coefficients)

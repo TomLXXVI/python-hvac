@@ -184,11 +184,13 @@ class Network(ABC):
                 loop = self.loops.setdefault(loop_ID[0], Loop(loop_ID[0]))
                 other_loop = self.loops.setdefault(loop_ID[1], Loop(loop_ID[1]))
 
-                loop.append(conduit)
-                conduit.loops = [self.loops[loop_ID[0]], self.loops[loop_ID[1]]]
-
+                conduit.loops = []
                 conduit_duplicate = Conduit.duplicate(conduit, flow_sign=conduit.flow_sign.reverse())
+
+                loop.append(conduit)
                 other_loop.append(conduit_duplicate)
+
+                conduit.loops = [self.loops[loop_ID[0]], self.loops[loop_ID[1]]]
                 conduit_duplicate.loops = [self.loops[loop_ID[1]], self.loops[loop_ID[0]]]
 
             if isinstance(loop_ID, str) and len(loop_ID) > 0:
