@@ -1,5 +1,7 @@
 from typing import List, Tuple, Optional
+from hvac.pint_setup import UNITS
 import numpy as np
+from pint import Unit
 from scipy.optimize import curve_fit
 from hvac import Quantity
 from hvac.charts import LineChart
@@ -9,44 +11,45 @@ class PumpCurve:
 
     def __init__(self):
         self.name: str = ''
-        self._a0: float = 0.0
-        self._a1: float = 0.0
-        self._a2: float = 0.0
+        self._a0 = Quantity(0.0, 'Pa')
+        self._a1 = Quantity(0.0, 'Pa * s / m ** 3')
+        self._a2 = Quantity(0.0, 'Pa * s ** 2 / m ** 6')
 
     @classmethod
     def create(cls, *coefficients: Quantity, name: str = '') -> 'PumpCurve':
         obj = cls()
         obj.name = name
-        obj._a0 = coefficients[0].to('Pa').magnitude
-        obj._a1 = coefficients[1].to('Pa * s / m ** 3').magnitude
-        obj._a2 = coefficients[2].to('Pa * s ** 2 / m ** 6').magnitude
+        obj._a0, obj._a1, obj._a2 = coefficients
         return obj
 
     @classmethod
-    def curve_fitting(cls, coordinates: List[Tuple[Quantity, Quantity]], name: str = '') -> 'PumpCurve':
-        V_ax = []
-        dP_ax = []
-        for V, dP in coordinates:
-            V_ax.append(V.to('m ** 3 / s').magnitude)
-            dP_ax.append(dP.to('Pa').magnitude)
+    def curve_fitting(
+        cls, 
+        coordinates: List[Tuple[Quantity, Quantity]], 
+        name: str = '', analysis_flow_units: Unit = UNITS('m ** 3 / s')
+    ) -> 'PumpCurve':
+            V_ax = []
+            dP_ax = []
+            for V, dP in coordinates:
+                V_ax.append(V.to(analysis_flow_units).magnitude)
+                dP_ax.append(dP.to('Pa').magnitude)
 
-        def objective(x, a, b, c):
-            return a * x + b * x ** 2 + c
+            def objective(x, a, b, c):
+                return a * x + b * x ** 2 + c
 
-        popt, _ = curve_fit(objective, V_ax, dP_ax)
-        a, b, c = popt
+            popt, _ = curve_fit(objective, V_ax, dP_ax)
+            a, b, c = popt
 
-        pump_curve = cls()
-        pump_curve.name = name
-        pump_curve._a0 = c
-        pump_curve._a1 = a
-        pump_curve._a2 = b
-        return pump_curve
+            pump_curve = cls()
+            pump_curve.name = name
+            pump_curve._a0 = Quantity(c, 'Pa')
+            pump_curve._a1 = Quantity(a, 'Pa') / analysis_flow_units
+            pump_curve._a2 = Quantity(a, 'Pa') / (analysis_flow_units * analysis_flow_units)
+            return pump_curve
 
     def pump_pressure(self, V: Quantity) -> Quantity:
-        V = V.to('m ** 3 / s').magnitude
         dP = self._a0 + self._a1 * V + self._a2 * V ** 2
-        return Quantity(dP, 'Pa')
+        return dP
 
     def volume_flow_rate(self, dP: Quantity) -> Quantity:
         dP = dP.to('Pa').magnitude
@@ -58,16 +61,11 @@ class PumpCurve:
 
     @property
     def coefficients(self) -> Tuple[Quantity, ...]:
-        a0 = Quantity(self._a0, 'Pa')
-        a1 = Quantity(self._a1, 'Pa * s / m ** 3')
-        a2 = Quantity(self._a2, 'Pa * s ** 2 / m ** 6')
-        return a0, a1, a2
+        return self._a0, self._a1, self._a2
 
     @coefficients.setter
     def coefficients(self, values: Tuple[Quantity, ...]):
-        self._a0 = values[0].to('Pa').magnitude
-        self._a1 = values[1].to('Pa * s / m ** 3').magnitude
-        self._a2 = values[2].to('Pa * s ** 2 / m ** 6').magnitude
+        self._a0, self._a1, self._a2 = values
 
     def axes(
             self,
@@ -75,19 +73,12 @@ class PumpCurve:
             V_fin: Optional[Quantity] = None,
             num: int = 50
     ) -> Tuple[Quantity, Quantity]:
-        if V_ini is not None:
-            V_ini = V_ini.to('m ** 3 / s').magnitude
-        else:
+        if V_ini is None:
             V_ini = 0.0
-        if V_fin is not None:
-            V_fin = V_fin.to('m ** 3 / s').magnitude
-        else:
+        if V_fin is None:
             V_fin = self.volume_flow_rate(dP=Quantity(0.0, 'Pa'))  # find V for which pump pressure is zero
-            V_fin = V_fin.to('m ** 3 / s').magnitude
         V_ax = np.linspace(V_ini, V_fin, num, endpoint=True)
         dP_ax = self._a0 + self._a1 * V_ax + self._a2 * V_ax ** 2
-        V_ax = Quantity(V_ax, 'm ** 3 / s')
-        dP_ax = Quantity(dP_ax, 'Pa')
         return V_ax, dP_ax
 
     def diagram(
