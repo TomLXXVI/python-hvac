@@ -70,10 +70,10 @@ class PumpCurve:
         self._a2 = values[2].to('Pa * s ** 2 / m ** 6').magnitude
 
     def axes(
-            self,
-            V_ini: Optional[Quantity] = None,
-            V_fin: Optional[Quantity] = None,
-            num: int = 50
+        self,
+        V_ini: Optional[Quantity] = None,
+        V_fin: Optional[Quantity] = None,
+        num: int = 50
     ) -> Tuple[Quantity, Quantity]:
         if V_ini is not None:
             V_ini = V_ini.to('m ** 3 / s').magnitude
@@ -91,12 +91,12 @@ class PumpCurve:
         return V_ax, dP_ax
 
     def diagram(
-            self,
-            V_ini: Quantity,
-            V_fin: Quantity,
-            num: int = 50,
-            working_point: Optional[Tuple[Quantity, Quantity]] = None,
-            **fig_kwargs
+        self,
+        V_ini: Quantity,
+        V_fin: Quantity,
+        num: int = 50,
+        working_point: Optional[Tuple[Quantity, Quantity]] = None,
+        **fig_kwargs
     ) -> LineChart:
         """
         Plot pump curve.
@@ -164,9 +164,17 @@ class PumpCurve:
                 style_props={'marker': 'o', 'linestyle': 'None', 'color': 'red'}
             )
         if V_max is not None and V_step is not None:
-            diagram.x1.scale(lower_limit=0.0, upper_limit=V_max.to(V_unit).magnitude, step=V_step.to(V_unit).magnitude)
+            diagram.x1.scale(
+                lower_limit=0.0,
+                upper_limit=V_max.to(V_unit).magnitude,
+                step=V_step.to(V_unit).magnitude
+            )
         if dP_max is not None and dP_step is not None:
-            diagram.y1.scale(lower_limit=0.0, upper_limit=dP_max.to(dP_unit).magnitude, step=dP_step.to(dP_unit).magnitude)
+            diagram.y1.scale(
+                lower_limit=0.0,
+                upper_limit=dP_max.to(dP_unit).magnitude,
+                step=dP_step.to(dP_unit).magnitude
+            )
         diagram.x1.add_title(f'volume flow rate, {V_unit}')
         diagram.y1.add_title(f'pump pressure, {dP_unit}')
         return diagram

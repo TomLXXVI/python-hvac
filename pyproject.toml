@@ -17,6 +17,7 @@ astral = ">=3.2"
 iapws = ">=1.5.3"
 dill = ">=0.3.6"
 pint = ">=0.20.1"
+odfpy = "^1.4.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = ">=3.5.0"

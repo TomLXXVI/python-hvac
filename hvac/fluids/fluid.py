@@ -25,7 +25,10 @@ class FluidState:
 
     @staticmethod
     def _get_phase_description(phase_index: Quantity) -> str:
-        phase_index = phase_index.m
+        if phase_index is not None:
+            phase_index = phase_index.m
+        else:
+            phase_index = CoolProp.iphase_unknown
         match phase_index:
             case CoolProp.iphase_liquid:
                 return 'sub-critical liquid'
@@ -251,6 +254,16 @@ class Fluid:
         """
         self._update(**input_qties)
         return self._get_state()
+
+    def __deepcopy__(self, memo):
+        new_fluid = type(self)(
+            self.fluid_name,
+            self.backend,
+            self.mass_fractions,
+            self.vol_fractions,
+            self.reference
+        )
+        return new_fluid
 
     @property
     def critical_point(self) -> FluidState:

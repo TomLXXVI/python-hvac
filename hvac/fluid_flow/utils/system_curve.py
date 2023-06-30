@@ -8,6 +8,9 @@ Q_ = Quantity
 
 
 class SystemCurve:
+    """Class that represents the system curve of a network or flow path of the
+    network.
+    """
 
     def __init__(self):
         self.name: str = ''
@@ -17,12 +20,27 @@ class SystemCurve:
 
     @classmethod
     def create(
-            cls,
-            R_hyd: Quantity,
-            dP_tot: Optional[Quantity] = None,
-            dP_elev: Optional[Quantity] = None,
-            name: str = ''
+        cls,
+        R_hyd: Quantity,
+        dP_tot: Optional[Quantity] = None,
+        dP_elev: Optional[Quantity] = None,
+        name: str = ''
     ) -> 'SystemCurve':
+        """Creates a `SystemCurve` object.
+
+        Parameters
+        ----------
+        R_hyd:
+            Hydraulic resistance of the network or flow path.
+        dP_tot:
+            Difference in total pressure between end and start node of the
+            flow path.
+        dP_elev:
+            The elevation pressure difference between the end and start node
+            of the network or flow path.
+        name:
+            Identifier for the system curve.
+        """
         obj = cls()
         obj._R_hyd = R_hyd.to('Pa * s ** 2 / m ** 6').magnitude
         obj._dP_tot = dP_tot.to('Pa').magnitude if dP_tot is not None else 0.0

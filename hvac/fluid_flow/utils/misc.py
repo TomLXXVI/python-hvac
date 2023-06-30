@@ -33,9 +33,9 @@ def design_volume_flow_rate(Q_design: Quantity, T_avg: Quantity, deltaT: Quantit
 
 
 def head_to_pressure(
-        H: Quantity,
-        fluid: FluidState = Water(T=Quantity(15.0, 'degC'), P=STANDARD_PRESSURE),
-        g: Quantity = Quantity(9.81, 'm / s ** 2')
+    H: Quantity,
+    fluid: FluidState = Water(T=Quantity(15.0, 'degC'), P=STANDARD_PRESSURE),
+    g: Quantity = Quantity(9.81, 'm / s ** 2')
 ) -> Quantity:
     f = fluid
     rho = f.rho.to('kg / m ** 3').magnitude
@@ -46,9 +46,9 @@ def head_to_pressure(
 
 
 def pressure_to_head(
-        P: Quantity,
-        fluid: FluidState = Water(T=Quantity(15.0, 'degC'), P=STANDARD_PRESSURE),
-        g: Quantity = Quantity(9.81, 'm / s ** 2')
+    P: Quantity,
+    fluid: FluidState = Water(T=Quantity(15.0, 'degC'), P=STANDARD_PRESSURE),
+    g: Quantity = Quantity(9.81, 'm / s ** 2')
 ) -> Quantity:
     f = fluid
     rho = f.rho.to('kg / m ** 3').magnitude

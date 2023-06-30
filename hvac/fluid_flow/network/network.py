@@ -23,12 +23,16 @@ STANDARD_AIR = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 
 
 def pretty_unit(unit: str) -> str:
+    """Returns the prettified form of the given unit."""
     q = Quantity(0, unit)
     q = f"{q:~P}".split(' ')
     return q[1]
 
 
 class FlowPath(List[TConduit]):
+    """Class derived from list that represents a flow path between the start
+    and end node of a network.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,17 +44,27 @@ class FlowPath(List[TConduit]):
 
     @property
     def conduits(self) -> List[Conduit]:
+        """Get the conduits that belong to the flow path."""
         if not self._conduits:
-            self._conduits = [conduit for conduit in self if not isinstance(conduit, PseudoConduit)]
+            self._conduits = [
+                conduit for conduit in self
+                if not isinstance(conduit, PseudoConduit)
+            ]
         return self._conduits
 
     @property
     def dynamic_pressure_difference(self) -> Quantity:
+        """Get the total pressure loss between the end and start node of the
+        flow path due to fluid flow friction and fitting losses.
+         """
         return sum(conduit.pressure_drop for conduit in self.conduits)
 
     @property
     def elevation_pressure_difference(self) -> Quantity:
-        # aka thermal gravity effect or chimney effect
+        """Returns the elevation pressure difference (aka thermal gravity effect
+        or chimney effect) due to any height difference between the end and
+        start node of the flow path.
+        """
         first_node = self.conduits[0].start_node
         last_node = self.conduits[-1].end_node
         z1 = first_node.height.to('m')
@@ -62,29 +76,50 @@ class FlowPath(List[TConduit]):
 
     @property
     def total_pressure_difference(self) -> Quantity:
+        """Returns the total pressure difference between the end and start node
+        of the flow path. It is the sum of the elevation pressure difference
+        and the dynamic pressure difference.
+        """
         dp_elev = self.elevation_pressure_difference
         dp_dyn = self.dynamic_pressure_difference
         dp_tot = dp_elev + dp_dyn  # dp_tot = (tp1 - tp2) + dp_pump
         return dp_tot
 
     def get_system_curve(
-            self,
-            V_wp: Quantity,
-            dp_wp: Quantity,
-            p_g1: Optional[Quantity] = Q_(0.0, 'Pa'),
+        self,
+        V_wp: Quantity,
+        dp_wp: Quantity,
+        p_g1: Optional[Quantity] = Q_(0.0, 'Pa')
     ) -> SystemCurve:
+        """Returns a `SystemCurve` object, representing the system curve of the
+        flow path.
+
+        Parameters
+        ----------
+        V_wp:
+            Volume flow rate through the flow path.
+        dp_wp:
+
+        p_g1:
+            Static pressure at the start node of the flow path.
+
+        Returns
+        -------
+        SystemCurve
+        """
         dp_dyn = self.dynamic_pressure_difference
         dp_elev = self.elevation_pressure_difference
         dp_loss = dp_dyn + dp_wp
-        R_hyd = dp_loss / (V_wp ** 2)
+        R_hyd = dp_loss / (V_wp ** 2)  # hydraulic resistance of flow path
         p_v1 = self.conduits[0].velocity_pressure
-        p_t1 = p_g1 + p_v1
-        p_v2 = self.conduits[-1].velocity_pressure
-        p_t2 = p_t1 - dp_elev - dp_dyn
-        p_g2 = p_t2 - p_v2
-        dp_g = p_g2 - p_g1
-        dp_v = p_v2 - p_v1
-        dp_t = dp_g + dp_v
+        p_t1 = p_g1 + p_v1  # total pressure at start node of flow path
+        p_t2 = p_t1 - dp_elev - dp_dyn  # total pressure at end node
+        # p_v2 = self.conduits[-1].velocity_pressure
+        # p_g2 = p_t2 - p_v2  # static pressure at end node
+        # dp_g = p_g2 - p_g1  # static pressure difference between end and start node
+        # dp_v = p_v2 - p_v1  # velocity pressure difference between end and start node
+        # dp_t = dp_g + dp_v  # difference between total pressure at end and start node
+        dp_t = p_t2 - p_t1
         sys_curve = SystemCurve.create(R_hyd=R_hyd, dP_tot=dp_t, dP_elev=dp_elev)
         return sys_curve
 
@@ -121,18 +156,58 @@ class Network(ABC):
 
     @classmethod
     def create(
-            cls,
-            ID: str,
-            fluid: FluidState = STANDARD_AIR,
-            ambient_air: FluidState = STANDARD_AIR,
-            wall_roughness: Quantity = Q_(0.09, 'mm'),
-            schedule: Optional[TSchedule] = None,
-            start_node_ID: str = '',
-            start_node_height: Quantity = Q_(0.0, 'm'),
-            end_node_ID: Optional[str] = None,
-            end_node_height: Quantity = Q_(0.0, 'm'),
-            units: Optional[Dict[str, str]] = None
+        cls,
+        ID: str,
+        fluid: FluidState = STANDARD_AIR,
+        ambient_air: FluidState = STANDARD_AIR,
+        wall_roughness: Quantity = Q_(0.09, 'mm'),
+        schedule: Optional[TSchedule] = None,
+        start_node_ID: str = '',
+        start_node_height: Quantity = Q_(0.0, 'm'),
+        end_node_ID: Optional[str] = None,
+        end_node_height: Quantity = Q_(0.0, 'm'),
+        units: Optional[Dict[str, str]] = None
     ) -> 'Network':
+        """Creates an instance of a derived class of abstract class `Network`
+        (see `PipeNetwork` for pipe systems and `DuctNetwork` for duct systems).
+
+        Parameters
+        ----------
+        ID:
+            Name of the network.
+        fluid: default STANDARD_AIR
+            The (incompressible) fluid that flows in the network. The default
+            is standard air, which is dry air with a temperature of 20 °C at
+            standard atmospheric pressure (101,325 Pa).
+        ambient_air: default STANDARD_AIR
+            The fluid of the environment where the network is located. Used for
+            open networks to calculate the elevation pressure difference
+            (gravity effect or chimney effect) along a flow path.
+        wall_roughness: default 0.09 mm
+            The absolute wall roughness of the pipes or ducts. The default value
+            applies to medium smooth galvanized air ducts.
+        schedule:
+            The schedule contains the commercially available sizes of a type
+            of duct or pipe. See module schedule.duct_schedule.py and module
+            schedule.pipe_schedule.py
+        start_node_ID:
+            ID for the start node of the network.
+        start_node_height: default 0 m
+            Height of the start node with respect to a reference plane to
+            which the heights of all network nodes are referred to.
+        end_node_ID: optional
+            ID of the end node of the network.
+        end_node_height: default 0 m
+            Height of the end node referred to the same reference plane as the
+            network's start node.
+        units:
+            Dictionary with the keys being the names of the quantities and the
+            values the units to be used for these quantities. See class
+            attribute `default_units` for a list of the quantities.
+            Also, when reading a network configuration from csv-file, the values
+            in the table will be assumed to be expressed in the units set through
+            this parameter.
+        """
         obj = cls()
         obj.ID = ID
         obj.fluid = fluid
@@ -153,21 +228,55 @@ class Network(ABC):
         return obj
 
     def add_conduit(
-            self,
-            conduit: TConduit,
-            conduit_ID: str,
-            start_node_ID: str,
-            end_node_ID: str,
-            start_node_height: Quantity = Q_(0.0, 'm'),
-            end_node_height: Quantity = Q_(0.0, 'm'),
-            loop_ID: Optional[Union[str, Tuple[str, str]]] = None,
-            zeta: Optional[float] = None
-    ):
+        self,
+        conduit: TConduit,
+        conduit_ID: str,
+        start_node_ID: str,
+        end_node_ID: str,
+        start_node_height: Quantity = Q_(0.0, 'm'),
+        end_node_height: Quantity = Q_(0.0, 'm'),
+        loop_ID: Optional[Union[str, Tuple[str, str]]] = None,
+        zeta: Optional[float] = None
+    ) -> None:
+        """Adds a new conduit to the network.
+
+        Parameters
+        ----------
+        conduit:
+            Object of type `TConduit`, which is a union of classes `Conduit`,
+            `Pipe`, `Duct`, and `PseudoConduit`. See module conduit.py.
+        conduit_ID:
+            Identifier for the conduit in the network.
+        start_node_ID:
+            ID for the start node of the conduit (node where the conduit fluid
+            leaves the node).
+        end_node_ID:
+            ID for the end node of the conduit (node where the conduit fluid
+            arrives at the node)
+        start_node_height: default 0 m
+            Height of the conduit's start node above the common reference plane
+            of the network.
+        end_node_height: default 0 m
+            Height of the conduit's end node above the common reference plane
+            of the network.
+        loop_ID: str, tuple[str, str]
+            Identifier to identify the loop or loops to which a conduit belongs
+            in a network. A conduit can belong to 2 loops maximum.
+        zeta: optional
+            The sum of the resistance coefficients of all fittings present in
+            the conduit.
+        """
         conduit.ID = conduit_ID
         if isinstance(zeta, float) and isinstance(conduit, Conduit):
             conduit.add_fitting(zeta)
-        sn = self.nodes.setdefault(start_node_ID, Node(start_node_ID, start_node_height))
-        en = self.nodes.setdefault(end_node_ID, Node(end_node_ID, end_node_height))
+        sn = self.nodes.setdefault(
+            start_node_ID,
+            Node(start_node_ID, start_node_height)
+        )
+        en = self.nodes.setdefault(
+            end_node_ID,
+            Node(end_node_ID, end_node_height)
+        )
         sn.connect(conduit, NodeArrow.OUTGOING)
         en.connect(conduit, NodeArrow.INCOMING)
         conduit.start_node = sn
@@ -175,28 +284,46 @@ class Network(ABC):
         conduit.loop_ID = loop_ID
         self.conduits[conduit_ID] = conduit
 
-    def _create_loops(self):
+    def _create_loops(self) -> None:
         # (re)create the loops for analysis with Hardy Cross method
         self.loops = {}
         for conduit in self.conduits.values():
             loop_ID = conduit.loop_ID
             if isinstance(loop_ID, tuple) and len(loop_ID) == 2:
-                loop = self.loops.setdefault(loop_ID[0], Loop(loop_ID[0]))
-                other_loop = self.loops.setdefault(loop_ID[1], Loop(loop_ID[1]))
-
+                # conduit belongs to 2 loops
+                loop = self.loops.setdefault(
+                    loop_ID[0],
+                    Loop(loop_ID[0])
+                )
+                other_loop = self.loops.setdefault(
+                    loop_ID[1],
+                    Loop(loop_ID[1])
+                )
                 loop.append(conduit)
-                conduit.loops = [self.loops[loop_ID[0]], self.loops[loop_ID[1]]]
-
-                conduit_duplicate = Conduit.duplicate(conduit, flow_sign=conduit.flow_sign.reverse())
+                conduit.loops = [
+                    self.loops[loop_ID[0]],
+                    self.loops[loop_ID[1]]
+                ]
+                conduit_duplicate = Conduit.duplicate(
+                    conduit,
+                    flow_sign=conduit.flow_sign.reverse()
+                    # flow sign in other loop is opposite to first loop
+                )
                 other_loop.append(conduit_duplicate)
-                conduit_duplicate.loops = [self.loops[loop_ID[1]], self.loops[loop_ID[0]]]
-
+                conduit_duplicate.loops = [
+                    self.loops[loop_ID[1]],
+                    self.loops[loop_ID[0]]
+                ]
             if isinstance(loop_ID, str) and len(loop_ID) > 0:
-                loop = self.loops.setdefault(loop_ID, Loop(loop_ID))
+                # conduit belongs to only 1 loop
+                loop = self.loops.setdefault(
+                    loop_ID,
+                    Loop(loop_ID)
+                )
                 loop.append(conduit)
                 conduit.loops = [self.loops[loop_ID]]
 
-    def _hardy_cross_algorithm(self):
+    def _hardy_cross_algorithm(self) -> None:
         # calculate the loop correction terms of all loops in the network
         for loop in self.loops.values():
             loop.calculate_correction_term()
@@ -229,7 +356,37 @@ class Network(ABC):
             return False
         return True
 
-    def analyze(self, tolerance: Quantity = Quantity(1.0, 'Pa'), i_max: int = 100) -> int:
+    def analyze(
+        self,
+        tolerance: Quantity = Quantity(1.0, 'Pa'),
+        i_max: int = 100
+    ) -> int:
+        """Analyzes a network using the Hardy-Cross method after it has been
+        configured with initial guesses for the volume flow rates in the
+        conduits of the network. The Hardy-Cross method will determine the
+        actual volume flow rates in the network.
+
+        Parameters
+        ----------
+        tolerance: default 1 Pa
+            The actual volume flow rates will be attained when the sum of
+            conduit pressure losses along each loop has become zero. As it
+            would take many iterations for the Hardy-Cross method to reach
+            zero pressure drop in every loop of the network, while volume
+            flow rates hardly change anymore, parameter `tolerance` allows
+            to stop iteration when the pressure drop of all loops is less
+            than the pressure drop assigned to `tolerance`.
+        i_max: default 100
+            In case the tolerance condition is not met after `i_max` iterations
+            the routine will be terminated and an `OverflowError` exception
+            will be raised.
+
+        Notes
+        -----
+        When assigning initial guesses to the volume flow rates, care should be
+        taken that the sum of flow rates that enter a node is equal to the
+        sum of flow rates that leave the node.
+        """
         self._create_loops()
         i = 0
         while not self._check_loops(tolerance):
@@ -260,14 +417,14 @@ class Network(ABC):
     #         path.append(node.outgoing[0])
     #         node = path[-1].end_node
 
-    def _search_flow_paths(self):
+    def _search_flow_paths(self) -> None:
         node = self.start_node
         path = FlowPath()
         path.ambient_air = self.ambient_air
         self._flow_paths.append(path)
         self._recursive_path_search(node, path)
 
-    def _recursive_path_search(self, node: Node, path: FlowPath):
+    def _recursive_path_search(self, node: Node, path: FlowPath) -> None:
         while True:
             if len(node.outgoing) > 1:
                 for conduit in node.outgoing[1:]:
@@ -293,31 +450,50 @@ class Network(ABC):
 
     @property
     def flow_paths(self) -> List[FlowPath]:
+        """Returns a list of `FlowPath` objects, representing the flow paths
+        between the start and end node of the network.
+        """
         if not self._flow_paths:
             self._search_flow_paths()
         return self._flow_paths
 
     @property
     def critical_path(self) -> FlowPath:
+        """Returns the `FlowPath` object that represents the flow path between
+        the start node and end node of the network that has the greatest
+        pressure loss.
+        """
         dp_tots = [fp.total_pressure_difference for fp in self.flow_paths]
         index_max = dp_tots.index(max(dp_tots))
         return self._flow_paths[index_max]
 
     @property
     def volume_flow_rate(self) -> Quantity:
+        """Get the volume flow rate that enters the network through its start
+        node (and leaves at the same rate through the end node). This is
+        applicable to a network with one entry (start node) and one exit
+        (end node).
+        """
         return sum(conduit.volume_flow_rate for conduit in self.start_node.outgoing)
 
     @property
     def total_pressure_difference(self) -> Quantity:
+        """Get the total pressure loss along the critical path of the network."""
         return self.critical_path.total_pressure_difference
 
     @property
     def hydraulic_resistance(self) -> Quantity:
+        """Get the hydraulic resistance of the network, calculated as
+        R = dP_crit / V² with dP_crit the pressure loss along the critical
+        path and V the volume flow rate that enters and leaves the network.
+        """
         dp_loss = self.critical_path.dynamic_pressure_difference.to('Pa')
         V = self.volume_flow_rate.to('m ** 3 / s')
         return dp_loss / (V ** 2)
 
     def get_flow_path_table(self) -> pd.DataFrame:
+        """Returns a Pandas DataFrame object with an overview of the flow
+        paths in the network from start to end node of the network."""
         headers = [
             "path",
             f"Δp-elev. [{self.units['pressure']}]",
@@ -336,6 +512,8 @@ class Network(ABC):
         return pd.DataFrame(table)
 
     def get_fitting_table(self) -> pd.DataFrame:
+        """Returns a Pandas DataFrame object with an overview of all the
+        fittings in the network."""
         fitting_tables = [
             conduit.get_fitting_table(self.units['pressure'])
             for conduit in self.conduits.values()
@@ -344,7 +522,8 @@ class Network(ABC):
         fitting_table = pd.concat(fitting_tables, ignore_index=True)
         return fitting_table
 
-    def _clear(self):
+    def _clear(self) -> None:
+        # Resets the attributes of the `Network` object.
         self.nodes = {}
         self.start_node = Node(self.start_node.ID, self.start_node.height)
         self.nodes[self.start_node.ID] = self.start_node
@@ -355,11 +534,15 @@ class Network(ABC):
         self._flow_paths = []
         self.loops = {}
 
-    def _build(self, data: Union[csv.DictReader, pd.DataFrame]):
+    def _build(self, data: Union[csv.DictReader, pd.DataFrame]) -> None:
+        # Build the network from a `csv.DictReader` or Pandas `DataFrame`.
         if isinstance(data, pd.DataFrame):
             data = data.to_dict(orient='records')
         for row in data:
+            # every row in `csv.DictReader` is a dict of which the keys are
+            # the column titles in the table
             if not row.get('fixed_pressure_difference'):
+                # create cross-section
                 cross_section = self._create_cross_section(
                     diameter=row.get('diameter'),
                     nominal_diameter=row.get('nominal_diameter'),
@@ -369,6 +552,7 @@ class Network(ABC):
                     schedule=self._get_schedule(row.get('schedule')) or self.schedule,
                     units=self.units
                 )
+                # create conduit with cross-section
                 conduit = Conduit.create(
                     length=self._quantify(
                         row['length'],
@@ -397,12 +581,15 @@ class Network(ABC):
                     )
                 )
             else:
+                # create `PseudoConduit` object with fixed pressure drop.
                 conduit = PseudoConduit.create(
                     fixed_pressure_drop=self._quantify(
                         row['fixed_pressure_difference'],
                         self.units['pressure']
                     )
                 )
+            # add `Conduit` (`Pipe` or `Duct`) object or `PseudoConduit`
+            # object to network
             self.add_conduit(
                 conduit=conduit,
                 conduit_ID=row['conduit_ID'],
@@ -422,13 +609,13 @@ class Network(ABC):
 
     def load_from_csv(self, file_path: str):
         """
-        Load a network configuration from a csv-file.
+        Loads a network configuration from a csv-file and creates the network.
 
         Available column titles:
-        - 'conduit_ID': mandatory
-        - 'start_node_ID': mandatory
+        * 'conduit_ID': mandatory
+        * 'start_node_ID': mandatory
         - 'start_node_height': optional
-        - 'end_node_ID': mandatory
+        * 'end_node_ID': mandatory
         - 'end_node_height': optional
         - 'loop_ID': optional
         - 'zeta': optional
@@ -437,7 +624,7 @@ class Network(ABC):
         - 'nominal_diameter': optional
         - 'width': optional
         - 'height': optional
-        - 'length': mandatory
+        * 'length': mandatory
         - 'wall_roughness': optional
         - 'volume_flow_rate': optional
         - 'pressure_drop': optional
@@ -445,6 +632,13 @@ class Network(ABC):
         - 'machine_coefficients': optional
         - 'fixed_pressure_difference': optional
         - 'schedule': optional
+            Name of the pipe or duct schedule to be used to size the pipe/duct.
+            This schedule must already be available at runtime in the
+            `PipeScheduleFactory` or `DuctScheduleFactory`. So before calling
+            `load_from_csv`, the schedules that will be used must be loaded
+            in the `PipeScheduleFactory` (in case a `PipeNetwork` instance will
+            be created) or `DuctScheduleFactory` (in case a `DuctNetwork`
+            instance will be created).
         """
         self._clear()
         with open(file_path) as f:
@@ -452,11 +646,16 @@ class Network(ABC):
             self._build(reader)
 
     def load_from_dataframe(self, df: pd.DataFrame):
+        """Loads network configuration from a Pandas `DataFrame` object and
+        creates the network.
+        """
         self._clear()
         self._build(df)
 
     @staticmethod
-    def _extract_loop_id(text_item: Optional[str]) -> Optional[Union[str, Tuple[str, ...]]]:
+    def _extract_loop_id(
+        text_item: Optional[str]
+    ) -> Optional[Union[str, Tuple[str, ...]]]:
         if text_item is not None:
             text_item = text_item.strip()
             if text_item.startswith('('):
@@ -491,13 +690,13 @@ class Network(ABC):
 
     @staticmethod
     def _create_cross_section(
-            diameter: Optional[str],
-            nominal_diameter: Optional[str],
-            width: Optional[str],
-            height: Optional[str],
-            shape: Optional[str],
-            schedule: Optional[TSchedule],
-            units: Dict[str, str]
+        diameter: Optional[str],
+        nominal_diameter: Optional[str],
+        width: Optional[str],
+        height: Optional[str],
+        shape: Optional[str],
+        schedule: Optional[TSchedule],
+        units: Dict[str, str]
     ) -> TCrossSection:
         if shape == 'circular' or shape is None:
             if diameter is not None:
@@ -536,7 +735,10 @@ class Network(ABC):
                     schedule=schedule
                 )
 
-    def _extract_machine_coefficients(self, text_item: Optional[str]) -> Optional[List[Quantity]]:
+    def _extract_machine_coefficients(
+        self,
+        text_item: Optional[str]
+    ) -> Optional[List[Quantity]]:
         if text_item is not None and text_item.startswith('('):
             t = text_item.strip('()')
             machine_coefficients = t.split(',')
@@ -554,6 +756,9 @@ class Network(ABC):
 
 
 class PipeNetwork(Network):
+    """Class derived from abstract base class `Network` that represents a pipe
+    network composed of `Pipe` objects (which are also of class `Conduit`).
+    """
 
     def __init__(self):
         super().__init__()
@@ -561,6 +766,9 @@ class PipeNetwork(Network):
         self.control_valves: Dict[str, ControlValve] = {}
 
     def get_pipe_table(self) -> pd.DataFrame:
+        """Returns a Pandas `DataFrame` object with an overview of the pipes in
+        the network.
+        """
         units = self.units
         headers = [
             "pipe ID",
@@ -586,7 +794,27 @@ class PipeNetwork(Network):
             table[headers[8]].append(conduit.pressure_drop.to(units['pressure']).magnitude)
         return pd.DataFrame(table)
 
-    def add_balancing_valve(self, cross_over_ID: str, pressure_drop_full_open: Quantity = Q_(3, 'kPa')) -> float:
+    def add_balancing_valve(
+        self,
+        cross_over_ID: str,
+        pressure_drop_full_open: Quantity = Q_(3, 'kPa')
+    ) -> float:
+        """Adds a balancing valve to a conduit (cross-over) in the network.
+
+        Parameters
+        ----------
+        cross_over_ID:
+            ID of the conduit in the network to which the balancing valve is
+            added. (A cross-over is a conduit that runs between the supply
+            and return pipe of a hydronic network to feed e.g. radiator panels.)
+        pressure_drop_full_open: default 3 kPa
+            Pressure drop across the balancing valve when is fully open.
+
+        Returns
+        -------
+        Returns the calculated fully-open valve coefficient (Kvs-value) of the
+        balancing valve to attain the given pressure drop.
+        """
         balancing_valve = BalancingValve(
             pipe=self.conduits[cross_over_ID],
             ID=f'BAL-VLV-{cross_over_ID}',
@@ -596,11 +824,39 @@ class PipeNetwork(Network):
         return balancing_valve.calculate_preliminary_Kvs()
 
     def set_balancing_valve_Kvs(self, cross_over_ID: str, Kvs: float) -> None:
+        """Set the actual fully-open valve coefficient of a commercially
+        available balancing valve.
+        """
         balancing_valve = self.balancing_valves[cross_over_ID]
         balancing_valve.set_Kvs(Kvs)
         self.conduits[cross_over_ID].add_fitting(balancing_valve.zeta, balancing_valve.ID)
 
-    def add_control_valve(self, cross_over_ID: str, target_authority: float = 0.5) -> float:
+    def add_control_valve(
+        self,
+        cross_over_ID: str,
+        target_authority: float = 0.5
+    ) -> float:
+        """Adds a control valve to a conduit (cross-over) of the network.
+
+        Parameters
+        ----------
+        cross_over_ID:
+            ID of the conduit in the network to which the control valve is
+            added. (A cross-over is a conduit that runs between the supply
+            and return pipe of a hydronic network to feed e.g. radiator panels.)
+        target_authority: default 0.5
+            The control valve authority aimed at. Control valve authority is
+            defined as the ratio of the pressure drop across the fully open valve
+            to the pressure drop across the fully closed valve. Practically the
+            pressure drop across the fully closed valve is determined as the
+            pressure drop across the cross-over when the design volume flow
+            rate is flowing through the cross-over.
+
+        Returns
+        -------
+        Returns the calculated fully-open valve coefficient (Kvs-value) of the
+        control valve to attain the given valve authority.
+        """
         control_valve = ControlValve(
             pipe=self.conduits[cross_over_ID],
             ID=f'CTRL-VLV-{cross_over_ID}',
@@ -611,16 +867,44 @@ class PipeNetwork(Network):
         return control_valve.calculate_preliminary_Kvs()
 
     def set_control_valve_Kvs(self, cross_over_ID: str, Kvs: float) -> None:
+        """Set the actual fully-open valve coefficient of a commercially
+        available control valve.
+        """
         control_valve = self.control_valves[cross_over_ID]
         control_valve.set_Kvs(Kvs)
         self.conduits[cross_over_ID].add_fitting(control_valve.zeta, control_valve.ID)
 
-    def set_control_valve_opening(self, cross_over_ID: str, percent_open: int) -> None:
+    def set_control_valve_opening(
+        self,
+        cross_over_ID: str,
+        percent_open: int
+    ) -> None:
+        """Sets the control valve's opening position.
+
+        Parameters
+        ----------
+        cross_over_ID:
+            ID of the conduit in the network to which the control valve is
+            added. (A cross-over is a conduit that runs between the supply
+            and return pipe of a hydronic network to feed e.g. radiator panels.)
+        percent_open:
+            The opening position of the control valve expressed as a percentage.
+
+        Notes
+        -----
+        This method can be used to analyze a pipe network at different opening
+        positions of a control valve in the network.
+        """
         control_valve = self.control_valves[cross_over_ID]
         zeta = control_valve.set_valve_opening(percent_open)
         self.conduits[cross_over_ID].add_fitting(zeta, control_valve.ID)
 
     def balance_network_at_design(self) -> None:
+        """Runs the routine to determine the required, calculated flow
+        coefficient settings of the balancing valves in the network so that
+        the pressure drop along each flow path of the network becomes equal
+        to the pressure drop along the critical path.
+        """
         dp_crit = self.critical_path.total_pressure_difference
         flow_paths = copy(self.flow_paths)
         for balancing_valve in self.balancing_valves.values():
@@ -634,6 +918,9 @@ class PipeNetwork(Network):
                     break
 
     def get_balancing_valve_table(self) -> pd.DataFrame:
+        """Returns a Pandas `DataFrame` object with an overview of the balancing
+        valves in the network.
+        """
         table = {
             'pipe ID': [],
             'valve ID': [],
@@ -648,6 +935,9 @@ class PipeNetwork(Network):
         return pd.DataFrame(table)
 
     def get_control_valve_table(self) -> pd.DataFrame:
+        """Returns a Pandas `DataFrame` object with an overview of the control
+        valves in the network.
+        """
         dp_crit = self.critical_path.total_pressure_difference
         table = {
             'pipe ID': [],
@@ -664,6 +954,9 @@ class PipeNetwork(Network):
 
     @staticmethod
     def _get_schedule(name: Optional[str] = None) -> Optional[PipeSchedule]:
+        """Get the pipe schedule identified by `name` from the
+        `PipeScheduleFactory`.
+        """
         if name is None:
             return None
         else:
@@ -671,12 +964,18 @@ class PipeNetwork(Network):
 
 
 class DuctNetwork(Network):
+    """Class derived from abstract base class `Network` that represents a duct
+    network composed of `Duct` objects (which are also of class `Conduit`).
+    """
 
     def __init__(self):
         super().__init__()
         self.balancing_dampers: Dict[str, TVolumeDamper] = {}
 
     def get_duct_table(self) -> pd.DataFrame:
+        """Returns a Pandas `DataFrame` object with an overview of the ducts in
+        the network.
+        """
         units = self.units
         headers = [
             "duct ID",
@@ -710,16 +1009,47 @@ class DuctNetwork(Network):
             table[headers[8]].append(conduit.pressure_drop.to(units['pressure']).magnitude)
         return pd.DataFrame(table)
 
-    def add_balancing_damper(self, duct_ID: str, damper_type: str = 'A15A') -> None:
+    def add_balancing_damper(
+        self,
+        duct_ID: str,
+        damper_type: str = 'A15A'
+    ) -> None:
+        """Adds a fully open balancing damper to a duct (branch duct) in the
+        network.
+
+        Parameters
+        ----------
+        duct_ID:
+            ID of the conduit in the network to which the balancing damper is
+            added.
+        damper_type: default 'A15A'
+            The type of balancing damper. At this stage only 1 type of balancing
+            damper has been implemented in the program. 'A15A' refers to the
+            table in appendix A of the SMACNA Handbook HVAC SYSTEMS DUCT DESIGN.
+
+        Returns
+        -------
+        Returns the calculated fully-open valve coefficient (Kvs-value) of the
+        balancing valve to attain the given pressure drop.
+        """
         duct = self.conduits[duct_ID]
         if damper_type == 'A15B':
             volume_damper = None  # TODO: extend with other types of volume damper
         else:
-            volume_damper = ObstructionA15A(duct, theta=Q_(0.0, 'deg'), ID=f'damper_{duct.ID}')
+            volume_damper = ObstructionA15A(
+                duct,
+                theta=Q_(0.0, 'deg'),
+                ID=f'damper_{duct.ID}'
+            )
         self.balancing_dampers[volume_damper.ID] = volume_damper
         duct.add_fitting(zeta=volume_damper.zeta, ID=volume_damper.ID)
 
     def balance_network_at_design(self) -> None:
+        """Runs the routine to determine the required, calculated angle settings
+        of the balancing dampers in the network so that the pressure drop along
+        each flow path of the network becomes equal to the pressure drop along
+        the critical path.
+        """
         dp_crit = self.critical_path.total_pressure_difference
         flow_paths = copy(self.flow_paths)
         for balancing_damper in self.balancing_dampers.values():
@@ -736,6 +1066,9 @@ class DuctNetwork(Network):
                     break
 
     def get_balancing_damper_table(self) -> pd.DataFrame:
+        """Returns a Pandas `DataFrame` object with an overview of the balancing
+        dampers in the network and their calculated settings.
+        """
         table = {
             'volume damper ID': [],
             'set angle': [],
@@ -749,18 +1082,29 @@ class DuctNetwork(Network):
 
     @staticmethod
     def _get_schedule(name: Optional[str] = None) -> Optional[DuctSchedule]:
+        """Get the duct schedule identified by `name` from the
+        `DuctScheduleFactory`.
+        """
         if name is None:
             return None
         else:
             return DuctScheduleFactory.get(name)
 
 
-def save_network(network: Union[PipeNetwork, DuctNetwork], file_path: str) -> None:
+def save_network(
+    network: Union[PipeNetwork, DuctNetwork],
+    file_path: str
+) -> None:
+    """Saves a `Network` object to disk file. For example, after designing a
+    network you can save it to disk, to open it in another script for analyzing
+    the network.
+    """
     with open(file_path, 'wb') as fh:
         pickle.dump(network, fh)
 
 
 def load_network(file_path: str) -> Union[PipeNetwork, DuctNetwork]:
+    """Loads a `Network` object from disk file."""
     with open(file_path, 'rb') as fh:
         network = pickle.load(fh)
     return network
