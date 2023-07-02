@@ -1,5 +1,3 @@
-# import numpy as np
-# from scipy.optimize import fsolve
 from hvac import Quantity
 from hvac.logging import ModuleLogger
 from hvac.fluids import HumidAir, Fluid, FluidState, CP_HUMID_AIR
@@ -34,7 +32,6 @@ class SingleStageVaporCompressionMachine:
         self.evp_air_in: HumidAir | None = None
         self.cnd_air_in: HumidAir | None = None
         self.dT_super: Quantity | None = None
-        self.dT_sub: Quantity | None = None
         self.evp_rfg_sat_vap: FluidState | None = None
         self.cnd_rfg_sat_liq: FluidState | None = None
 
@@ -45,7 +42,6 @@ class SingleStageVaporCompressionMachine:
         evp_air_in: HumidAir,
         cnd_air_in: HumidAir,
         dT_super: Quantity,
-        dT_sub: Quantity,
         n_cmp: Quantity | None = None
     ) -> None:
         self.evp_m_dot_air = evp_m_dot_air
@@ -53,7 +49,8 @@ class SingleStageVaporCompressionMachine:
         self.evp_air_in = evp_air_in
         self.cnd_air_in = cnd_air_in
         self.dT_super = dT_super.to('K')
-        self.dT_sub = dT_sub.to('K')
+        self.compressor.dT_sh = self.dT_super
+        self.compressor.dT_sc = self.dT_super  # initial guess
         if isinstance(self.compressor, VariableSpeedCompressor):
             self.compressor.speed = n_cmp
 
@@ -80,9 +77,10 @@ class SingleStageVaporCompressionMachine:
         )
         C_air = self.cnd_m_dot_air * CP_HUMID_AIR
         T_cnd = self.cnd_air_in.Tdb + cnd_Q_dot / (r.eps * C_air)
+        self.compressor.dT_sc = self.condenser.subcooling_part.dT_sco  # update degree of subcooling in compressor
         return T_cnd
 
-    def _find_steady_operating_point(self, evp_T_ini: Quantity, cnd_T_ini: Quantity) -> None:
+    def _find_operating_point(self, evp_T_ini: Quantity, cnd_T_ini: Quantity) -> None:
         """Find evaporator and condenser temperature under the given operating
         conditions."""
         T_evp, T_cnd = evp_T_ini, cnd_T_ini
@@ -128,7 +126,7 @@ class SingleStageVaporCompressionMachine:
         else:
             cnd_T_ini = None
         if evp_T_ini is not None and cnd_T_ini is not None:
-            self._find_steady_operating_point(evp_T_ini, cnd_T_ini)
+            self._find_operating_point(evp_T_ini, cnd_T_ini)
 
     @property
     def Qc_dot(self) -> Quantity:

@@ -21,8 +21,6 @@ Condenser = air_condenser.rating.PFT_CO_CND
 
 compressor = VariableSpeedCompressor(
     coeff_file=Path("VTZ038-G_R134a.csv"),
-    dT_sh=Q_(10, 'K'),
-    dT_sc=Q_(5, 'K'),
     refrigerant_type=R134a,
     units={'m_dot': 'kg / hr', 'speed': '1 / s'}
 )
@@ -63,7 +61,6 @@ machine.set_operating_conditions(
     evp_air_in=HumidAir(Tdb=Q_(24, 'degC'), RH=Q_(50, 'pct')),
     cnd_air_in=HumidAir(Tdb=Q_(35.0, 'degC'), RH=Q_(30, 'pct')),
     dT_super=Q_(10, 'K'),
-    dT_sub=Q_(5, 'K'),
     n_cmp=Q_(3932, '1 / min')
 )
 
@@ -83,11 +80,11 @@ print(
 )
 
 print(
-    f"suction gas temperature = {evaporator.rfg_out.T.to('degC'):~P.2f}\n"
-    f"discharge gas temperature = {condenser.rfg_in.T.to('degC'):~P.2f}\n"
-    f"liquid temperature = {condenser.rfg_out.T.to('degC'):~P.2f}\n"
-    f"liquid/vapor mixture temperature = {evaporator.rfg_in.T.to('degC'):~P.2f}\n"
-    f"subcooling degree = {condenser.dT_sc.to('K'):~P.2f}\n"
+    f"suction gas temperature = {machine.suction_gas.T.to('degC'):~P.2f}\n"
+    f"discharge gas temperature = {machine.discharge_gas.T.to('degC'):~P.2f}\n"
+    f"liquid temperature = {machine.liquid.T.to('degC'):~P.2f}\n"
+    f"liquid/vapor mixture temperature = {machine.mixture.T.to('degC'):~P.2f}\n"
+    f"subcooling degree = {machine.sub_cooling.to('K'):~P.2f}\n"
 )
 
 print(

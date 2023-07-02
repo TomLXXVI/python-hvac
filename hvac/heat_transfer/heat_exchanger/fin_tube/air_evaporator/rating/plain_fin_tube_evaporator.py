@@ -71,8 +71,8 @@ class PlainFinTubeCounterFlowEvaporator:
             't_f': t_f, 'N_f': N_f,
             'k_f': k_f
         }
-        self.evp_superheat = PlainFinTubeCounterFlowSuperheatEvaporator(**kwargs)
-        self.evp_boiling = PlainFinTubeCounterFlowBoilingEvaporator(**kwargs)
+        self.superheating_part = PlainFinTubeCounterFlowSuperheatEvaporator(**kwargs)
+        self.boiling_part = PlainFinTubeCounterFlowBoilingEvaporator(**kwargs)
 
         self.air_in: HumidAir | None = None
         self.m_dot_air: Quantity | None = None
@@ -121,14 +121,14 @@ class PlainFinTubeCounterFlowEvaporator:
         self.rfg_in = rfg_in
         self.dT_rfg_sh = dT_rfg_sh.to('K')
         self.m_dot_rfg_ini = m_dot_rfg_ini.to('kg / s')
-        self.evp_superheat.set_fixed_operating_conditions(
+        self.superheating_part.set_fixed_operating_conditions(
             air_in=self.air_in,
             m_dot_air=self.m_dot_air,
             Rfg=self.rfg_in.fluid,
             T_rfg_sat=self.rfg_in.T,
             dT_rfg_sh=self.dT_rfg_sh
         )
-        self.evp_boiling.set_fixed_operating_conditions(
+        self.boiling_part.set_fixed_operating_conditions(
             m_dot_air=self.m_dot_air,
             rfg_in=self.rfg_in
         )
@@ -177,21 +177,21 @@ class PlainFinTubeCounterFlowEvaporator:
         m_dot_rfg = self.m_dot_rfg_ini
         i = 0
         while i < i_max:
-            self.evp_superheat.set_mass_flow_rate_refrigerant(m_dot_rfg)
-            L2_superheat = self.evp_superheat.determine_flow_length(self.L2)
+            self.superheating_part.set_mass_flow_rate_refrigerant(m_dot_rfg)
+            L2_superheat = self.superheating_part.determine_flow_length(self.L2)
             L2_boiling = self.L2 - L2_superheat
-            self.evp_boiling.set_air_in(self.evp_superheat.air_out)
-            self.evp_boiling.set_flow_length(L2_boiling)
-            m_dot_rfg_new, *_ = self.evp_boiling.rate(m_dot_rfg, i_max, tol_m_dot_rfg)
+            self.boiling_part.set_air_in(self.superheating_part.air_out)
+            self.boiling_part.set_flow_length(L2_boiling)
+            m_dot_rfg_new, *_ = self.boiling_part.rate(m_dot_rfg, i_max, tol_m_dot_rfg)
             dev_m_dot_rfg = abs(m_dot_rfg_new - m_dot_rfg)
             if dev_m_dot_rfg <= tol_m_dot_rfg:
                 self.L2_superheat = L2_superheat
-                self.air_out = self.evp_boiling.air_out
-                self.rfg_out = self.evp_superheat.rfg_out
-                self.Q = self.evp_boiling.Q + self.evp_superheat.Q
+                self.air_out = self.boiling_part.air_out
+                self.rfg_out = self.superheating_part.rfg_out
+                self.Q = self.boiling_part.Q + self.superheating_part.Q
                 self.eps = self._get_eps()
                 self.m_dot_rfg = m_dot_rfg_new
-                self.dP_air = self.evp_boiling.dP_air + self.evp_superheat.dP_air
+                self.dP_air = self.boiling_part.dP_air + self.superheating_part.dP_air
                 return Result(
                     self.m_dot_rfg, self.rfg_out, self.air_out, self.Q,
                     self.eps, self.dP_air, self.L2_superheat

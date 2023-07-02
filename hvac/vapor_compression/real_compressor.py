@@ -138,9 +138,9 @@ class FixedSpeedCompressor:
     def __init__(
         self,
         coeff_file: Path,
-        dT_sh: Quantity,
-        dT_sc: Quantity,
         refrigerant_type: Fluid,
+        dT_sh: Quantity | None = None,
+        dT_sc: Quantity | None = None,
         units: Dict[str, str] | None = None
     ) -> None:
         """
@@ -198,6 +198,16 @@ class FixedSpeedCompressor:
     def Tc(self, Tc: Quantity) -> None:
         """Set condenser temperature."""
         self._Tc = Tc.to('degC').m
+
+    @property
+    def Pe(self) -> Quantity:
+        """Get evaporator pressure."""
+        return self.refrigerant_type(T=self.Te, x=Q_(1.0, 'frac')).P
+
+    @property
+    def Pc(self) -> Quantity:
+        """Get condenser pressure."""
+        return self.refrigerant_type(T=self.Tc, x=Q_(0.0, 'frac')).P
 
     @property
     def Qc_dot(self) -> Quantity:
@@ -351,9 +361,9 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
     def __init__(
         self,
         coeff_file: Path,
-        dT_sh: Quantity,
-        dT_sc: Quantity,
         refrigerant_type: Fluid,
+        dT_sh: Quantity | None = None,
+        dT_sc: Quantity | None = None,
         units: Dict[str, str] | None = None
     ) -> None:
         """
@@ -373,7 +383,7 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
         refrigerant_type: Fluid
             Refrigerant for which the polynomial coefficients are valid.
         """
-        super().__init__(coeff_file, dT_sh, dT_sc, refrigerant_type, units)
+        super().__init__(coeff_file, refrigerant_type, dT_sh, dT_sc, units)
         self._speed = float('nan')
 
     def _set_correlations(self, coeff_file: Path):

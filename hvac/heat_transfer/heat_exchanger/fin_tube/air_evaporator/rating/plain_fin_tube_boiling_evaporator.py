@@ -64,7 +64,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         )
         self.air_in: HumidAir | None = None
         self.rfg_in: FluidState | None = None
-        self.rfg_out: FluidState | None = None
+        self.rfg_sat_vap_out: FluidState | None = None
         self._Rfg: Fluid | None = None
         self.Q: Quantity | None = None
         self.air_out: HumidAir | None = None
@@ -99,7 +99,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         self._Rfg = rfg_in.fluid
         # the state of the refrigerant at the outlet is already fixed at the
         # start: it must be saturated vapor.
-        self.rfg_out = self._Rfg(
+        self.rfg_sat_vap_out = self._Rfg(
             T=self.rfg_in.T,   # boiling refrigerant: constant temperature
             x=Q_(1.0, 'frac')  # at the outlet: saturated vapor
         )
@@ -159,7 +159,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         """
         # initial guess of refrigerant mass flow rate
         self._hex_core.m_dot_int = m_dot_rfg_ini.to('kg / s')
-        Q = self._hex_core.m_dot_int * (self.rfg_out.h - self.rfg_in.h)
+        Q = self._hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
         air_out = HumidAir(
             h=self.air_in.h - Q / self._hex_core.m_dot_ext,
             RH=Q_(100, 'pct')
@@ -175,7 +175,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
                 m_dot_r=self._hex_core.m_dot_int,
                 m_dot_a=self._hex_core.m_dot_ext,
                 T_r_in=self.rfg_in.T,
-                T_r_out=self.rfg_out.T,
+                T_r_out=self.rfg_sat_vap_out.T,
                 P_r=self.rfg_in.P,
                 refrigerant=self._Rfg,
                 air_in=self.air_in,
@@ -186,7 +186,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
                 A_ext=self._hex_core.ext.geo.A
             )
             air_out_new, Q_new = cof_hex.air_out, cof_hex.Q
-            m_dot_rfg_new = Q_new / (self.rfg_out.h - self.rfg_in.h)
+            m_dot_rfg_new = Q_new / (self.rfg_sat_vap_out.h - self.rfg_in.h)
             dev_m_dot_rfg = abs(m_dot_rfg_new - self._hex_core.m_dot_int)
             if dev_m_dot_rfg <= tol_m_dot_rfg:
                 self.air_out = air_out_new
@@ -207,7 +207,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
 
     def _get_mean_air(self, air_out: HumidAir) -> HumidAir:
         """Determine the mean or bulk air properties."""
-        air_sat_rfg_out = HumidAir(Tdb=self.rfg_out.T, RH=Q_(100, 'pct'))
+        air_sat_rfg_out = HumidAir(Tdb=self.rfg_sat_vap_out.T, RH=Q_(100, 'pct'))
         air_sat_rfg_in = HumidAir(Tdb=self.rfg_in.T, RH=Q_(100, 'pct'))
         dh_in = self.air_in.h - air_sat_rfg_out.h
         dh_out = max(air_out.h - air_sat_rfg_in.h, Q_(1e-12, 'J / kg'))
@@ -216,18 +216,18 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         LMED = (dh_max - dh_min) / np.log(dh_max / dh_min)
         h_a_sat_rfg_avg = (air_sat_rfg_out.h + air_sat_rfg_in.h) / 2
         h_air_m = h_a_sat_rfg_avg + LMED
-        dT_in = self.air_in.Tdb - self.rfg_out.T
+        dT_in = self.air_in.Tdb - self.rfg_sat_vap_out.T
         dT_out = max(air_out.Tdb - self.rfg_in.T, Q_(1e-12, 'K'))
         dT_max = max(dT_in, dT_out)
         dT_min = min(dT_in, dT_out)
         LMTD = (dT_max - dT_min) / np.log(dT_max / dT_min)
-        T_rfg_avg = (self.rfg_in.T + self.rfg_out.T) / 2
+        T_rfg_avg = (self.rfg_in.T + self.rfg_sat_vap_out.T) / 2
         T_air_m = T_rfg_avg + LMTD
         air_mean = HumidAir(Tdb=T_air_m, h=h_air_m)
         return air_mean
 
     def _get_mean_refrigerant(self) -> FluidState:
         """Determine the mean or bulk refrigerant properties."""
-        x_rfg_avg = (self.rfg_in.x + self.rfg_out.x) / 2
+        x_rfg_avg = (self.rfg_in.x + self.rfg_sat_vap_out.x) / 2
         rfg_mean = self._Rfg(T=self.rfg_in.T, x=x_rfg_avg)
         return rfg_mean
