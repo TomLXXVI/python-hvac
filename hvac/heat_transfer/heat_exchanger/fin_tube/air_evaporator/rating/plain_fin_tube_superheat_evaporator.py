@@ -157,10 +157,10 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             return dQ.to('W').m
 
         try:
-            L2 = root_scalar(eq, bracket=[0.01, L2_ini.to('m').m]).root
+            L2 = root_scalar(eq, bracket=[1.e-6, L2_ini.to('m').m]).root
         except ValueError:
             raise ValueError(
-                'evaporator flow length too short to superheat vapor'
+                "evaporator flow length too short to superheat vapor"
             )
         return Q_(L2, 'm')
 

@@ -90,7 +90,7 @@ class SingleStageVaporCompressionMachine:
         while i < i_max:
             logger.debug(
                 f"iteration {i + 1}: "
-                f"Try T_evp = {T_evp.to('degC'):~P.3f}; "
+                f"try T_evp = {T_evp.to('degC'):~P.3f}; "
                 f"T_cnd = {T_cnd.to('degC'):~P.3f}"
             )
             self.compressor.Te = T_evp
@@ -209,3 +209,11 @@ class SingleStageVaporCompressionMachine:
         """Get the degree of subcooling of the liquid at the inlet of
         the expansion device."""
         return self.compressor.dT_sc
+
+    @property
+    def Pe(self) -> Quantity:
+        return self.compressor.Pe
+
+    @property
+    def Pc(self) -> Quantity:
+        return self.compressor.Pc
