@@ -1,22 +1,19 @@
 from collections import namedtuple
 from scipy.optimize import root_scalar
 from hvac import Quantity
-from hvac.logging import ModuleLogger
-from hvac.fluids import FluidState, HumidAir
+from hvac.fluids import FluidState, HumidAir, CP_HUMID_AIR
 from .plain_fin_tube_subcooling_condenser import PlainFinTubeCounterFlowSubcoolingCondenser
 from .plain_fin_tube_condensing_condenser import PlainFinTubeCounterflowCondensingCondenser
 from .plain_fin_tube_desuperheat_condenser import PlainFinTubeCounterFlowDesuperheatCondenser
 
+
 Q_ = Quantity
-
-
-logger = ModuleLogger.get_logger(__name__)
 
 
 Result = namedtuple(
     'Result',
     [
-        'rfg_out', 'air_out', 'Q', 'dT_subcooling',
+        'rfg_out', 'air_out', 'Q', 'eps', 'dP_air', 'dT_sc',
         'L2_desuperheating', 'L2_condensing', 'L2_subcooling'
     ]
 )
@@ -89,16 +86,13 @@ class PlainFinTubeCounterFlowCondenser:
 
         self.air_in: HumidAir | None = None
         self.air_out: HumidAir | None = None
+        self.dP_air: Quantity | None = None
 
         self.rfg_in: FluidState | None = None
         self.rfg_out: FluidState | None = None
 
         self.m_dot_air: Quantity | None = None
         self.m_dot_rfg: Quantity | None = None
-
-        self.eps_dsh: float | None = None
-        self.eps_cnd: float | None = None
-        self.eps_sco: float | None = None
 
         self.Q_dsh: Quantity | None = None
         self.Q_cnd: Quantity | None = None
@@ -282,16 +276,32 @@ class PlainFinTubeCounterFlowCondenser:
                     'condenser flow length too short to attain subcooling '
                     'of refrigerant'
                 )
+            else:
+                self.dP_air = (
+                    self.subcooling_part.dP_air
+                    + self.condensing_part.dP_air
+                    + self.desuperheating_part.dP_air
+                )
+                return Result(
+                    rfg_out=self.rfg_out,
+                    air_out=self.air_out,
+                    Q=self.Q,
+                    eps=self._get_eps(),
+                    dP_air=self.dP_air,
+                    dT_sc=self.dT_sc,
+                    L2_desuperheating=self.L2_dsh,
+                    L2_condensing=self.L2_cnd,
+                    L2_subcooling=self.L2_sco,
+                )
 
-        return Result(
-            rfg_out=self.rfg_out,
-            air_out=self.air_out,
-            Q=self.Q,
-            dT_subcooling=self.subcooling_part.dT_sco,
-            L2_desuperheating=self.L2_dsh,
-            L2_condensing=self.L2_cnd,
-            L2_subcooling=self.L2_sco,
-        )
+    def _get_eps(self) -> float:
+        T_cnd = self.condensing_part.rfg_sat_liq_out.T
+        eps = self.Q / (self.m_dot_air * CP_HUMID_AIR * (T_cnd - self.air_in.Tdb))
+        return eps
+
+    @property
+    def dT_sc(self) -> Quantity:
+        return self.subcooling_part.dT_sco
 
     def __call__(
         self,

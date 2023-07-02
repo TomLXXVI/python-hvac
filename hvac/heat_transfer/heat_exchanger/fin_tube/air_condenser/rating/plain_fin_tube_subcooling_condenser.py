@@ -67,6 +67,7 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         self.Rfg: Fluid | None = None
         self.P_rfg: Quantity | None = None
         self.dT_sco: Quantity | None = None
+        self.dP_air: Quantity | None = None
 
     def set_fixed_operating_conditions(
         self,
@@ -209,6 +210,7 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
                 self.dT_sco = self.rfg_sat_liq_in.T - T_rfg_out
                 self.Q = Q
                 self.eps = eps
+                self.dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
                 return self.rfg_out, self.air_out, self.Q, self.eps
             # if not, do next iteration
             eps = eps_new

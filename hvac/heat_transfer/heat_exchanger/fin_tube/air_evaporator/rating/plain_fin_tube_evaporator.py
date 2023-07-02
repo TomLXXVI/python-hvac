@@ -8,7 +8,7 @@ Q_ = Quantity
 
 Result = namedtuple(
     'Result',
-    ['m_dot_rfg', 'air_out', 'Q', 'dP_air', 'L2_superheat']
+    ['m_dot_rfg', 'rfg_out', 'air_out', 'Q', 'eps', 'dP_air', 'L2_superheat']
 )
 
 
@@ -78,11 +78,13 @@ class PlainFinTubeCounterFlowEvaporator:
         self.m_dot_air: Quantity | None = None
         self.rfg_in: FluidState | None = None
         self.dT_rfg_sh: Quantity | None = None
+        self.rfg_out: FluidState | None = None
         self.m_dot_rfg_ini: Quantity | None = None
 
         self.L2_superheat: Quantity | None = None
         self.air_out: HumidAir | None = None
         self.Q: Quantity | None = None
+        self.eps: float | None = None
         self.m_dot_rfg: Quantity | None = None
         self.dP_air: Quantity | None = None
 
@@ -168,8 +170,7 @@ class PlainFinTubeCounterFlowEvaporator:
             Q:
                 Heat transfer rate from air flow to refrigerant.
             dP_air:
-                Air-side pressure drop (only across the boiling region of the
-                evaporator)  TODO: add air-side pressure drop across super-heating region
+                Air-side pressure drop
             L2_superheat:
                 Flow length of superheated region.
         """
@@ -186,12 +187,14 @@ class PlainFinTubeCounterFlowEvaporator:
             if dev_m_dot_rfg <= tol_m_dot_rfg:
                 self.L2_superheat = L2_superheat
                 self.air_out = self.evp_boiling.air_out
+                self.rfg_out = self.evp_superheat.rfg_out
                 self.Q = self.evp_boiling.Q + self.evp_superheat.Q
+                self.eps = self._get_eps()
                 self.m_dot_rfg = m_dot_rfg_new
-                self.dP_air = self.evp_boiling.dP_air
+                self.dP_air = self.evp_boiling.dP_air + self.evp_superheat.dP_air
                 return Result(
-                    self.m_dot_rfg, self.air_out, self.Q,
-                    self.dP_air, self.L2_superheat
+                    self.m_dot_rfg, self.rfg_out, self.air_out, self.Q,
+                    self.eps, self.dP_air, self.L2_superheat
                 )
             m_dot_rfg = m_dot_rfg_new
             i += 1
@@ -201,6 +204,12 @@ class PlainFinTubeCounterFlowEvaporator:
                 "{tol_m_dot_rfg.to('kg / s'):~P} after {i_max} "
                 "iterations"
             )
+
+    def _get_eps(self) -> float:
+        air_sat_out = HumidAir(Tdb=self.rfg_in.T, RH=Q_(100, 'pct'))
+        Q_max = self.m_dot_air * (self.air_in.h - air_sat_out.h)
+        eps = self.Q / Q_max
+        return eps
 
     def __call__(
         self,

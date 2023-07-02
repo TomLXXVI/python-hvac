@@ -153,3 +153,16 @@ class PlainFinTubeCounterflowCondensingCondenser:
             raise ValueError(
                 "no acceptable solution found for condensing flow length"
             )
+
+    @property
+    def eps(self) -> float:
+        air_mean = self._hex_core.ext.fluid_mean
+        C_min = air_mean.cp * self._hex_core.m_dot_ext
+        Q_max = C_min * (self.rfg_sat_vap_in.T - self.air_in.Tdb)
+        eps = self.Q / Q_max
+        return eps
+
+    @property
+    def dP_air(self) -> Quantity:
+        dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        return dP_air

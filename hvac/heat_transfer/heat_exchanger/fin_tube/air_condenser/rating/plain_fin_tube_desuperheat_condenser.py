@@ -174,3 +174,19 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
             raise ValueError(
                 "no acceptable solution found for desuperheating flow length"
             )
+
+    @property
+    def eps(self) -> float:
+        rfg_mean = self._hex_core.int.fluid_mean
+        air_mean = self._hex_core.ext.fluid_mean
+        C_rfg = rfg_mean.cp * self._hex_core.m_dot_int
+        C_air = air_mean.cp * self._hex_core.m_dot_ext
+        C_min = min(C_rfg, C_air)
+        Q_max = C_min * (self.rfg_in.T - self.air_in.Tdb)
+        eps = self.Q / Q_max
+        return eps
+
+    @property
+    def dP_air(self) -> Quantity:
+        dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        return dP_air

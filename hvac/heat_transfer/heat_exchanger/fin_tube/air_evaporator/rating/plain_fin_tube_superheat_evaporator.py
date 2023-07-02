@@ -156,7 +156,12 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             dQ = cof_hex.Q - self.Q
             return dQ.to('W').m
 
-        L2 = root_scalar(eq, bracket=[0.01, L2_ini.to('m').m]).root
+        try:
+            L2 = root_scalar(eq, bracket=[0.01, L2_ini.to('m').m]).root
+        except ValueError:
+            raise ValueError(
+                'evaporator flow length too short to superheat vapor'
+            )
         return Q_(L2, 'm')
 
     def _determine_mean_fluid_states(self) -> tuple[HumidAir, FluidState]:
@@ -190,7 +195,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
                 # refrigerant has the smallest temperature change
                 T_rfg_m = (self.rfg_sat_in.T.to('K') + self.rfg_out.T.to('K')) / 2
                 DT_max = self.air_in.Tdb.to('K') - T_rfg_m
-                DT_min = self.air_out.Tdb.to('K') - T_rfg_m
+                DT_min = max(self.air_out.Tdb.to('K') - T_rfg_m, Q_(1.e-12, 'K'))
                 LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
                 T_air_m = T_rfg_m + LMTD
                 air_mean = HumidAir(Tdb=T_air_m, W=self.air_in.W)
@@ -200,9 +205,14 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
                 # air has the smallest temperature change
                 T_air_m = (self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2
                 DT_max = T_air_m - self.rfg_sat_in.T.to('K')
-                DT_min = T_air_m - self.rfg_out.T.to('K')
+                DT_min = max(T_air_m - self.rfg_out.T.to('K'), Q_(1.e-12, 'K'))
                 LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
                 T_rfg_m = T_air_m - LMTD
                 air_mean = HumidAir(Tdb=T_air_m, W=self.air_in.W)
                 rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
                 return air_mean, rfg_mean
+
+    @property
+    def dP_air(self) -> Quantity:
+        dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        return dP_air
