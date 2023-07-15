@@ -110,8 +110,8 @@ class TubeBankInside:
         Ratio of total heat transfer surface area to total volume of the heat
         exchanger [1 / m].
     L1: optional
-        Tube length in the direction of inside flow, i.e. the length of the
-        tube available for heat transfer with the outside flow [m].
+        Tube length in the direction of internal flow, i.e. the length of the
+        tube available for heat transfer with the external flow [m].
     L2: optional
         Length of the tube bank parallel to the direction of external flow
         [m].
@@ -630,7 +630,7 @@ class PlainFinInlineTBO(TubeBankOutside):
         manufacturing techniques, it may be the tube outside diameter or tube
         outside diameter plus two times the fin collar thickness [m].
     t_f:
-        Thickness of a circular fin [m].
+        Thickness of a plain fin [m].
     N_f:
         The number of fins per unit length [1/m]
     """

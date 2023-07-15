@@ -171,7 +171,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
             self._hex_core.ext.fluid_mean = air_mean
             self._hex_core.int.fluid_mean = rfg_mean
             self._hex_core.int.Q = Q  # this is needed for calculating h
-            cof_hex = CounterFlowHeatExchanger(
+            cof_hex = CounterFlowHeatExchanger(  # with wet external surface
                 m_dot_r=self._hex_core.m_dot_int,
                 m_dot_a=self._hex_core.m_dot_ext,
                 T_r_in=self.rfg_in.T,

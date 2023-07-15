@@ -13,8 +13,15 @@ Q_ = Quantity
 Result = namedtuple(
     'Result',
     [
-        'rfg_out', 'air_out', 'Q', 'eps', 'dP_air', 'dT_sc',
-        'L2_desuperheating', 'L2_condensing', 'L2_subcooling'
+        'rfg_out',
+        'air_out',
+        'Q',
+        'eps',
+        'dP_air',
+        'dT_sc',
+        'L2_desuperheating',
+        'L2_condensing',
+        'L2_subcooling'
     ]
 )
 
