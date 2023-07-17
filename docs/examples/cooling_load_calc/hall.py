@@ -1,3 +1,4 @@
+"""Cooling load calculation of an industrial hall."""
 from datetime import date
 import pandas as pd
 from hvac import Quantity
@@ -30,7 +31,7 @@ Q_ = Quantity
 class ConstructionAssemblies:
 
     @staticmethod
-    def create_ca_ext_wall_type1(
+    def create_ext_wall_type1(
         T_ext: Quantity,
         T_int: Quantity,
         T_asp: Quantity,
@@ -111,7 +112,7 @@ class ConstructionAssemblies:
         return ext_wall
 
     @staticmethod
-    def create_ca_ext_wall_type2(
+    def create_ext_wall_type2(
         T_ext: Quantity,
         T_int: Quantity,
         v_wind: Quantity,
@@ -127,7 +128,7 @@ class ConstructionAssemblies:
         )
         concrete_wall = BuildingComponent.create(
             ID='concrete_wall',
-            geometry=Geometry(t=Q_(14, 'mm')),
+            geometry=Geometry(t=Q_(14, 'cm')),
             material=Material(
                 k=Q_(1.19, 'W / (m * K)'),
                 rho=Q_(1700, 'kg / m ** 3'),
@@ -163,7 +164,7 @@ class ConstructionAssemblies:
         return ext_wall
 
     @staticmethod
-    def create_ca_roof_type1(
+    def create_roof(
         T_ext: Quantity,
         T_int: Quantity,
         v_wind: Quantity,
@@ -200,14 +201,14 @@ class ConstructionAssemblies:
         insulation.slices = 8
         concrete = BuildingComponent.create(
             ID='concrete',
-            geometry=Geometry(t=Q_(300, 'mm')),
+            geometry=Geometry(t=Q_(100, 'mm')),
             material=Material(
                 k=Q_(1.9, 'W / (m * K)'),
                 rho=Q_(2500, 'kg / m ** 3'),
                 c=Q_(840, 'J / (kg * K)')
             )
         )
-        concrete.slices = 15
+        concrete.slices = 10
         int_surf_film = SurfaceLayer.create(
             ID='int_surf_film',
             geometry=Geometry(),
@@ -227,7 +228,7 @@ class ConstructionAssemblies:
         return roof
 
     @staticmethod
-    def create_sky_light_props_type1() -> WindowThermalProperties:
+    def create_sky_light() -> WindowThermalProperties:
         sky_light_props = WindowThermalProperties(
             ID='sky_light_props',
             U=Q_(1.6, 'W / (m ** 2 * K)'),
@@ -245,7 +246,7 @@ class ConstructionAssemblies:
         return sky_light_props
 
 
-class IndustrialHall:
+class Hall:
 
     @staticmethod
     def add_north_wall(space: Space, ca: ConstructionAssembly) -> None:
@@ -298,13 +299,13 @@ class IndustrialHall:
             ID='sky_light_1',
             width=Q_(3, 'm'),
             height=Q_(10, 'm'),
-            therm_props=ConstructionAssemblies.create_sky_light_props_type1(),
+            therm_props=ConstructionAssemblies.create_sky_light(),
         )
         roof.add_window(
             ID='sky_light_2',
             width=Q_(3, 'm'),
             height=Q_(10, 'm'),
-            therm_props=ConstructionAssemblies.create_sky_light_props_type1(),
+            therm_props=ConstructionAssemblies.create_sky_light(),
         )
 
     @staticmethod
@@ -323,7 +324,7 @@ class IndustrialHall:
         T_setpoint_schedule: TemperatureSchedule,
         cooling_schedule: OnOffSchedule | None
     ) -> Space:
-        # create space, ventilation zone, building entity and building
+        # create space -> ventilation zone -> building entity -> building
         space = Space.create(
             ID='industrial_hall',
             height=Q_(6.0, 'm'),
@@ -344,21 +345,21 @@ class IndustrialHall:
         bu.add_building_entity(be)
 
         # create construction assemblies for the building elements of the space
-        ext_wall_type1 = ConstructionAssemblies.create_ca_ext_wall_type1(
+        # ext_wall_type1 = ConstructionAssemblies.create_ext_wall_type1(
+        #     T_ext=climate_data.Tdb_avg,
+        #     T_int=T_setpoint_schedule.base_value,
+        #     T_asp=Q_(32.2, 'degC'),
+        #     dT_asp=Q_(5.6, 'K'),
+        #     v_wind=Q_(3.4, 'm / s'),
+        #     t_ins=Q_(140, 'mm')
+        # )
+        ext_wall_type2 = ConstructionAssemblies.create_ext_wall_type2(
             T_ext=climate_data.Tdb_avg,
             T_int=T_setpoint_schedule.base_value,
-            T_asp=Q_(32.2, 'degC'),
-            dT_asp=Q_(5.6, 'K'),
             v_wind=Q_(3.4, 'm / s'),
             t_ins=Q_(140, 'mm')
         )
-        ext_wall_type2 = ConstructionAssemblies.create_ca_ext_wall_type2(
-            T_ext=climate_data.Tdb_avg,
-            T_int=T_setpoint_schedule.base_value,
-            v_wind=Q_(3.4, 'm / s'),
-            t_ins=Q_(140, 'mm')
-        )
-        roof = ConstructionAssemblies.create_ca_roof_type1(
+        roof = ConstructionAssemblies.create_roof(
             T_ext=climate_data.Tdb_avg,
             T_int=T_setpoint_schedule.base_value,
             v_wind=Q_(3.4, 'm / s'),
@@ -449,19 +450,19 @@ def main():
     )
 
     # define time schedule for space air temperature setpoint
-    T_setpoint_schedule = IndustrialHall.create_T_setpoint_schedule(
+    T_setpoint_schedule = Hall.create_T_setpoint_schedule(
         T_comfort=Q_(26.0, 'degC'),
         T_absence=Q_(26.0, 'degC')
     )
 
     # define time schedule for turning the cooling system on/off
-    # cooling_schedule = IndustrialHall.create_cooling_schedule()
+    # cooling_schedule = Hall.create_cooling_schedule()
 
     # create the internal heat gains
-    ihg_list = IndustrialHall.create_internal_heat_gains()
+    ihg_list = Hall.create_internal_heat_gains()
 
     # create the space
-    industrial_hall = IndustrialHall.create_building(
+    hall = Hall.create_building(
         climate_data=climate_data,
         internal_heat_gains=ihg_list,
         T_setpoint_schedule=T_setpoint_schedule,
@@ -469,12 +470,12 @@ def main():
     )
 
     # get the cooling loads on an hourly basis
-    Q_gains = industrial_hall.get_heat_gains(unit='kW')
+    Q_gains = hall.get_heat_gains(unit='kW')
     with pd.option_context('display.width', None):
         print(Q_gains)
 
     # show diagram of hourly cooling load and indoor air temperature
-    T_int_df = industrial_hall.get_space_air_temperatures()
+    T_int_df = hall.get_space_air_temperatures()
 
     chart = LineChart()
     chart.add_y2_axis()
@@ -495,7 +496,7 @@ def main():
     chart.y2.add_title('space air temperature, °C')
     chart.show()
 
-    Q_stor = industrial_hall.get_thermal_storage_heat_flows(Q_unit='kW')
+    Q_stor = hall.get_thermal_storage_heat_flows(Q_unit='kW')
     with pd.option_context('display.width', None):
         print(Q_stor)
 

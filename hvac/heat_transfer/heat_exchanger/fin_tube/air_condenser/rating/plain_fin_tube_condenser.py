@@ -237,11 +237,11 @@ class PlainFinTubeCounterFlowCondenser:
             T_air_in_dsh = T_air_in_cnd + self.condensing_part.dT_air
             air_in_dsh = HumidAir(Tdb=T_air_in_dsh, W=self.air_in.W)
             self.desuperheating_part.set_air_in(air_in_dsh)
-            if T_air_in_dsh > self.condensing_part.rfg_sat_vap_in.T:
-                raise ValueError(
-                    "Air temperature exceeds condenser temperature."
-                    "Raise condenser pressure."
-                )
+            # if T_air_in_dsh > self.condensing_part.rfg_sat_vap_in.T:
+            #     raise ValueError(
+            #         "Air temperature exceeds condenser temperature."
+            #         "Raise condenser pressure."
+            #     )
             # set the state of air leaving the condenser
             T_air_out = T_air_in_dsh + self.desuperheating_part.dT_air
             self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)

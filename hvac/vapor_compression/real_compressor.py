@@ -321,14 +321,16 @@ class FixedSpeedCompressor:
         """Returns a Pandas DataFrame with state properties at evaporator inlet, evaporator outlet
         condenser inlet and condenser outlet, assuming a standard vapor compression cycle without
         pressure losses."""
-        if units is None:
-            units = {
-                'T': 'degC',
-                'P': 'bar',
-                'rho': 'kg / m**3',
-                'h': 'kJ / kg',
-                's': 'kJ / kg / K'
-            }
+        units_ = {
+            'T': 'degC',
+            'P': 'bar',
+            'rho': 'kg / m**3',
+            'h': 'kJ / kg',
+            's': 'kJ / kg / K'
+        }
+        if units is not None:
+            units_.update(units)
+        units = units_
         columns = [
             f"T [{units['T']}]",
             f"P [{units['P']}]",

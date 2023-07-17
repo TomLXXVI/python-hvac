@@ -80,7 +80,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         air_in: HumidAir,
         m_dot_air: Quantity,
         Rfg: Fluid,
-        T_rfg_sat: Quantity,
+        P_rfg_sat: Quantity,
         dT_rfg_sh: Quantity
     ) -> None:
         """Sets the known operating conditions of the evaporator with refrigerant
@@ -94,8 +94,8 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             Mass flow rate of humid air (referred to mass of dry-air fraction).
         Rfg:
             Type of refrigerant.
-        T_rfg_sat:
-            Refrigerant saturation temperature (= evaporation temperature).
+        P_rfg_sat:
+            Refrigerant saturation pressure (= evaporation pressure).
         dT_rfg_sh:
             Degree of superheat (set on expansion device).
 
@@ -112,7 +112,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         self._hex_core.m_dot_ext = m_dot_air.to('kg / s')
         self.Rfg = Rfg
         # refrigerant state at the inlet of the superheated region = saturated vapor
-        self.rfg_sat_in = self.Rfg(T=T_rfg_sat, x=Q_(1.0, 'frac'))
+        self.rfg_sat_in = self.Rfg(P=P_rfg_sat, x=Q_(1.0, 'frac'))
         self._dT_rfg_sh = dT_rfg_sh.to('K')
         # determine refrigerant outlet state with known degree of superheat
         self.rfg_out = self.Rfg(
@@ -143,9 +143,6 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         # method `set_operating_conditions`).
         def eq(L2: float) -> float:
             self._hex_core.L2 = Q_(L2, 'm')
-            air_mean, rfg_mean = self._determine_mean_fluid_states()
-            self._hex_core.ext.fluid_mean = air_mean
-            self._hex_core.int.fluid_mean = rfg_mean
             cof_hex = CounterFlowHeatExchanger(
                 C_cold=rfg_mean.cp * self._hex_core.m_dot_int,
                 C_hot=air_mean.cp * self._hex_core.m_dot_ext,
@@ -156,6 +153,9 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             dQ = cof_hex.Q - self.Q
             return dQ.to('W').m
 
+        air_mean, rfg_mean = self._determine_mean_fluid_states()
+        self._hex_core.ext.fluid_mean = air_mean
+        self._hex_core.int.fluid_mean = rfg_mean
         try:
             L2 = root_scalar(eq, bracket=[1.e-6, L2_ini.to('m').m]).root
         except ValueError:

@@ -125,7 +125,7 @@ class PlainFinTubeCounterFlowEvaporator:
             air_in=self.air_in,
             m_dot_air=self.m_dot_air,
             Rfg=self.rfg_in.fluid,
-            T_rfg_sat=self.rfg_in.T,
+            P_rfg_sat=self.rfg_in.P,
             dT_rfg_sh=self.dT_rfg_sh
         )
         self.boiling_part.set_fixed_operating_conditions(

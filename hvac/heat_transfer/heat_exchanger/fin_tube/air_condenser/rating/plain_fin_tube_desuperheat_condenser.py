@@ -144,11 +144,16 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
         the inlet state to the saturated vapor state.
         """
         def _get_new_flow_length(A_int: Quantity) -> Quantity:
-            k1 = self._hex_core.int.geo.L3 / self._hex_core.int.geo.S_t
-            k2 = A_int / (np.pi * self._hex_core.int.geo.D_i * self._hex_core.int.geo.L1)
-            n = 2 * k2 - 1
-            d = 2 * k1 - 1
-            L2 = (n / d) * self._hex_core.int.geo.S_l
+            # k1 = self._hex_core.int.geo.L3 / self._hex_core.int.geo.S_t
+            # k2 = A_int / (np.pi * self._hex_core.int.geo.D_i * self._hex_core.int.geo.L1)
+            # n = 2 * k2 - 1
+            # d = 2 * k1 - 1
+            # L2 = (n / d) * self._hex_core.int.geo.S_l
+            n = A_int / (np.pi * self._hex_core.int.geo.D_i * self._hex_core.int.geo.L1)
+            n -= 0.5
+            d = self._hex_core.int.geo.L3 / (self._hex_core.int.geo.S_t * self._hex_core.int.geo.S_l)
+            d -= 1 / (2 * self._hex_core.int.geo.S_l)
+            L2 = n / d
             return L2.to('m')
 
         L2 = L2_ini.to('m')

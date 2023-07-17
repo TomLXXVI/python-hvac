@@ -122,10 +122,8 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         i_max: int = 10,
         tol_m_dot_rfg: Quantity = Q_(0.1, 'kg / s'),
     ) -> tuple[Quantity, HumidAir, Quantity, Quantity]:
-        """Determines by iteration the mass flow rate of refrigerant that is
-        needed to get saturated refrigerant vapor at the outlet of the
-        evaporator with known geometrical characteristics and core dimensions
-        under the given operating conditions.
+        """Determines by iteration the mass flow rate of refrigerant needed to
+        get saturated refrigerant vapor at the outlet of the evaporator.
 
         Parameters
         ----------
