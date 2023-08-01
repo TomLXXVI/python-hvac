@@ -1,5 +1,6 @@
 from math import pi as PI
 from abc import ABC, abstractmethod
+from scipy import optimize
 from hvac import Quantity
 from hvac.fluids import Fluid, FluidState, HumidAir
 from hvac.heat_transfer.forced_convection import internal_flow
@@ -219,23 +220,8 @@ class PlainFinTubeHeatExchangerCore:
     def T_wall(self) -> Quantity:
         """Gets average wall temperature of tubes."""
         if self._T_wall is None:
-            if isinstance(self.ext.fluid_mean, HumidAir):
-                T_fluid_ext = self.ext.fluid_mean.Tdb.to('K')
-            else:
-                T_fluid_ext = self.ext.fluid_mean.T.to('K')
-            T_fluid_min = min(
-                self.int.fluid_mean.T.to('K'),
-                T_fluid_ext
-            )
-            T_fluid_max = max(
-                self.int.fluid_mean.T.to('K'),
-                T_fluid_ext
-            )
-            T_w = (T_fluid_min + T_fluid_max) / 2
-            i_max = 5
-            i = 0
-            tol_T_w = Q_(0.01, 'K')
-            while i < i_max:
+            def _eq(T_w: float) -> float:
+                T_w = Q_(T_w, 'K')
                 if isinstance(self.int, _InternalBoilingHeatTransferSurface):
                     h_int = self.int.h
                 else:
@@ -244,14 +230,23 @@ class PlainFinTubeHeatExchangerCore:
                 h_ext = self.ext.get_heat_trf_coeff(T_w)
                 eta_ext = self.ext.get_eta(h_ext)
                 T_w_new = self._get_wall_temperature(h_int, h_ext, eta_ext)
-                dev_T_w = abs(T_w_new - T_w)
-                if dev_T_w <= tol_T_w:
-                    self._T_wall = T_w_new
-                    break
-                T_w = T_w_new
-                i += 1
+                dev = T_w_new.to('K') - T_w.to('K')
+                return dev.m
+
+            if isinstance(self.ext.fluid_mean, HumidAir):
+                T_fluid_ext = self.ext.fluid_mean.Tdb.to('K')
             else:
-                raise ValueError('no solution found for wall temperature')
+                T_fluid_ext = self.ext.fluid_mean.T.to('K')
+            T_fluid_min = min(
+                self.int.fluid_mean.T.to('K'),
+                T_fluid_ext
+            ).m + 0.01
+            T_fluid_max = max(
+                self.int.fluid_mean.T.to('K'),
+                T_fluid_ext
+            ).m - 0.01
+            sol = optimize.root_scalar(_eq, bracket=[T_fluid_min, T_fluid_max])
+            self._T_wall = Q_(sol.root, 'K')
         return self._T_wall
 
     @property

@@ -1,4 +1,4 @@
-"""Cooling load calculation of an industrial hall."""
+"""Cooling load calculation of an exposition hall."""
 from datetime import date
 import pandas as pd
 from hvac import Quantity
@@ -335,13 +335,13 @@ class Hall:
             cooling_schedule=cooling_schedule
         )
         vz = VentilationZone.create(
-            ID='industrial_hall'
+            ID='exposition_hall'
         )
         vz.add_space(space)
         space.add_ventilation(vz)
-        be = BuildingEntity.create(ID='industrial_hall')
+        be = BuildingEntity.create(ID='exposition_hall')
         be.add_ventilation_zone(vz)
-        bu = Building.create(ID='industrial_hall')
+        bu = Building.create(ID='exposition_hall')
         bu.add_building_entity(be)
 
         # create construction assemblies for the building elements of the space

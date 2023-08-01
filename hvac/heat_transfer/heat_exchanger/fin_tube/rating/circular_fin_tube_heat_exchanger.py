@@ -40,7 +40,7 @@ Q_ = Quantity
 
 class CircularFinTubeCrossFlowHeatExchanger:
     """Represent a single-pass, staggered, fin-tube heat exchanger with
-    equilateral triangular pitch and circular fins in a crossflow arrangement.
+    equilateral triangular pitch and circular fins in a cross-flow arrangement.
 
     Parameters
     ----------

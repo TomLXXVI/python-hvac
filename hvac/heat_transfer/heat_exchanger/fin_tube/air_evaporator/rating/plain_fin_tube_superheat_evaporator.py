@@ -72,7 +72,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         self.Rfg: Fluid | None = None
         self._dT_rfg_sh: Quantity | None = None
         self.rfg_out: FluidState | None = None
-        self.Q: Quantity | None = None
+        self.Q_dot: Quantity | None = None
         self.air_out: HumidAir | None = None
 
     def set_fixed_operating_conditions(
@@ -105,30 +105,32 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         inlet it is saturated vapor. Only the saturation temperature must be
         specified to fix the state of saturated vapor (vapor quality = 100 %).
         At the outlet the state of the refrigerant is fixed by the given degree
-        of superheat, while assuming that the evaporation pressure remains
-        constant throughout the evaporator.
+        of superheat, assuming that the evaporation pressure remains constant
+        throughout the evaporator.
         """
+        self.Q_dot = None
+        self.air_out = None
         self.air_in = air_in
         self._hex_core.m_dot_ext = m_dot_air.to('kg / s')
         self.Rfg = Rfg
-        # refrigerant state at the inlet of the superheated region = saturated vapor
+        # Refrigerant state at the inlet of the superheated region = saturated vapor
         self.rfg_sat_in = self.Rfg(P=P_rfg_sat, x=Q_(1.0, 'frac'))
         self._dT_rfg_sh = dT_rfg_sh.to('K')
-        # determine refrigerant outlet state with known degree of superheat
+        # Determine refrigerant outlet state with known degree of superheat:
         self.rfg_out = self.Rfg(
             T=self.rfg_sat_in.T.to('K') + self._dT_rfg_sh,
             P=self.rfg_sat_in.P  # ignore any pressure drop on refrigerant side
         )
 
     def set_mass_flow_rate_refrigerant(self, m_dot_rfg: Quantity) -> None:
-        """Set the provisional mass flow rate of refrigerant through the
+        """Sets the provisional mass flow rate of refrigerant through the
         superheated region of the evaporator.
         """
         self._hex_core.m_dot_int = m_dot_rfg.to('kg / s')
-        # determine heat transfer rate in superheated region of evaporator
-        self.Q = self._hex_core.m_dot_int * (self.rfg_out.h - self.rfg_sat_in.h)
-        # determine air outlet state
-        h_a_out = self.air_in.h - self.Q / self._hex_core.m_dot_ext
+        # Determine heat transfer rate in superheated region of evaporator:
+        self.Q_dot = self._hex_core.m_dot_int * (self.rfg_out.h - self.rfg_sat_in.h)
+        # Determine air outlet state:
+        h_a_out = self.air_in.h - self.Q_dot / self._hex_core.m_dot_ext
         W_a_out = self.air_in.W  # assume heat transfer is only sensible: humidity ratio = constant
         self.air_out = HumidAir(h=h_a_out, W=W_a_out)
 
@@ -137,7 +139,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         refrigerant from saturated vapor to the given degree of superheat,
         knowing the mass flow rate of refrigerant.
         """
-        # Find the flow length for which the heat transfer rate equals the
+        # Finds the flow length for which the heat transfer rate equals the
         # heat transfer rate that follows from the fixed refrigerant inlet
         # and outlet states and the mass flow rate of refrigerant (see
         # method `set_operating_conditions`).
@@ -150,7 +152,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
                 T_hot_in=self.air_in.Tdb,
                 UA=self._hex_core.UA
             )
-            dQ = cof_hex.Q - self.Q
+            dQ = cof_hex.Q - self.Q_dot
             return dQ.to('W').m
 
         air_mean, rfg_mean = self._determine_mean_fluid_states()
@@ -160,30 +162,30 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             L2 = root_scalar(eq, bracket=[1.e-6, L2_ini.to('m').m]).root
         except ValueError:
             raise ValueError(
-                "evaporator flow length too short to superheat vapor"
+                "Unable to reach set degree of superheat."
             )
         return Q_(L2, 'm')
 
     def _determine_mean_fluid_states(self) -> tuple[HumidAir, FluidState]:
-        # determine specific heat of air
+        # Determine specific heat of air:
         air_avg = HumidAir(
             Tdb=(self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2,
             W=self.air_in.W
         )
         cp_air = air_avg.cp
-        # determine specific heat of refrigerant
+        # Determine specific heat of refrigerant:
         rfg_avg = self.Rfg(
             T=(self.rfg_sat_in.T + self.rfg_out.T) / 2,
             P=self.rfg_sat_in.P
         )
         cp_rfg = rfg_avg.cp
-        # determine capacitance rates
+        # Determine capacitance rates:
         C_air = cp_air * self._hex_core.m_dot_ext
         C_rfg = cp_rfg * self._hex_core.m_dot_int
         C_max = max(C_air, C_rfg)
         C_min = min(C_air, C_rfg)
         C_r = C_min / C_max
-        # determine mean air and mean refrigerant states
+        # Determine mean air and mean refrigerant states:
         if C_r >= 0.5:
             T_air_m = (self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2
             T_rfg_m = (self.rfg_sat_in.T.to('K') + self.rfg_out.T.to('K')) / 2
@@ -192,7 +194,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             return air_mean, rfg_mean
         else:
             if C_max == C_rfg:
-                # refrigerant has the smallest temperature change
+                # Refrigerant has the smallest temperature change.
                 T_rfg_m = (self.rfg_sat_in.T.to('K') + self.rfg_out.T.to('K')) / 2
                 DT_max = self.air_in.Tdb.to('K') - T_rfg_m
                 DT_min = max(self.air_out.Tdb.to('K') - T_rfg_m, Q_(1.e-12, 'K'))
@@ -202,7 +204,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
                 rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
                 return air_mean, rfg_mean
             else:  # C_max == C_air
-                # air has the smallest temperature change
+                # Air has the smallest temperature change.
                 T_air_m = (self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2
                 DT_max = T_air_m - self.rfg_sat_in.T.to('K')
                 DT_min = max(T_air_m - self.rfg_out.T.to('K'), Q_(1.e-12, 'K'))
@@ -214,5 +216,8 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
 
     @property
     def dP_air(self) -> Quantity:
+        """Returns air-side pressure drop across superheating region of
+        evaporator.
+        """
         dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
         return dP_air

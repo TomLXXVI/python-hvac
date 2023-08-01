@@ -62,12 +62,10 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         self.air_out: HumidAir | None = None
         self.rfg_sat_liq_in: FluidState | None = None
         self.rfg_out: FluidState | None = None
-        self.Q: Quantity | None = None
+        self.Q_dot: Quantity | None = None
         self.eps: float | None = None
         self.Rfg: Fluid | None = None
         self.P_rfg: Quantity | None = None
-        self.dT_sco: Quantity | None = None
-        self.dP_air: Quantity | None = None
 
     def set_fixed_operating_conditions(
         self,
@@ -77,8 +75,8 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         P_rfg: Quantity,
         m_dot_rfg: Quantity
     ) -> None:
-        """Sets the fixed operating conditions on the subcooling region of
-        the condenser.
+        """Sets the known, fixed operating conditions on the subcooling region
+        of the condenser.
 
         Parameters
         ----------
@@ -97,6 +95,10 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         -------
         None
         """
+        self.air_out = None
+        self.rfg_out = None
+        self.Q_dot = None
+        self.eps = None
         self._hex_core.m_dot_ext = m_dot_air
         self._hex_core.m_dot_int = m_dot_rfg
         self.air_in = air_in
@@ -125,7 +127,7 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
             return rfg_mean, air_mean
         else:
             if C_max == C_rfg:
-                # refrigerant has the smallest temperature change
+                # Refrigerant has the smallest temperature change.
                 T_rfg_mean = (self.rfg_sat_liq_in.T.to('K') + T_rfg_out.to('K')) / 2
                 DT_max = T_rfg_mean - self.air_in.Tdb.to('K')
                 DT_min = max(Q_(1.e-12, 'K'), T_rfg_mean - T_air_out.to('K'))
@@ -135,7 +137,7 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
                 air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
                 return rfg_mean, air_mean
             else:  # C_max == C_ext
-                # air has the smallest temperature change
+                # Air has the smallest temperature change.
                 T_air_mean = (self.air_in.Tdb.to('K') + T_air_out.to('K')) / 2
                 DT_max = self.rfg_sat_liq_in.T.to('K') - T_air_mean
                 DT_min = max(Q_(1.e-12, 'K'), T_rfg_out.to('K') - T_air_mean)
@@ -145,47 +147,65 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
                 air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
                 return rfg_mean, air_mean
 
-    def solve(self, L2: Quantity, i_max: int = 10, tol_eps: float = 0.01):
-        """Determines by iteration the heat transfer performance of the
+    def solve(self, L2: Quantity, i_max: int = 100, tol: float = 0.01) -> None:
+        """Solves for the heat transfer performance of the
         subcooling part of the condenser for a given flow length L2 of the
         subcooling part.
 
+        Parameters
+        ----------
+        L2:
+            Flow length of subcooling part.
+        i_max:
+            Maximum number of iterations.
+        tol:
+            Acceptable deviation between last and previous calculated value
+            of the heat transfer effectiveness `eps` of the condensing part.
+
         Returns
         -------
-        rfg_out:
-            State of refrigerant at outlet of condenser.
-        air_out:
-            State of air at outlet of subcooling part = inlet of condensing
-            part.
-        Q:
-            Heat transfer rate in subcooling part.
-        eps:
-            Heat transfer effectiveness of subcooling part.
+        None
         """
         self._hex_core.L2 = L2
-        # guess specific heats of air and refrigerant
+        # Guess specific heats of air and refrigerant:
         cp_air = CP_HUMID_AIR
         cp_rfg = self.rfg_sat_liq_in.cp
-        # calculate capacitance rates
+        # Calculate capacitance rates:
         C_air = cp_air * self._hex_core.m_dot_ext
         C_rfg = cp_rfg * self._hex_core.m_dot_int
         C_min = min(C_air, C_rfg)
-        # guess a value of the heat transfer effectiveness
-        eps = 0.75
-        # calculate heat transfer rate and outlet states of air and refrigerant
-        Q = eps * C_min * (self.rfg_sat_liq_in.T - self.air_in.Tdb)
-        T_air_out = min(self.air_in.Tdb + Q / C_air, self.rfg_sat_liq_in.T)
-        T_rfg_out = max(self.rfg_sat_liq_in.T - Q / C_rfg, self.air_in.Tdb)
-        i = 0
-        while i < i_max:
-            # calculate the mean state of air and refrigerant between inlet and
-            # outlet of subcooling region
-            rfg_mean, air_mean = self._get_mean_fluid_states(T_rfg_out, T_air_out, C_rfg, C_air)
-            # update heat exchanger core with mean states for calculating overall
-            # conductance
+        # Guess initial value for the heat transfer effectiveness:
+        self.eps = 0.75
+        # Calculate heat transfer rate:
+        Q_max = C_min * (self.rfg_sat_liq_in.T - self.air_in.Tdb)
+        self.Q_dot = self.eps * Q_max
+        # Calculate state of leaving air and leaving refrigerant:
+        T_air_out = self.air_in.Tdb + self.Q_dot / C_air
+        T_rfg_out = self.rfg_sat_liq_in.T - self.Q_dot / C_rfg
+        if T_air_out > self.rfg_sat_liq_in.T:
+            T_air_out = self.rfg_sat_liq_in.T
+            self.Q_dot = C_air * (T_air_out - self.air_in.Tdb)
+            self.eps = self.Q_dot / Q_max
+            T_rfg_out = self.rfg_sat_liq_in.T - self.Q_dot / C_rfg
+        if T_rfg_out < self.air_in.Tdb:
+            T_rfg_out = self.air_in.Tdb
+            self.Q_dot = C_rfg * (self.rfg_sat_liq_in.T - T_rfg_out)
+            T_air_out = self.air_in.Tdb + self.Q_dot / C_air
+            self.eps = self.Q_dot / Q_max
+        self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
+        self.rfg_out = self.Rfg(T=T_rfg_out, P=self.P_rfg)
+        for i in range(i_max):
+            # Calculate mean state of air and refrigerant between inlet and
+            # outlet of subcooling region:
+            rfg_mean, air_mean = self._get_mean_fluid_states(
+                T_rfg_out, T_air_out,
+                C_rfg, C_air
+            )
+            # Update heat exchanger core with mean states for calculating
+            # the overall heat transfer conductance:
             self._hex_core.int.fluid_mean = rfg_mean
             self._hex_core.ext.fluid_mean = air_mean
-            # solve the heat exchanger equations
+            # Solve heat exchanger equation:
             cof_hex = CounterFlowHeatExchanger(
                 C_cold=C_air,
                 C_hot=C_rfg,
@@ -193,29 +213,34 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
                 T_hot_in=self.rfg_sat_liq_in.T,
                 UA=self._hex_core.UA
             )
-            # get new value for effectiveness and heat transfer rate
+            # Get new value for heat transfer effectiveness:
             eps_new = cof_hex.eps
-            Q = cof_hex.Q
-            # get new values for the outlet state of air and refrigerant
+            # Get new value for heat transfer rate:
+            self.Q_dot = cof_hex.Q
+            # Calculate state of leaving air and leaving refrigerant:
             T_air_out = cof_hex.T_cold_out
             T_rfg_out = cof_hex.T_hot_out
-            # recalculate the capacitance rates
-            C_air = Q / (T_air_out - self.air_in.Tdb)
-            C_rfg = Q / (self.rfg_sat_liq_in.T - T_rfg_out)
-            # check if the change of effectiveness has become small enough
-            dev_eps = abs(eps_new - eps)
-            if dev_eps <= tol_eps:
-                self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
-                self.rfg_out = self.Rfg(T=T_rfg_out, P=self.P_rfg)
-                self.dT_sco = self.rfg_sat_liq_in.T - T_rfg_out
-                self.Q = Q
-                self.eps = eps
-                self.dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
-                return self.rfg_out, self.air_out, self.Q, self.eps
-            # if not, do next iteration
-            eps = eps_new
-            i += 1
+            self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
+            self.rfg_out = self.Rfg(T=T_rfg_out, P=self.P_rfg)
+            # Recalculate capacitance rates:
+            C_air = self.Q_dot / (T_air_out - self.air_in.Tdb)
+            C_rfg = self.Q_dot / (self.rfg_sat_liq_in.T - T_rfg_out)
+            # Check if deviation between new and previous value is small enough:
+            if abs(eps_new - self.eps) <= tol:
+                return
+            # otherwise, repeat loop with new value
+            self.eps = eps_new
         else:
             raise ValueError(
-                f'no acceptable solution found after {i_max} iterations'
+                f'No acceptable solution found after {i_max} iterations.'
             )
+
+    @property
+    def dP_air(self) -> Quantity:
+        """Air-side pressure drop across condensing part of condenser."""
+        return self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+
+    @property
+    def dT_sc(self) -> Quantity:
+        """Degree of subcooling of refrigerant leaving condenser."""
+        return self.rfg_sat_liq_in.T - self.rfg_out.T

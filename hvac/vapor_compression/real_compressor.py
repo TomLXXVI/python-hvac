@@ -139,8 +139,8 @@ class FixedSpeedCompressor:
         self,
         coeff_file: Path,
         refrigerant_type: Fluid,
-        dT_sh: Quantity | None = None,
-        dT_sc: Quantity | None = None,
+        dT_sh: Quantity = Q_(0, 'K'),
+        dT_sc: Quantity = Q_(0, 'K'),
         units: Dict[str, str] | None = None
     ) -> None:
         """
@@ -174,10 +174,10 @@ class FixedSpeedCompressor:
     def _set_correlations(self, coeff_file: Path):
         # create a dictionary to hold the `Correlation`-object for each of the
         # possible quantities (`Qc_dot`, `Wc_dot`, `m_dot`, `T_dis`).
-        self._correlations = {}
+        self.correlations = {}
         for param in self.params:
             try:
-                self._correlations[param] = FixedSpeedCorrelation(param, coeff_file)
+                self.correlations[param] = FixedSpeedCorrelation(param, coeff_file)
             except KeyError:
                 pass
 
@@ -213,27 +213,29 @@ class FixedSpeedCompressor:
     def Qc_dot(self) -> Quantity:
         """Get cooling capacity at the set evaporator temperature and condenser
         temperature."""
-        Qc_dot = self._correlations['Qc_dot'](self._Te, self._Tc)
+        Qc_dot = self.correlations['Qc_dot'](self._Te, self._Tc)
         return Q_(Qc_dot, self.units['Qc_dot'])
+        # Qc_dot = self.m_dot * (self.suction_gas.h - self.mixture.h)
+        # return Qc_dot
 
     @property
     def Wc_dot(self) -> Quantity:
         """Get compressor input power at the set evaporator temperature and
         condenser temperature."""
-        Wc_dot = self._correlations['Wc_dot'](self._Te, self._Tc)
+        Wc_dot = self.correlations['Wc_dot'](self._Te, self._Tc)
         return Q_(Wc_dot, self.units['Wc_dot'])
 
     @property
     def m_dot(self) -> Quantity:
         """Get mass flow rate at the set evaporator temperature and condenser
         temperature."""
-        m_dot = self._correlations['m_dot'](self._Te, self._Tc)
+        m_dot = self.correlations['m_dot'](self._Te, self._Tc)
         return Q_(m_dot, self.units['m_dot'])
 
     @property
     def T_dis(self) -> Quantity:
         """Get discharge temperature at condenser entrance."""
-        T_dis = self._correlations['T_dis'](self._Te, self._Tc)
+        T_dis = self.correlations['T_dis'](self._Te, self._Tc)
         return Q_(T_dis, 'degC')
 
     @property
@@ -244,7 +246,7 @@ class FixedSpeedCompressor:
     @property
     def suction_gas(self) -> FluidState:
         """Get state of suction gas at evaporator exit."""
-        if self.dT_sh == 0:
+        if self.dT_sh.m == 0:
             suction_gas = self.refrigerant_type(T=self.Te, x=Q_(100, 'pct'))
         else:
             P_eva = self.refrigerant_type(T=self.Te, x=Q_(100, 'pct')).P
@@ -364,8 +366,8 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
         self,
         coeff_file: Path,
         refrigerant_type: Fluid,
-        dT_sh: Quantity | None = None,
-        dT_sc: Quantity | None = None,
+        dT_sh: Quantity = Q_(0, 'K'),
+        dT_sc: Quantity = Q_(0, 'K'),
         units: Dict[str, str] | None = None
     ) -> None:
         """
@@ -391,10 +393,10 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
     def _set_correlations(self, coeff_file: Path):
         # create a dictionary to hold the `Correlation`-object for each of the
         # possible quantities (`Qc_dot`, `Wc_dot` and `m_dot`).
-        self._correlations = {}
+        self.correlations = {}
         for param in self.params:
             try:
-                self._correlations[param] = VariableSpeedCorrelation(param, coeff_file)
+                self.correlations[param] = VariableSpeedCorrelation(param, coeff_file)
             except KeyError:
                 pass
 
@@ -411,14 +413,16 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
     def Qc_dot(self) -> Quantity:
         """Get cooling capacity at the set evaporator temperature, condenser
         temperature, and compressor speed."""
-        Qc_dot = self._correlations['Qc_dot'](self._Te, self._Tc, self._speed)
+        Qc_dot = self.correlations['Qc_dot'](self._Te, self._Tc, self._speed)
         return Q_(Qc_dot, self.units['Qc_dot'])
+        # Qc_dot = self.m_dot * (self.suction_gas.h - self.mixture.h)
+        # return Qc_dot
 
     @property
     def Wc_dot(self) -> Quantity:
         """Get compressor input power at the set evaporator temperature, condenser
         temperature, and compressor speed."""
-        Wc_dot = self._correlations['Wc_dot'](self._Te, self._Tc, self._speed)
+        Wc_dot = self.correlations['Wc_dot'](self._Te, self._Tc, self._speed)
         return Q_(Wc_dot, self.units['Wc_dot'])
 
     @property
@@ -426,7 +430,7 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
         """Get mass flow rate at the set evaporator temperature, condenser
         temperature, and compressor speed."""
         try:
-            m_dot = self._correlations['m_dot'](self._Te, self._Tc, self._speed)
+            m_dot = self.correlations['m_dot'](self._Te, self._Tc, self._speed)
             return Q_(m_dot, self.units['m_dot'])
         except KeyError:
             q_re = self.suction_gas.h - self.liquid.h
@@ -437,7 +441,7 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
     def T_dis(self) -> Quantity:
         """Get discharge temperature at the set evaporator temperature, condenser
         temperature, and compressor speed."""
-        T_dis = self._correlations['T_dis'](self._Te, self._Tc, self._speed)
+        T_dis = self.correlations['T_dis'](self._Te, self._Tc, self._speed)
         return Q_(T_dis, 'degC')
 
     def get_compressor_speed(self, Qc_dot: Quantity) -> Quantity:
@@ -449,7 +453,7 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
         def eq(unknowns: np.ndarray) -> np.ndarray:
             speed = unknowns[0]
             lhs = _Qc_dot
-            rhs = self._correlations['Qc_dot'](self._Te, self._Tc, speed)
+            rhs = self.correlations['Qc_dot'](self._Te, self._Tc, speed)
             out = lhs - rhs
             return np.array([out])
 

@@ -1,4 +1,4 @@
-# Rating of an air condenser
+# Description of rating algorithm for an air condenser
 
 Source code:
 
@@ -10,7 +10,7 @@ Example:
 
 ---
 
-The air condenser is modeled as a **plain fin-tube, counterflow heat exchanger** and is characterized by the following parameters:
+The air condenser is modeled as a **plain fin-tube, counter-flow heat exchanger** and is characterized by the following parameters:
 
 - the width of the heat exchanger core or length of the tubes
 - the height of the heat exchanger core
@@ -38,7 +38,7 @@ The operation of the condenser depends on:
 - the state of refrigerant at the inlet of the condenser
 - the mass flow rate of refrigerant through the condenser
 
-To fully determine the operation of the condenser, we start at the subcooling region of the condenser. The solving process is based on a root finding algorithm. The aim is to find the flow lengths of the subcooling, condensing, and desuperheating regions of the condenser, such that the sum of these flow lengths equals the total flow length of the condenser, i.e. the difference between the sum of these three flow lengths and the actual, total flow length of the condenser must be zero. The algorithm searches between a minimum and maximum value for the subcooling flow length. The maximum value can certainly not be larger than the actual flow length of the condenser; the minimum value is the smallest subcooling flow length for which the heat transfer characteristics of the subcooling region can be solved. When a solution is found for the subcooling region, the inlet and outlet states of air at the condensing and desuperheating regions can be determined. It is then, for the given mass flow rate of refrigerant and air, also possible to find the condensing flow length needed to condense the refrigerant from saturated vapor to saturated liquid and the desuperheating flow length needed to desuperheat the compressed refrigerant vapor to saturated vapor. The root finding algorithm will first check the difference at the minimum value and at the maximum value. If the solutions have a different sign, it means that somewhere between the minimum and maximum value for the subcooling flow length, a solution exists for which the difference between the sum of the three flow lengths and the actual, total flow length of the condenser will be equal to zero.
+To fully determine the operation of the condenser, we start at the subcooling region of the condenser. The solving process is based on a root finding algorithm. The aim is to find the flow lengths of the subcooling, the condensing, and the desuperheating region of the condenser, such that the sum of these flow lengths equals the total flow length of the condenser, i.e. the difference between the sum of these three flow lengths and the actual, total flow length of the condenser must be (nearly) zero. The algorithm starts with an initial guess for the subcooling flow length. When a solution is found for the subcooling region, the inlet and outlet states of air at the condensing and desuperheating regions can be determined. It is then, for the given mass flow rate of refrigerant and air, also possible to find the condensing flow length, needed to condense the refrigerant from saturated vapor into saturated liquid, and the desuperheating flow length, needed for desuperheating the hot, compressed refrigerant vapor entering the condenser into saturated vapor. If no solution can be found based on the assumption that subcooling of refrigerant happens in the condenser, the solving routine will set the subcooling flow length to zero and will continue to try to find the flow lengths of only the condensing and the desuperheating region of the condenser such that the sum of these flow lengths equals the total flow length of the condenser. If again no solution can be found, an error is raised to signal that the condenser cannot be rated under the given set of operating conditions.
 
 ## Subcooling Region
 
@@ -52,9 +52,9 @@ The state of refrigerant at the inlet of the subcooling region is known. It is s
 
 4. With the known inlet states of air and refrigerant, the calculated outlet temperatures and capacitance rates, the mean state of air and refrigerant across the subcooling region can be determined.
 
-5. Based on the current value for the subcooling flow length, the mass flow rates and the mean states of air and refrigerant, the overall heat transfer conductance of the subcooling region can be determined.
+5. Based on the current value for the subcooling flow length, the mass flow rates and the mean states of air and refrigerant, the overall heat transfer conductance of the heat exchanger core for the subcooling region can be determined.
 
-6. Using the effectiveness-NTU method, the heat transfer characteristics of the subcooling region can be determined: a new value for the heat transfer effectiveness, the heat transfer rate and the outlet temperatures of air and refrigerant.
+6. Using the effectiveness-NTU method, the heat transfer characteristics across the subcooling region can be determined which leads to a new value for the heat transfer effectiveness, the heat transfer rate and the outlet temperatures of air and refrigerant.
 7. With the new heat transfer rate and outlet temperatures, the capacitance rates of air and refrigerant can be recalculated.
 8. Steps 4 to 7 are repeated until the difference between the last and previous calculated value of the heat transfer effectiveness becomes small enough (the difference is equal or smaller than the accepted tolerance). 
 
@@ -64,7 +64,7 @@ The state of refrigerant at the inlet and at the outlet of the condensing region
 
 After the subcooling region has been solved, we know the state of air entering the condensing region. As the temperature rise of air across the condensing region is already determined, and as the humidity ratio of air across the condenser remains constant and equal to the known humidity ratio of air at the condenser inlet, we can also determine the state of air leaving the condensing region and entering the desuperheating region. This allows to determine the mean state of air and refrigerant across the condensing region.
 
-Now, the flow length of the condensing region can be determined such that for the given mass flow rate of refrigerant the refrigerant has been transformed from saturated vapor to saturated liquid. Again this is done with an iterative solution technique:
+Now, the required flow length of the condensing region can be determined, so that for the given mass flow rate of refrigerant, the refrigerant has been transformed from saturated vapor into saturated liquid. Again this is done with an iterative solution technique:
 
 1. An initial value for the condensing flow length is guessed.
 2. The internal (refrigerant-side) convection heat transfer coefficient and the mean wall temperature are determined.
@@ -75,5 +75,5 @@ Now, the flow length of the condensing region can be determined such that for th
 
 ## Desuperheating Region
 
-The same procedure as for the condensing region can be followed. The state of refrigerant at the inlet and at the outlet of the desuperheating region are already known from the start. At the outlet the refrigerant must be saturated vapor (vapor quality 100 %). So, as in the case of the condensing region, the heat transfer rate and temperature rise of air across the desuperheating region can be immediately solved for. Consequently, the state of air leaving the condenser is now also determined, as the state of air entering the desuperheating region has already been determined when solving for the condensing region. Again, the mean state of air and refrigerant across the desuperheating region are determined and the flow length of the desuperheating region is calculated by iteration.
+The same procedure as for the condensing region can be followed. The state of refrigerant at the inlet and at the outlet of the desuperheating region are already known from the start. At the outlet the refrigerant must be saturated vapor (vapor quality 100 %). So, as in the case of the condensing region, the heat transfer rate and temperature rise of air across the desuperheating region can be immediately solved for. Consequently, the state of air leaving the condenser is now also determined, as the state of air entering the desuperheating region has already been determined when solving for the condensing region. Again, the mean state of air and refrigerant across the desuperheating region are determined and the required flow length of the desuperheating region is calculated by iteration.
 

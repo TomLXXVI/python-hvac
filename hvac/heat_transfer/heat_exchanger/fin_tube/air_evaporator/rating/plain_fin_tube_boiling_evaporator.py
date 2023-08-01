@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import optimize
 from hvac import Quantity
 from hvac.fluids import HumidAir, FluidState, Fluid
 from hvac.heat_transfer.heat_exchanger.eps_ntu_wet import CounterFlowHeatExchanger
@@ -66,14 +67,14 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         self.rfg_in: FluidState | None = None
         self.rfg_sat_vap_out: FluidState | None = None
         self._Rfg: Fluid | None = None
-        self.Q: Quantity | None = None
+        self.Q_dot: Quantity | None = None
         self.air_out: HumidAir | None = None
         self.dP_air: Quantity | None = None
 
     def set_fixed_operating_conditions(
         self,
         m_dot_air: Quantity,
-        rfg_in: FluidState,
+        rfg_in: FluidState
     ) -> None:
         """Sets the known operating conditions of the evaporator with boiling
         refrigerant inside.
@@ -94,10 +95,14 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         and pressure are constant and its vapor quality grows from the initial
         vapor quality at the inlet to 100 % at the outlet).
         """
+        self.air_in = None
+        self.Q_dot = None
+        self.air_out = None
+        self.dP_air = None
         self._hex_core.m_dot_ext = m_dot_air
         self.rfg_in = rfg_in
         self._Rfg = rfg_in.fluid
-        # the state of the refrigerant at the outlet is already fixed at the
+        # The state of the refrigerant at the outlet is already fixed at the
         # start: it must be saturated vapor.
         self.rfg_sat_vap_out = self._Rfg(
             T=self.rfg_in.T,   # boiling refrigerant: constant temperature
@@ -119,8 +124,8 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
     def rate(
         self,
         m_dot_rfg_ini: Quantity,
-        i_max: int = 10,
-        tol_m_dot_rfg: Quantity = Q_(0.1, 'kg / s'),
+        i_max: int = 100,
+        tol: Quantity = Q_(0.001, 'kg / s'),
     ) -> tuple[Quantity, HumidAir, Quantity, Quantity]:
         """Determines by iteration the mass flow rate of refrigerant needed to
         get saturated refrigerant vapor at the outlet of the evaporator.
@@ -132,7 +137,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         i_max:
             Maximum number of iterations to try to find a mass flow rate within
             the given tolerance margin around the previous calculated value.
-        tol_m_dot_rfg:
+        tol:
             The tolerated deviation between the last and previous calculated
             mass flow rate at which the iteration will end.
 
@@ -155,21 +160,25 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         dP_air:
             Pressure drop on the air-side of the evaporator.
         """
-        # initial guess of refrigerant mass flow rate
-        self._hex_core.m_dot_int = m_dot_rfg_ini.to('kg / s')
-        Q = self._hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
-        air_out = HumidAir(
-            h=self.air_in.h - Q / self._hex_core.m_dot_ext,
-            RH=Q_(100, 'pct')
-        )
-        i = 0
-        while i < i_max:
+        def _eq(m_dot_rfg: float) -> float:
+            # Set initial guess of refrigerant mass flow rate on the heat
+            # exchanger core:
+            self._hex_core.m_dot_int = Q_(m_dot_rfg, 'kg / hr')
+            # Calculate heat transfer rate across boiling region:
+            Q = self._hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
+            # Calculate state of air leaving evaporator:
+            h_air_out = self.air_in.h - Q / self._hex_core.m_dot_ext
+            air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
+            # Calculate mean states of air and refrigerant needed for calculating
+            # the heat transfer parameters of the heat exchanger core:
             air_mean = self._get_mean_air(air_out)
             rfg_mean = self._get_mean_refrigerant()
             self._hex_core.ext.fluid_mean = air_mean
             self._hex_core.int.fluid_mean = rfg_mean
             self._hex_core.int.Q = Q  # this is needed for calculating h
-            cof_hex = CounterFlowHeatExchanger(  # with wet external surface
+            # Calculate new value for the heat transfer rate assuming a
+            # wet air-side surface in the boiling region:
+            cof_hex = CounterFlowHeatExchanger(
                 m_dot_r=self._hex_core.m_dot_int,
                 m_dot_a=self._hex_core.m_dot_ext,
                 T_r_in=self.rfg_in.T,
@@ -180,28 +189,36 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
                 h_ext=self._hex_core.ext.h,
                 h_int=self._hex_core.int.h,
                 eta_surf_wet=self._hex_core.ext.eta,
-                A_ext_to_A_int=(self._hex_core.ext.geo.alpha / self._hex_core.int.geo.alpha).to('m / m').m,
+                A_ext_to_A_int=(
+                    self._hex_core.ext.geo.alpha /
+                    self._hex_core.int.geo.alpha
+                ).to('m / m').m,
                 A_ext=self._hex_core.ext.geo.A
             )
-            air_out_new, Q_new = cof_hex.air_out, cof_hex.Q
-            m_dot_rfg_new = Q_new / (self.rfg_sat_vap_out.h - self.rfg_in.h)
-            dev_m_dot_rfg = abs(m_dot_rfg_new - self._hex_core.m_dot_int)
-            if dev_m_dot_rfg <= tol_m_dot_rfg:
-                self.air_out = air_out_new
-                self.Q = Q_new
-                self.dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
-                self._hex_core.m_dot_int = m_dot_rfg_new
-                return self._hex_core.m_dot_int, self.air_out, self.Q, self.dP_air
-            air_out = air_out_new
-            self._hex_core.m_dot_int = m_dot_rfg_new
-            Q = Q_new
-            i += 1
-        else:
-            raise ValueError(
-                "no acceptable solution found within "
-                f"tolerance {tol_m_dot_rfg.to('kg / s'):~P} after {i_max} "
-                "iterations"
-            )
+            # Get new value for the refrigerant mass flow rate:
+            m_dot_rfg_new = cof_hex.Q / (self.rfg_sat_vap_out.h - self.rfg_in.h)
+            # Determine deviation between new and previous value:
+            dev_m_dot_rfg = m_dot_rfg_new - self._hex_core.m_dot_int
+            return dev_m_dot_rfg.to('kg / hr').m
+
+        sol = optimize.root_scalar(
+            _eq,
+            method='secant',
+            x0=m_dot_rfg_ini.to('kg / hr').m,
+            xtol=tol.to('kg / hr').m,
+            maxiter=i_max
+        )
+        self._hex_core.m_dot_int = Q_(sol.root, 'kg / hr')
+        self.Q_dot = self._hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
+        h_air_out = self.air_in.h - self.Q_dot / self._hex_core.m_dot_ext
+        self.air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
+        self.dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        return (
+            self._hex_core.m_dot_int,
+            self.air_out,
+            self.Q_dot,
+            self.dP_air
+        )
 
     def _get_mean_air(self, air_out: HumidAir) -> HumidAir:
         """Determine the mean or bulk air properties."""

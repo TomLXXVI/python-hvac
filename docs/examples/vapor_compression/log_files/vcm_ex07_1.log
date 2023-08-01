@@ -1,0 +1,426 @@
+[5268 | __mp_main__ | INFO] Rating @ n_cmp = 2100 1/min
+[13656 | __mp_main__ | INFO] Rating @ n_cmp = 2400 1/min
+[5268 | __mp_main__ | INFO] Iteration 1 @ 2100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[13656 | __mp_main__ | INFO] Iteration 1 @ 2400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12604 | __mp_main__ | INFO] Rating @ n_cmp = 2700 1/min
+[12604 | __mp_main__ | INFO] Iteration 1 @ 2700 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2036 | __mp_main__ | INFO] Rating @ n_cmp = 3000 1/min
+[2036 | __mp_main__ | INFO] Iteration 1 @ 3000 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[8968 | __mp_main__ | INFO] Rating @ n_cmp = 3300 1/min
+[8968 | __mp_main__ | INFO] Iteration 1 @ 3300 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[5816 | __mp_main__ | INFO] Rating @ n_cmp = 3600 1/min
+[6464 | __mp_main__ | INFO] Rating @ n_cmp = 3900 1/min
+[5816 | __mp_main__ | INFO] Iteration 1 @ 3600 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[6464 | __mp_main__ | INFO] Iteration 1 @ 3900 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12576 | __mp_main__ | INFO] Rating @ n_cmp = 4200 1/min
+[12576 | __mp_main__ | INFO] Iteration 1 @ 4200 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[4164 | __mp_main__ | INFO] Rating @ n_cmp = 4500 1/min
+[4164 | __mp_main__ | INFO] Iteration 1 @ 4500 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | INFO] Rating @ n_cmp = 4800 1/min
+[1768 | __mp_main__ | INFO] Iteration 1 @ 4800 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[16232 | __mp_main__ | INFO] Rating @ n_cmp = 5100 1/min
+[16232 | __mp_main__ | INFO] Iteration 1 @ 5100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2952 | __mp_main__ | INFO] Rating @ n_cmp = 5400 1/min
+[2952 | __mp_main__ | INFO] Iteration 1 @ 5400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[2952 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5816 | __mp_main__ | INFO] Iteration 1 @ 3600 1/min: error with (3600 1/min, 5.000 °C, 50.000 °C): for T_evp = 0.577 K, for T_cnd = 0.443 K
+[5816 | __mp_main__ | INFO] Iteration 2 @ 3600 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | INFO] Iteration 1 @ 4800 1/min: error with (4800 1/min, 5.000 °C, 50.000 °C): for T_evp = -3.014 K, for T_cnd = -1.722 K
+[1768 | __mp_main__ | INFO] Iteration 2 @ 4800 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[6464 | __mp_main__ | INFO] Iteration 1 @ 3900 1/min: error with (3900 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.333 K, for T_cnd = -0.235 K
+[6464 | __mp_main__ | INFO] Iteration 2 @ 3900 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[16232 | __mp_main__ | INFO] Iteration 1 @ 5100 1/min: error with (5100 1/min, 5.000 °C, 50.000 °C): for T_evp = -4.245 K, for T_cnd = -2.247 K
+[16232 | __mp_main__ | INFO] Iteration 2 @ 5100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2952 | __mp_main__ | INFO] Iteration 1 @ 5400 1/min: error with (5400 1/min, 5.000 °C, 50.000 °C): for T_evp = -5.478 K, for T_cnd = -2.709 K
+[2952 | __mp_main__ | INFO] Iteration 2 @ 5400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[4164 | __mp_main__ | INFO] Iteration 1 @ 4500 1/min: error with (4500 1/min, 5.000 °C, 50.000 °C): for T_evp = -1.808 K, for T_cnd = -1.122 K
+[4164 | __mp_main__ | INFO] Iteration 2 @ 4500 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12576 | __mp_main__ | INFO] Iteration 1 @ 4200 1/min: error with (4200 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.630 K, for T_cnd = -0.426 K
+[12576 | __mp_main__ | INFO] Iteration 2 @ 4200 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[8968 | __mp_main__ | INFO] Iteration 1 @ 3300 1/min: error with (3300 1/min, 5.000 °C, 50.000 °C): for T_evp = 1.498 K, for T_cnd = 1.257 K
+[8968 | __mp_main__ | INFO] Iteration 2 @ 3300 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[5268 | __mp_main__ | INFO] Iteration 1 @ 2100 1/min: error with (2100 1/min, 5.000 °C, 50.000 °C): for T_evp = 6.066 K, for T_cnd = 9.035 K
+[5268 | __mp_main__ | INFO] Iteration 2 @ 2100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[13656 | __mp_main__ | INFO] Iteration 1 @ 2400 1/min: error with (2400 1/min, 5.000 °C, 50.000 °C): for T_evp = 4.912 K, for T_cnd = 6.128 K
+[13656 | __mp_main__ | INFO] Iteration 2 @ 2400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2036 | __mp_main__ | INFO] Iteration 1 @ 3000 1/min: error with (3000 1/min, 5.000 °C, 50.000 °C): for T_evp = 2.599 K, for T_cnd = 2.442 K
+[2036 | __mp_main__ | INFO] Iteration 2 @ 3000 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12604 | __mp_main__ | INFO] Iteration 1 @ 2700 1/min: error with (2700 1/min, 5.000 °C, 50.000 °C): for T_evp = 3.749 K, for T_cnd = 4.017 K
+[12604 | __mp_main__ | INFO] Iteration 2 @ 2700 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[2952 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5816 | __mp_main__ | INFO] Iteration 2 @ 3600 1/min: error with (3600 1/min, 5.000 °C, 50.000 °C): for T_evp = 0.577 K, for T_cnd = 0.443 K
+[5816 | __mp_main__ | INFO] Iteration 3 @ 3600 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[16232 | __mp_main__ | INFO] Iteration 2 @ 5100 1/min: error with (5100 1/min, 5.000 °C, 50.000 °C): for T_evp = -4.245 K, for T_cnd = -2.247 K
+[16232 | __mp_main__ | INFO] Iteration 3 @ 5100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[6464 | __mp_main__ | INFO] Iteration 2 @ 3900 1/min: error with (3900 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.333 K, for T_cnd = -0.235 K
+[6464 | __mp_main__ | INFO] Iteration 3 @ 3900 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | INFO] Iteration 2 @ 4800 1/min: error with (4800 1/min, 5.000 °C, 50.000 °C): for T_evp = -3.014 K, for T_cnd = -1.722 K
+[1768 | __mp_main__ | INFO] Iteration 3 @ 4800 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2952 | __mp_main__ | INFO] Iteration 2 @ 5400 1/min: error with (5400 1/min, 5.000 °C, 50.000 °C): for T_evp = -5.478 K, for T_cnd = -2.709 K
+[2952 | __mp_main__ | INFO] Iteration 3 @ 5400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[4164 | __mp_main__ | INFO] Iteration 2 @ 4500 1/min: error with (4500 1/min, 5.000 °C, 50.000 °C): for T_evp = -1.808 K, for T_cnd = -1.122 K
+[4164 | __mp_main__ | INFO] Iteration 3 @ 4500 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12576 | __mp_main__ | INFO] Iteration 2 @ 4200 1/min: error with (4200 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.630 K, for T_cnd = -0.426 K
+[12576 | __mp_main__ | INFO] Iteration 3 @ 4200 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[2952 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[8968 | __mp_main__ | INFO] Iteration 2 @ 3300 1/min: error with (3300 1/min, 5.000 °C, 50.000 °C): for T_evp = 1.498 K, for T_cnd = 1.257 K
+[8968 | __mp_main__ | INFO] Iteration 3 @ 3300 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2036 | __mp_main__ | INFO] Iteration 2 @ 3000 1/min: error with (3000 1/min, 5.000 °C, 50.000 °C): for T_evp = 2.599 K, for T_cnd = 2.442 K
+[2036 | __mp_main__ | INFO] Iteration 3 @ 3000 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[13656 | __mp_main__ | INFO] Iteration 2 @ 2400 1/min: error with (2400 1/min, 5.000 °C, 50.000 °C): for T_evp = 4.912 K, for T_cnd = 6.128 K
+[13656 | __mp_main__ | INFO] Iteration 3 @ 2400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5268 | __mp_main__ | INFO] Iteration 2 @ 2100 1/min: error with (2100 1/min, 5.000 °C, 50.000 °C): for T_evp = 6.066 K, for T_cnd = 9.035 K
+[5268 | __mp_main__ | INFO] Iteration 3 @ 2100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12604 | __mp_main__ | INFO] Iteration 2 @ 2700 1/min: error with (2700 1/min, 5.000 °C, 50.000 °C): for T_evp = 3.749 K, for T_cnd = 4.017 K
+[12604 | __mp_main__ | INFO] Iteration 3 @ 2700 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5816 | __mp_main__ | INFO] Iteration 3 @ 3600 1/min: error with (3600 1/min, 5.000 °C, 50.000 °C): for T_evp = 0.577 K, for T_cnd = 0.443 K
+[5816 | __mp_main__ | INFO] Iteration 4 @ 3600 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[16232 | __mp_main__ | INFO] Iteration 3 @ 5100 1/min: error with (5100 1/min, 5.000 °C, 50.000 °C): for T_evp = -4.245 K, for T_cnd = -2.247 K
+[16232 | __mp_main__ | INFO] Iteration 4 @ 5100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[6464 | __mp_main__ | INFO] Iteration 3 @ 3900 1/min: error with (3900 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.333 K, for T_cnd = -0.235 K
+[6464 | __mp_main__ | INFO] Iteration 4 @ 3900 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | INFO] Iteration 3 @ 4800 1/min: error with (4800 1/min, 5.000 °C, 50.000 °C): for T_evp = -3.014 K, for T_cnd = -1.722 K
+[1768 | __mp_main__ | INFO] Iteration 4 @ 4800 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2952 | __mp_main__ | INFO] Iteration 3 @ 5400 1/min: error with (5400 1/min, 5.000 °C, 50.000 °C): for T_evp = -5.478 K, for T_cnd = -2.709 K
+[2952 | __mp_main__ | INFO] Iteration 4 @ 5400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[4164 | __mp_main__ | INFO] Iteration 3 @ 4500 1/min: error with (4500 1/min, 5.000 °C, 50.000 °C): for T_evp = -1.808 K, for T_cnd = -1.122 K
+[4164 | __mp_main__ | INFO] Iteration 4 @ 4500 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12576 | __mp_main__ | INFO] Iteration 3 @ 4200 1/min: error with (4200 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.630 K, for T_cnd = -0.426 K
+[12576 | __mp_main__ | INFO] Iteration 4 @ 4200 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[2952 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5816 | __mp_main__ | INFO] Iteration 4 @ 3600 1/min: error with (3600 1/min, 5.000 °C, 50.000 °C): for T_evp = 0.577 K, for T_cnd = 0.443 K
+[5816 | __mp_main__ | INFO] Iteration 5 @ 3600 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[8968 | __mp_main__ | INFO] Iteration 3 @ 3300 1/min: error with (3300 1/min, 5.000 °C, 50.000 °C): for T_evp = 1.498 K, for T_cnd = 1.257 K
+[8968 | __mp_main__ | INFO] Iteration 4 @ 3300 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2036 | __mp_main__ | INFO] Iteration 3 @ 3000 1/min: error with (3000 1/min, 5.000 °C, 50.000 °C): for T_evp = 2.599 K, for T_cnd = 2.442 K
+[2036 | __mp_main__ | INFO] Iteration 4 @ 3000 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[13656 | __mp_main__ | INFO] Iteration 3 @ 2400 1/min: error with (2400 1/min, 5.000 °C, 50.000 °C): for T_evp = 4.912 K, for T_cnd = 6.128 K
+[13656 | __mp_main__ | INFO] Iteration 4 @ 2400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[5268 | __mp_main__ | INFO] Iteration 3 @ 2100 1/min: error with (2100 1/min, 5.000 °C, 50.000 °C): for T_evp = 6.066 K, for T_cnd = 9.035 K
+[5268 | __mp_main__ | INFO] Iteration 4 @ 2100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12604 | __mp_main__ | INFO] Iteration 3 @ 2700 1/min: error with (2700 1/min, 5.000 °C, 50.000 °C): for T_evp = 3.749 K, for T_cnd = 4.017 K
+[12604 | __mp_main__ | INFO] Iteration 4 @ 2700 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[6464 | __mp_main__ | INFO] Iteration 4 @ 3900 1/min: error with (3900 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.333 K, for T_cnd = -0.235 K
+[6464 | __mp_main__ | INFO] Iteration 5 @ 3900 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[16232 | __mp_main__ | INFO] Iteration 4 @ 5100 1/min: error with (5100 1/min, 5.000 °C, 50.000 °C): for T_evp = -4.245 K, for T_cnd = -2.247 K
+[16232 | __mp_main__ | INFO] Iteration 5 @ 5100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | INFO] Iteration 4 @ 4800 1/min: error with (4800 1/min, 5.000 °C, 50.000 °C): for T_evp = -3.014 K, for T_cnd = -1.722 K
+[1768 | __mp_main__ | INFO] Iteration 5 @ 4800 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2952 | __mp_main__ | INFO] Iteration 4 @ 5400 1/min: error with (5400 1/min, 5.000 °C, 50.000 °C): for T_evp = -5.478 K, for T_cnd = -2.709 K
+[2952 | __mp_main__ | INFO] Iteration 5 @ 5400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[4164 | __mp_main__ | INFO] Iteration 4 @ 4500 1/min: error with (4500 1/min, 5.000 °C, 50.000 °C): for T_evp = -1.808 K, for T_cnd = -1.122 K
+[4164 | __mp_main__ | INFO] Iteration 5 @ 4500 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[12576 | __mp_main__ | INFO] Iteration 4 @ 4200 1/min: error with (4200 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.630 K, for T_cnd = -0.426 K
+[12576 | __mp_main__ | INFO] Iteration 5 @ 4200 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[2952 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5816 | __mp_main__ | INFO] Iteration 5 @ 3600 1/min: error with (3600 1/min, 5.000 °C, 50.000 °C): for T_evp = 0.577 K, for T_cnd = 0.443 K
+[5816 | __mp_main__ | INFO] Iteration 6 @ 3600 1/min: try with T_evp = 5.114 °C and T_cnd = 50.497 °C
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[8968 | __mp_main__ | INFO] Iteration 4 @ 3300 1/min: error with (3300 1/min, 5.000 °C, 50.000 °C): for T_evp = 1.498 K, for T_cnd = 1.257 K
+[8968 | __mp_main__ | INFO] Iteration 5 @ 3300 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2036 | __mp_main__ | INFO] Iteration 4 @ 3000 1/min: error with (3000 1/min, 5.000 °C, 50.000 °C): for T_evp = 2.599 K, for T_cnd = 2.442 K
+[2036 | __mp_main__ | INFO] Iteration 5 @ 3000 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[6464 | __mp_main__ | INFO] Iteration 5 @ 3900 1/min: error with (3900 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.333 K, for T_cnd = -0.235 K
+[6464 | __mp_main__ | INFO] Iteration 6 @ 3900 1/min: try with T_evp = 4.872 °C and T_cnd = 49.835 °C
+[5268 | __mp_main__ | INFO] Iteration 4 @ 2100 1/min: error with (2100 1/min, 5.000 °C, 50.000 °C): for T_evp = 6.066 K, for T_cnd = 9.035 K
+[5268 | __mp_main__ | INFO] Iteration 5 @ 2100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[13656 | __mp_main__ | INFO] Iteration 4 @ 2400 1/min: error with (2400 1/min, 5.000 °C, 50.000 °C): for T_evp = 4.912 K, for T_cnd = 6.128 K
+[13656 | __mp_main__ | INFO] Iteration 5 @ 2400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[16232 | __mp_main__ | INFO] Iteration 5 @ 5100 1/min: error with (5100 1/min, 5.000 °C, 50.000 °C): for T_evp = -4.245 K, for T_cnd = -2.247 K
+[16232 | __mp_main__ | INFO] Iteration 6 @ 5100 1/min: try with T_evp = 3.273 °C and T_cnd = 48.251 °C
+[2952 | __mp_main__ | INFO] Iteration 5 @ 5400 1/min: error with (5400 1/min, 5.000 °C, 50.000 °C): for T_evp = -5.478 K, for T_cnd = -2.709 K
+[1768 | __mp_main__ | INFO] Iteration 5 @ 4800 1/min: error with (4800 1/min, 5.000 °C, 50.000 °C): for T_evp = -3.014 K, for T_cnd = -1.722 K
+[2952 | __mp_main__ | INFO] Iteration 6 @ 5400 1/min: try with T_evp = -62.784 °C and T_cnd = 134.658 °C
+[1768 | __mp_main__ | INFO] Iteration 6 @ 4800 1/min: try with T_evp = 3.468 °C and T_cnd = 49.117 °C
+[2952 | __mp_main__ | ERROR] Rating of VCM failed: Condenser temperature (134.658 °C) exceeds critical temperature of refrigerant (101.060 °C).
+[2952 | __mp_main__ | ERROR] Rating of VCM failed: Condenser temperature (134.658 °C) exceeds critical temperature of refrigerant (101.060 °C)., Traceback (most recent call last):
+  File "C:\Users\Tom\PycharmProjects\python-hvac\docs\examples\vapor_compression\ex07_multi_analysis_1.py", line 112, in analyze_performance
+    machine.rate_root(
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 412, in rate_root
+    sol = optimize.root(
+          ^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root.py", line 236, in root
+    sol = _root_hybr(fun, x0, args=args, jac=jac, **options)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_minpack_py.py", line 239, in _root_hybr
+    retval = _minpack._hybrd(func, x0, args, 1, xtol, maxfev,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 340, in _eq
+    raise ValueError(err_message)
+ValueError: Rating of VCM failed: Condenser temperature (134.658 °C) exceeds critical temperature of refrigerant (101.060 °C).
+
+[12604 | __mp_main__ | INFO] Iteration 4 @ 2700 1/min: error with (2700 1/min, 5.000 °C, 50.000 °C): for T_evp = 3.749 K, for T_cnd = 4.017 K
+[12604 | __mp_main__ | INFO] Iteration 5 @ 2700 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[4164 | __mp_main__ | INFO] Iteration 5 @ 4500 1/min: error with (4500 1/min, 5.000 °C, 50.000 °C): for T_evp = -1.808 K, for T_cnd = -1.122 K
+[4164 | __mp_main__ | INFO] Iteration 6 @ 4500 1/min: try with T_evp = 4.192 °C and T_cnd = 49.174 °C
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[12576 | __mp_main__ | INFO] Iteration 5 @ 4200 1/min: error with (4200 1/min, 5.000 °C, 50.000 °C): for T_evp = -0.630 K, for T_cnd = -0.426 K
+[12576 | __mp_main__ | INFO] Iteration 6 @ 4200 1/min: try with T_evp = 4.707 °C and T_cnd = 49.760 °C
+[5816 | __mp_main__ | INFO] Iteration 6 @ 3600 1/min: error with (3600 1/min, 5.114 °C, 50.497 °C): for T_evp = 0.285 K, for T_cnd = 0.223 K
+[5816 | __mp_main__ | INFO] Iteration 7 @ 3600 1/min: try with T_evp = 5.246 °C and T_cnd = 50.684 °C
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[1768 | __mp_main__ | INFO] Iteration 6 @ 4800 1/min: error with (4800 1/min, 3.468 °C, 49.117 °C): for T_evp = 0.165 K, for T_cnd = 0.096 K
+[1768 | __mp_main__ | INFO] Iteration 7 @ 4800 1/min: try with T_evp = 3.549 °C and T_cnd = 49.178 °C
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[6464 | __mp_main__ | INFO] Iteration 6 @ 3900 1/min: error with (3900 1/min, 4.872 °C, 49.835 °C): for T_evp = -0.013 K, for T_cnd = -0.009 K
+[6464 | __mp_main__ | INFO] Iteration 7 @ 3900 1/min: try with T_evp = 4.867 °C and T_cnd = 49.828 °C
+[16232 | __mp_main__ | INFO] Iteration 6 @ 5100 1/min: error with (5100 1/min, 3.273 °C, 48.251 °C): for T_evp = -0.761 K, for T_cnd = -0.386 K
+[16232 | __mp_main__ | INFO] Iteration 7 @ 5100 1/min: try with T_evp = 2.913 °C and T_cnd = 48.004 °C
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[8968 | __mp_main__ | INFO] Iteration 5 @ 3300 1/min: error with (3300 1/min, 5.000 °C, 50.000 °C): for T_evp = 1.498 K, for T_cnd = 1.257 K
+[8968 | __mp_main__ | INFO] Iteration 6 @ 3300 1/min: try with T_evp = 5.808 °C and T_cnd = 50.798 °C
+[2036 | __mp_main__ | INFO] Iteration 5 @ 3000 1/min: error with (3000 1/min, 5.000 °C, 50.000 °C): for T_evp = 2.599 K, for T_cnd = 2.442 K
+[2036 | __mp_main__ | INFO] Iteration 6 @ 3000 1/min: try with T_evp = 6.952 °C and T_cnd = 50.538 °C
+[12576 | __mp_main__ | INFO] Iteration 6 @ 4200 1/min: error with (4200 1/min, 4.707 °C, 49.760 °C): for T_evp = -0.092 K, for T_cnd = -0.062 K
+[12576 | __mp_main__ | INFO] Iteration 7 @ 4200 1/min: try with T_evp = 4.657 °C and T_cnd = 49.726 °C
+[4164 | __mp_main__ | INFO] Iteration 6 @ 4500 1/min: error with (4500 1/min, 4.192 °C, 49.174 °C): for T_evp = -0.330 K, for T_cnd = -0.200 K
+[4164 | __mp_main__ | INFO] Iteration 7 @ 4500 1/min: try with T_evp = 4.021 °C and T_cnd = 49.062 °C
+[13656 | __mp_main__ | INFO] Iteration 5 @ 2400 1/min: error with (2400 1/min, 5.000 °C, 50.000 °C): for T_evp = 4.912 K, for T_cnd = 6.128 K
+[13656 | __mp_main__ | INFO] Iteration 6 @ 2400 1/min: try with T_evp = 4.198 °C and T_cnd = 63.099 °C
+[5268 | __mp_main__ | INFO] Iteration 5 @ 2100 1/min: error with (2100 1/min, 5.000 °C, 50.000 °C): for T_evp = 6.066 K, for T_cnd = 9.035 K
+[5268 | __mp_main__ | INFO] Iteration 6 @ 2100 1/min: try with T_evp = 4.098 °C and T_cnd = 69.002 °C
+[12604 | __mp_main__ | INFO] Iteration 5 @ 2700 1/min: error with (2700 1/min, 5.000 °C, 50.000 °C): for T_evp = 3.749 K, for T_cnd = 4.017 K
+[12604 | __mp_main__ | INFO] Iteration 6 @ 2700 1/min: try with T_evp = 29.982 °C and T_cnd = 0.713 °C
+[12604 | __mp_main__ | ERROR] Rating of VCM failed: Condenser temperature (0.713 °C) is lower than temperature of air entering condenser (35.000 °C).
+[12604 | __mp_main__ | ERROR] Rating of VCM failed: Condenser temperature (0.713 °C) is lower than temperature of air entering condenser (35.000 °C)., Traceback (most recent call last):
+  File "C:\Users\Tom\PycharmProjects\python-hvac\docs\examples\vapor_compression\ex07_multi_analysis_1.py", line 112, in analyze_performance
+    machine.rate_root(
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 412, in rate_root
+    sol = optimize.root(
+          ^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root.py", line 236, in root
+    sol = _root_hybr(fun, x0, args=args, jac=jac, **options)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_minpack_py.py", line 239, in _root_hybr
+    retval = _minpack._hybrd(func, x0, args, 1, xtol, maxfev,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 351, in _eq
+    raise ValueError(err_message)
+ValueError: Rating of VCM failed: Condenser temperature (0.713 °C) is lower than temperature of air entering condenser (35.000 °C).
+
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[1768 | __mp_main__ | INFO] Iteration 7 @ 4800 1/min: error with (4800 1/min, 3.549 °C, 49.178 °C): for T_evp = -0.012 K, for T_cnd = -0.007 K
+[1768 | __mp_main__ | INFO] Iteration 8 @ 4800 1/min: try with T_evp = 3.544 °C and T_cnd = 49.174 °C
+[5816 | __mp_main__ | INFO] Iteration 7 @ 3600 1/min: error with (3600 1/min, 5.246 °C, 50.684 °C): for T_evp = -0.007 K, for T_cnd = -0.006 K
+[5816 | __mp_main__ | INFO] Iteration 8 @ 3600 1/min: try with T_evp = 5.242 °C and T_cnd = 50.680 °C
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[16232 | __mp_main__ | INFO] Iteration 7 @ 5100 1/min: error with (5100 1/min, 2.913 °C, 48.004 °C): for T_evp = -0.049 K, for T_cnd = -0.025 K
+[16232 | __mp_main__ | INFO] Iteration 8 @ 5100 1/min: try with T_evp = 2.888 °C and T_cnd = 47.987 °C
+[1768 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[6464 | __mp_main__ | INFO] Iteration 7 @ 3900 1/min: error with (3900 1/min, 4.867 °C, 49.828 °C): for T_evp = 0.000 K, for T_cnd = 0.000 K
+[6464 | __mp_main__ | INFO] Rating finished after 8 iterations: The solution converged.
+[4164 | __mp_main__ | INFO] Iteration 7 @ 4500 1/min: error with (4500 1/min, 4.021 °C, 49.062 °C): for T_evp = 0.048 K, for T_cnd = 0.029 K
+[4164 | __mp_main__ | INFO] Iteration 8 @ 4500 1/min: try with T_evp = 4.044 °C and T_cnd = 49.078 °C
+[12576 | __mp_main__ | INFO] Iteration 7 @ 4200 1/min: error with (4200 1/min, 4.657 °C, 49.726 °C): for T_evp = 0.015 K, for T_cnd = 0.010 K
+[12576 | __mp_main__ | INFO] Iteration 8 @ 4200 1/min: try with T_evp = 4.664 °C and T_cnd = 49.731 °C
+[8968 | __mp_main__ | INFO] Iteration 6 @ 3300 1/min: error with (3300 1/min, 5.808 °C, 50.798 °C): for T_evp = 0.018 K, for T_cnd = 0.015 K
+[8968 | __mp_main__ | INFO] Iteration 7 @ 3300 1/min: try with T_evp = 5.817 °C and T_cnd = 50.806 °C
+[16232 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[1768 | __mp_main__ | INFO] Iteration 8 @ 4800 1/min: error with (4800 1/min, 3.544 °C, 49.174 °C): for T_evp = 0.000 K, for T_cnd = 0.000 K
+[1768 | __mp_main__ | INFO] Rating finished after 9 iterations: The solution converged.
+[2036 | __mp_main__ | INFO] Iteration 6 @ 3000 1/min: error with (3000 1/min, 6.952 °C, 50.538 °C): for T_evp = -0.950 K, for T_cnd = -0.828 K
+[2036 | __mp_main__ | INFO] Iteration 7 @ 3000 1/min: try with T_evp = 6.405 °C and T_cnd = 50.171 °C
+[4164 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[12576 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5816 | __mp_main__ | INFO] Iteration 8 @ 3600 1/min: error with (3600 1/min, 5.242 °C, 50.680 °C): for T_evp = 0.000 K, for T_cnd = 0.000 K
+[5816 | __mp_main__ | INFO] Rating finished after 9 iterations: The solution converged.
+[5268 | __mp_main__ | INFO] Iteration 6 @ 2100 1/min: error with (2100 1/min, 4.098 °C, 69.002 °C): for T_evp = 8.107 K, for T_cnd = 30.569 K
+[5268 | __mp_main__ | INFO] Iteration 7 @ 2100 1/min: try with T_evp = 4.717 °C and T_cnd = 61.451 °C
+[13656 | __mp_main__ | INFO] Iteration 6 @ 2400 1/min: error with (2400 1/min, 4.198 °C, 63.099 °C): for T_evp = 6.764 K, for T_cnd = 17.254 K
+[13656 | __mp_main__ | INFO] Iteration 7 @ 2400 1/min: try with T_evp = 5.383 °C and T_cnd = 40.386 °C
+[16232 | __mp_main__ | INFO] Iteration 8 @ 5100 1/min: error with (5100 1/min, 2.888 °C, 47.987 °C): for T_evp = 0.006 K, for T_cnd = 0.003 K
+[16232 | __mp_main__ | INFO] Rating finished after 9 iterations: The solution converged.
+[4164 | __mp_main__ | INFO] Iteration 8 @ 4500 1/min: error with (4500 1/min, 4.044 °C, 49.078 °C): for T_evp = 0.000 K, for T_cnd = 0.000 K
+[4164 | __mp_main__ | INFO] Rating finished after 9 iterations: The solution converged.
+[12576 | __mp_main__ | INFO] Iteration 8 @ 4200 1/min: error with (4200 1/min, 4.664 °C, 49.731 °C): for T_evp = 0.000 K, for T_cnd = 0.000 K
+[12576 | __mp_main__ | INFO] Rating finished after 9 iterations: The solution converged.
+[13656 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[8968 | __mp_main__ | INFO] Iteration 7 @ 3300 1/min: error with (3300 1/min, 5.817 °C, 50.806 °C): for T_evp = -0.003 K, for T_cnd = -0.003 K
+[8968 | __mp_main__ | INFO] Rating finished after 8 iterations: The solution converged.
+[2036 | __mp_main__ | INFO] Iteration 7 @ 3000 1/min: error with (3000 1/min, 6.405 °C, 50.171 °C): for T_evp = 0.108 K, for T_cnd = 0.095 K
+[2036 | __mp_main__ | INFO] Iteration 8 @ 3000 1/min: try with T_evp = 6.460 °C and T_cnd = 50.204 °C
+[5268 | __mp_main__ | INFO] Iteration 7 @ 2100 1/min: error with (2100 1/min, 4.717 °C, 61.451 °C): for T_evp = 6.943 K, for T_cnd = 19.251 K
+[5268 | __mp_main__ | INFO] Iteration 8 @ 2100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[2036 | __mp_main__ | INFO] Iteration 8 @ 3000 1/min: error with (3000 1/min, 6.460 °C, 50.204 °C): for T_evp = -0.011 K, for T_cnd = -0.009 K
+[2036 | __mp_main__ | INFO] Rating finished after 9 iterations: The solution converged.
+[13656 | __mp_main__ | INFO] Iteration 7 @ 2400 1/min: error with (2400 1/min, 5.383 °C, 40.386 °C): for T_evp = 7.508 K, for T_cnd = 4.942 K
+[13656 | __mp_main__ | INFO] Iteration 8 @ 2400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[5268 | __mp_main__ | INFO] Iteration 8 @ 2100 1/min: error with (2100 1/min, 5.000 °C, 50.000 °C): for T_evp = 6.066 K, for T_cnd = 9.035 K
+[5268 | __mp_main__ | INFO] Iteration 9 @ 2100 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[13656 | __mp_main__ | INFO] Iteration 8 @ 2400 1/min: error with (2400 1/min, 5.000 °C, 50.000 °C): for T_evp = 4.912 K, for T_cnd = 6.128 K
+[13656 | __mp_main__ | INFO] Iteration 9 @ 2400 1/min: try with T_evp = 5.000 °C and T_cnd = 50.000 °C
+[5268 | __mp_main__ | INFO] Iteration 9 @ 2100 1/min: error with (2100 1/min, 5.000 °C, 50.000 °C): for T_evp = 6.066 K, for T_cnd = 9.035 K
+[5268 | __mp_main__ | INFO] Iteration 10 @ 2100 1/min: try with T_evp = 4.098 °C and T_cnd = 69.002 °C
+[13656 | __mp_main__ | INFO] Iteration 9 @ 2400 1/min: error with (2400 1/min, 5.000 °C, 50.000 °C): for T_evp = 4.912 K, for T_cnd = 6.128 K
+[13656 | __mp_main__ | INFO] Iteration 10 @ 2400 1/min: try with T_evp = 4.198 °C and T_cnd = 63.099 °C
+[5268 | __mp_main__ | INFO] Iteration 10 @ 2100 1/min: error with (2100 1/min, 4.098 °C, 69.002 °C): for T_evp = 8.107 K, for T_cnd = 30.569 K
+[5268 | __mp_main__ | INFO] Iteration 11 @ 2100 1/min: try with T_evp = 4.717 °C and T_cnd = 61.451 °C
+[13656 | __mp_main__ | INFO] Iteration 10 @ 2400 1/min: error with (2400 1/min, 4.198 °C, 63.099 °C): for T_evp = 6.764 K, for T_cnd = 17.254 K
+[13656 | __mp_main__ | INFO] Iteration 11 @ 2400 1/min: try with T_evp = 5.383 °C and T_cnd = 40.386 °C
+[13656 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5268 | __mp_main__ | INFO] Iteration 11 @ 2100 1/min: error with (2100 1/min, 4.717 °C, 61.451 °C): for T_evp = 6.943 K, for T_cnd = 19.251 K
+[5268 | __mp_main__ | INFO] Iteration 12 @ 2100 1/min: try with T_evp = 5.003 °C and T_cnd = 56.275 °C
+[5268 | __mp_main__ | INFO] Iteration 12 @ 2100 1/min: error with (2100 1/min, 5.003 °C, 56.275 °C): for T_evp = 6.318 K, for T_cnd = 13.626 K
+[5268 | __mp_main__ | INFO] Iteration 13 @ 2100 1/min: try with T_evp = 5.121 °C and T_cnd = 52.237 °C
+[13656 | __mp_main__ | INFO] Iteration 11 @ 2400 1/min: error with (2400 1/min, 5.383 °C, 40.386 °C): for T_evp = 7.508 K, for T_cnd = 4.942 K
+[13656 | __mp_main__ | INFO] Iteration 12 @ 2400 1/min: try with T_evp = 4.808 °C and T_cnd = 54.807 °C
+[5268 | __mp_main__ | INFO] Iteration 13 @ 2100 1/min: error with (2100 1/min, 5.121 °C, 52.237 °C): for T_evp = 5.979 K, for T_cnd = 10.242 K
+[5268 | __mp_main__ | INFO] Iteration 14 @ 2100 1/min: try with T_evp = 5.057 °C and T_cnd = 48.823 °C
+[13656 | __mp_main__ | INFO] Iteration 12 @ 2400 1/min: error with (2400 1/min, 4.808 °C, 54.807 °C): for T_evp = 5.431 K, for T_cnd = 9.169 K
+[13656 | __mp_main__ | INFO] Iteration 13 @ 2400 1/min: try with T_evp = 5.096 °C and T_cnd = 47.596 °C
+[5268 | __mp_main__ | INFO] Iteration 14 @ 2100 1/min: error with (2100 1/min, 5.057 °C, 48.823 °C): for T_evp = 5.941 K, for T_cnd = 8.109 K
+[5268 | __mp_main__ | INFO] Iteration 15 @ 2100 1/min: try with T_evp = 5.115 °C and T_cnd = 47.658 °C
+[13656 | __mp_main__ | INFO] Iteration 13 @ 2400 1/min: error with (2400 1/min, 5.096 °C, 47.596 °C): for T_evp = 4.670 K, for T_cnd = 4.844 K
+[13656 | __mp_main__ | INFO] Iteration 14 @ 2400 1/min: try with T_evp = 5.293 °C and T_cnd = 43.717 °C
+[13656 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5268 | __mp_main__ | INFO] Iteration 15 @ 2100 1/min: error with (2100 1/min, 5.115 °C, 47.658 °C): for T_evp = 5.815 K, for T_cnd = 7.225 K
+[5268 | __mp_main__ | INFO] Iteration 16 @ 2100 1/min: try with T_evp = 5.232 °C and T_cnd = 45.356 °C
+[13656 | __mp_main__ | INFO] Iteration 14 @ 2400 1/min: error with (2400 1/min, 5.293 °C, 43.717 °C): for T_evp = 4.729 K, for T_cnd = 3.519 K
+[13656 | __mp_main__ | INFO] Iteration 15 @ 2400 1/min: try with T_evp = 5.707 °C and T_cnd = 46.153 °C
+[5268 | __mp_main__ | INFO] Iteration 16 @ 2100 1/min: error with (2100 1/min, 5.232 °C, 45.356 °C): for T_evp = 5.575 K, for T_cnd = 5.615 K
+[5268 | __mp_main__ | INFO] Iteration 17 @ 2100 1/min: try with T_evp = 5.476 °C and T_cnd = 40.913 °C
+[13656 | __mp_main__ | INFO] Iteration 15 @ 2400 1/min: error with (2400 1/min, 5.707 °C, 46.153 °C): for T_evp = 3.689 K, for T_cnd = 3.286 K
+[13656 | __mp_main__ | INFO] Iteration 16 @ 2400 1/min: try with T_evp = 6.510 °C and T_cnd = 33.157 °C
+[13656 | __mp_main__ | ERROR] Rating of VCM failed: Condenser temperature (33.157 °C) is lower than temperature of air entering condenser (35.000 °C).
+[13656 | __mp_main__ | ERROR] Rating of VCM failed: Condenser temperature (33.157 °C) is lower than temperature of air entering condenser (35.000 °C)., Traceback (most recent call last):
+  File "C:\Users\Tom\PycharmProjects\python-hvac\docs\examples\vapor_compression\ex07_multi_analysis_1.py", line 112, in analyze_performance
+    machine.rate_root(
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 412, in rate_root
+    sol = optimize.root(
+          ^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root.py", line 236, in root
+    sol = _root_hybr(fun, x0, args=args, jac=jac, **options)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_minpack_py.py", line 239, in _root_hybr
+    retval = _minpack._hybrd(func, x0, args, 1, xtol, maxfev,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 351, in _eq
+    raise ValueError(err_message)
+ValueError: Rating of VCM failed: Condenser temperature (33.157 °C) is lower than temperature of air entering condenser (35.000 °C).
+
+[5268 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5268 | __mp_main__ | INFO] Iteration 17 @ 2100 1/min: error with (2100 1/min, 5.476 °C, 40.913 °C): for T_evp = 5.356 K, for T_cnd = 3.125 K
+[5268 | __mp_main__ | INFO] Iteration 18 @ 2100 1/min: try with T_evp = 6.134 °C and T_cnd = 37.150 °C
+[5268 | __mp_main__ | WARNING] No subcooling of refrigerant in condenser.
+[5268 | __mp_main__ | ERROR] Rating of condenser failed: f(a) and f(b) must have different signs, Traceback (most recent call last):
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condenser.py", line 267, in rate
+    optimize.root_scalar(
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root_scalar.py", line 298, in root_scalar
+    r, sol = methodc(f, x0, args=args, fprime=None, fprime2=None,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_zeros_py.py", line 346, in newton
+    q0 = func(p0, *args)
+         ^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condenser.py", line 225, in _eq1
+    self.L2_cdp = self.condensing_part.determine_flow_length(self.L2)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condensing_condenser.py", line 170, in determine_flow_length
+    roots = optimize.fsolve(_eq, np.array([L2_ini.to('mm').m]), xtol=0.001)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_minpack_py.py", line 162, in fsolve
+    res = _root_hybr(func, x0, args, jac=fprime, **options)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_minpack_py.py", line 228, in _root_hybr
+    shape, dtype = _check_func('fsolve', 'func', func, x0, args, n, (n,))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_minpack_py.py", line 25, in _check_func
+    res = atleast_1d(thefunc(*((x0[:numinputs],) + args)))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condensing_condenser.py", line 159, in _eq
+    h_int = self._hex_core.int.h
+            ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\core\plain_fin_tube.py", line 486, in h
+    h_int = self._get_heat_trf_coeff(self.parent.T_wall)
+                                     ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\core\plain_fin_tube.py", line 248, in T_wall
+    sol = optimize.root_scalar(_eq, bracket=[T_fluid_min, T_fluid_max])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root_scalar.py", line 279, in root_scalar
+    r, sol = methodc(f, a, b, args=args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_zeros_py.py", line 799, in brentq
+    r = _zeros._brentq(f, a, b, xtol, rtol, maxiter, args, full_output, disp)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: f(a) and f(b) must have different signs
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condenser.py", line 281, in rate
+    optimize.root_scalar(
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root_scalar.py", line 298, in root_scalar
+    r, sol = methodc(f, x0, args=args, fprime=None, fprime2=None,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_zeros_py.py", line 346, in newton
+    q0 = func(p0, *args)
+         ^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condenser.py", line 238, in _eq2
+    self.condensing_part.solve(L2_cdp, i_max, tol)
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condensing_condenser.py", line 234, in solve
+    UA=self._hex_core.UA
+       ^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\core\plain_fin_tube.py", line 179, in UA
+    R_int = self.internal_surface.R
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\core\plain_fin_tube.py", line 370, in R
+    h_int = self.h.to('W / (m ** 2 * K)')
+            ^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\core\plain_fin_tube.py", line 486, in h
+    h_int = self._get_heat_trf_coeff(self.parent.T_wall)
+                                     ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\core\plain_fin_tube.py", line 248, in T_wall
+    sol = optimize.root_scalar(_eq, bracket=[T_fluid_min, T_fluid_max])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root_scalar.py", line 279, in root_scalar
+    r, sol = methodc(f, a, b, args=args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_zeros_py.py", line 799, in brentq
+    r = _zeros._brentq(f, a, b, xtol, rtol, maxiter, args, full_output, disp)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: f(a) and f(b) must have different signs
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Tom\PycharmProjects\python-hvac\docs\examples\vapor_compression\ex07_multi_analysis_1.py", line 112, in analyze_performance
+    machine.rate_root(
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 412, in rate_root
+    sol = optimize.root(
+          ^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_root.py", line 236, in root
+    sol = _root_hybr(fun, x0, args=args, jac=jac, **options)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\AppData\Local\pypoetry\Cache\virtualenvs\python-hvac-PU9n6GWK-py3.11\Lib\site-packages\scipy\optimize\_minpack_py.py", line 239, in _root_hybr
+    retval = _minpack._hybrd(func, x0, args, 1, xtol, maxfev,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\vapor_compression\machine_bis.py", line 368, in _eq
+    r_cnd = self.condenser(
+            ^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condenser.py", line 350, in __call__
+    res = self.rate(i_max, tol_eps)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tom\PycharmProjects\python-hvac\hvac\heat_transfer\heat_exchanger\fin_tube\air_condenser\rating\plain_fin_tube_condenser.py", line 289, in rate
+    raise ValueError(f"Rating of condenser failed: {err}")
+ValueError: Rating of condenser failed: f(a) and f(b) must have different signs
+

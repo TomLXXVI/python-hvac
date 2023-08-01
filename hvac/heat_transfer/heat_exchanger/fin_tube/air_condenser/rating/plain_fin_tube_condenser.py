@@ -1,5 +1,7 @@
+import warnings
 from collections import namedtuple
-from scipy.optimize import root_scalar
+import numpy as np
+from scipy import optimize
 from hvac import Quantity
 from hvac.fluids import FluidState, HumidAir, CP_HUMID_AIR
 from .plain_fin_tube_subcooling_condenser import PlainFinTubeCounterFlowSubcoolingCondenser
@@ -15,7 +17,7 @@ Result = namedtuple(
     [
         'rfg_out',
         'air_out',
-        'Q',
+        'Q_dot',
         'eps',
         'dP_air',
         'dT_sc',
@@ -26,24 +28,23 @@ Result = namedtuple(
 )
 
 
+class CondenserWarning(Warning):
+    pass
+
+
 class PlainFinTubeCounterFlowCondenser:
     """Model of a single-pass, counterflow air condenser with an equilateral
     triangular staggered tube array and plain flat fins.
     Aim of this model is to find the heat transfer performance when the state
-    and mass flow rate of refrigerant and of air at both entries of the condenser
-    are known.
+    and mass flow rate of refrigerant and of air at both entries of the
+    condenser are known.
     """
     def __init__(
         self,
-        L1: Quantity,
-        L3: Quantity,
-        N_r: int,
-        S_t: Quantity,
-        S_l: Quantity,
-        D_i: Quantity,
-        D_o: Quantity,
-        t_f: Quantity,
-        N_f: Quantity,
+        L1: Quantity, L3: Quantity, N_r: int,
+        S_t: Quantity, S_l: Quantity,
+        D_i: Quantity, D_o: Quantity,
+        t_f: Quantity, N_f: Quantity,
         k_f: Quantity = Q_(237, 'W / (m * K)')
     ) -> None:
         """Creates a `PlainFinTubeCounterFlowCondenser` instance by
@@ -77,38 +78,33 @@ class PlainFinTubeCounterFlowCondenser:
         k_f:
             Thermal conductivity of the external fin material.
         """
-        # we distinguish a subcooling part, a condensing part and a desuperheating
-        # part of the condenser.
         self.L2 = N_r * S_l
-        kwargs = {
+        self._geo_dict = {
             'L1': L1, 'L3': L3,
             'S_t': S_t, 'S_l': S_l,
             'D_i': D_i, 'D_o': D_o,
             't_f': t_f, 'N_f': N_f,
             'k_f': k_f
         }
-        self.subcooling_part = PlainFinTubeCounterFlowSubcoolingCondenser(**kwargs)
-        self.condensing_part = PlainFinTubeCounterflowCondensingCondenser(**kwargs)
-        self.desuperheating_part = PlainFinTubeCounterFlowDesuperheatCondenser(**kwargs)
+        # We can distinguish a subcooling part, a condensing part and a
+        # desuperheating part of the condenser:
+        self.subcooling_part = PlainFinTubeCounterFlowSubcoolingCondenser(**self._geo_dict)
+        self.condensing_part = PlainFinTubeCounterflowCondensingCondenser(**self._geo_dict)
+        self.desuperheating_part = PlainFinTubeCounterFlowDesuperheatCondenser(**self._geo_dict)
 
         self.air_in: HumidAir | None = None
         self.air_out: HumidAir | None = None
-        self.dP_air: Quantity | None = None
-
         self.rfg_in: FluidState | None = None
         self.rfg_out: FluidState | None = None
-
         self.m_dot_air: Quantity | None = None
         self.m_dot_rfg: Quantity | None = None
-
-        self.Q_dsh: Quantity | None = None
-        self.Q_cnd: Quantity | None = None
-        self.Q_sco: Quantity | None = None
-        self.Q: Quantity | None = None
-
-        self.L2_dsh: Quantity | None = None
-        self.L2_cnd: Quantity | None = None
-        self.L2_sco: Quantity | None = None
+        self.Q_dot_dsp: Quantity | None = None
+        self.Q_dot_cdp: Quantity | None = None
+        self.Q_dot_scp: Quantity | None = None
+        self.Q_dot: Quantity | None = None
+        self.L2_dsp: Quantity | None = None
+        self.L2_cdp: Quantity | None = None
+        self.L2_scp: Quantity | None = None
 
     def set_operating_conditions(
         self,
@@ -132,6 +128,15 @@ class PlainFinTubeCounterFlowCondenser:
             steady-state conditions equals the mass flow rate through the
             evaporator.
         """
+        self.air_out = None
+        self.rfg_out = None
+        self.Q_dot_dsp = None
+        self.Q_dot_cdp = None
+        self.Q_dot_scp = None
+        self.Q_dot = None
+        self.L2_dsp = None
+        self.L2_cdp = None
+        self.L2_scp = None
         self.m_dot_air = m_dot_air.to('kg / s')
         self.m_dot_rfg = m_dot_rfg.to('kg / s')
         self.air_in = air_in
@@ -157,34 +162,32 @@ class PlainFinTubeCounterFlowCondenser:
 
     def rate(
         self,
-        i_max: int = 10,
-        tol_eps: float = 0.01
-    ) -> Result:
-        """Determines by iteration for a given state of entering air and
-        refrigerant, the state of the air and refrigerant leaving the condenser.
+        i_max: int = 100,
+        tol: float = 0.01
+    ) -> Result | None:
+        """Determines the heat transfer performance of the condenser.
 
         Parameters
         ----------
         i_max:
             Maximum number of iterations.
-        tol_eps:
+        tol:
             Tolerance for the effectiveness of the subcooling part of the
             condenser.
 
-        Raises
-        ------
-        ValueError if the number of iterations reached the maximum number and
-        no solution was found within the given tolerance.
-
         Returns
         -------
-        namedtuple Result:
+        namedtuple `Result`:
             rfg_out: FluidState
                 State of leaving refrigerant.
             air_out: HumidAir
                 State of leaving air.
             Q: Quantity
                 Total heat rejection rate of the condenser.
+            eps: Quantity
+                Heat transfer effectiveness of the condenser.
+            dP_air: Quantity
+                Air-side pressure drop across condenser.
             dT_sc: Quantity
                 Degree of subcooling.
             L2_desuperheating: Quantity
@@ -194,121 +197,135 @@ class PlainFinTubeCounterFlowCondenser:
             L2_subcooling: Quantity
                 Flow length along the subcooling region of the condenser.
         """
-        # First we solve the subcooling part of the condenser using a guessed
-        # value of the subcooling flow length. We know the refrigerant inlet
-        # state to the subcooling part (saturated liquid). We also know the
-        # inlet state of air. With this it is possible to determine the air
-        # state at the inlet of the condensing part of the condenser and the
-        # state of refrigerant leaving the condenser.
-        # We know the inlet (saturated vapor) and outlet state (saturated liquid)
-        # of refrigerant at the condensing part of the condenser. As mass flow
-        # rates are given, we can immediately determine the heat transfer rate
-        # and the temperature rise of the air in the condensing part (this is
-        # already done when we called the `set_fixed_operation_conditions`
-        # methods in the `set_operations_conditions` method of
-        # `PlainFinTubeCounterFlowCondenser`).
-        # For the desuperheating part, the same applies. We know the inlet
-        # state of refrigerant to the condenser, and we know that the
-        # desuperheating region ends where refrigerant has turned into saturated
-        # vapor.
-        # Knowing the air outlet state of the subcooling part (= air inlet
-        # state of the condensing part) and the temperature rise across the
-        # condensing part, we can determine the air outlet state of the
-        # condensing part (= air inlet state of the desuperheating part).
-        # Knowing also the temperature rise of air across the desuperheating
-        # part, the state of air leaving the condenser can be determined.
-        # Next, we can determine the flow length of the condensing part and
-        # desuperheating part. The sum of the subcooling, condensing and
-        # desuperheating flow lengths should be equal to the total flow length
-        # of the condenser. So, we need to the find the subcooling flow length
-        # for which the sum of flow lengths equals the total flow length of the
-        # condenser.
-
-        def eq(L2_subcooling: float) -> float:
-            # solve the subcooling part
-            L2_subcooling = Q_(L2_subcooling, 'm')
-            self.subcooling_part.solve(L2_subcooling, i_max, tol_eps)
+        def _eq1(L2_scp: float) -> float:
+            # Equation with subcooling.
+            # Solve subcooling part:
+            L2_scp = Q_(L2_scp, 'mm')
+            self.subcooling_part.solve(L2_scp, i_max, tol)
             self.rfg_out = self.subcooling_part.rfg_out
-            # set the state of air entering the condensing part
-            T_air_in_cnd = self.subcooling_part.air_out.Tdb
-            air_in_cnd = HumidAir(Tdb=T_air_in_cnd, W=self.air_in.W)
-            self.condensing_part.set_air_in(air_in_cnd)
-            # set the state of air entering the desuperheating part
-            T_air_in_dsh = T_air_in_cnd + self.condensing_part.dT_air
-            air_in_dsh = HumidAir(Tdb=T_air_in_dsh, W=self.air_in.W)
-            self.desuperheating_part.set_air_in(air_in_dsh)
-            # if T_air_in_dsh > self.condensing_part.rfg_sat_vap_in.T:
-            #     raise ValueError(
-            #         "Air temperature exceeds condenser temperature."
-            #         "Raise condenser pressure."
-            #     )
-            # set the state of air leaving the condenser
-            T_air_out = T_air_in_dsh + self.desuperheating_part.dT_air
+            # Set state of air entering the condensing part:
+            T_cdp_air_in = self.subcooling_part.air_out.Tdb
+            cdp_air_in = HumidAir(Tdb=T_cdp_air_in, W=self.air_in.W)
+            self.condensing_part.set_air_in(cdp_air_in)
+            # Set state of air entering the desuperheating part:
+            T_dsp_air_in = T_cdp_air_in + self.condensing_part.dT_air
+            dsp_air_in = HumidAir(Tdb=T_dsp_air_in, W=self.air_in.W)
+            self.desuperheating_part.set_air_in(dsp_air_in)
+            # Set state of air leaving the condenser:
+            T_air_out = T_dsp_air_in + self.desuperheating_part.dT_air
             self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
-            # get the total heat rejection rate of the condenser
-            self.Q_dsh = self.desuperheating_part.Q
-            self.Q_cnd = self.condensing_part.Q
-            self.Q_sco = self.subcooling_part.Q
-            self.Q = self.Q_dsh + self.Q_cnd + self.Q_sco
-            # retrieve the flow lengths of the subcooling, condensing and
-            # desuperheating part
-            self.L2_sco = L2_subcooling
-            self.L2_cnd = self.condensing_part.determine_flow_length(L2_ini=self.L2)
-            self.L2_dsh = self.desuperheating_part.determine_flow_length(L2_ini=self.L2)
-            # determine the totale flow length and compare with the actual flow
-            # length of the condenser
-            L2_tot = self.L2_sco + self.L2_cnd + self.L2_dsh
-            dev_L2 = self.L2 - L2_tot
-            return dev_L2.to('m').m
+            # Get total heat rejection rate in the condenser:
+            self.Q_dot_dsp = self.desuperheating_part.Q_dot
+            self.Q_dot_cdp = self.condensing_part.Q_dot
+            self.Q_dot_scp = self.subcooling_part.Q_dot
+            self.Q_dot = self.Q_dot_dsp + self.Q_dot_cdp + self.Q_dot_scp
+            # Get flow lengths of subcooling, condensing and desuperheating
+            # part:
+            self.L2_scp = L2_scp
+            self.L2_cdp = self.condensing_part.determine_flow_length(self.L2)
+            self.L2_dsp = self.desuperheating_part.determine_flow_length(self.L2)
+            # Determine total flow length and compare with actual flow length of
+            # the condenser:
+            L2 = self.L2_scp + self.L2_cdp + self.L2_dsp
+            dev = L2 - self.L2
+            return dev.to('mm').m
 
-        # Find the minimum subcooling flow length for which the subcooling part
-        # can be solved.
-        L2_subcooling_min = -1.0
-        for i in range(1, 100):
-            L2_subcooling_min = i / 100 * self.L2.to('m').m
-            try:
-                self.subcooling_part.solve(Q_(L2_subcooling_min, 'm'), i_max, tol_eps)
-            except ValueError:
-                continue
-            else:
-                break
-        # If a minimal subcooling flow length exists, try to find the subcooling
-        # flow length such that the calculated total flow length equals the
-        # actual flow length of the condenser.
-        if L2_subcooling_min > 0.0:
-            try:
-                root_scalar(eq, bracket=[L2_subcooling_min, self.L2.to('m').m])
-            except ValueError:
-                raise ValueError(
-                    'condenser flow length too short to attain subcooling '
-                    'of refrigerant'
-                )
-            else:
-                self.dP_air = (
-                    self.subcooling_part.dP_air
-                    + self.condensing_part.dP_air
-                    + self.desuperheating_part.dP_air
-                )
-                return Result(
-                    rfg_out=self.rfg_out,
-                    air_out=self.air_out,
-                    Q=self.Q,
-                    eps=self._get_eps(),
-                    dP_air=self.dP_air,
-                    dT_sc=self.dT_sc,
-                    L2_desuperheating=self.L2_dsh,
-                    L2_condensing=self.L2_cnd,
-                    L2_subcooling=self.L2_sco,
-                )
+        def _eq2(L_cdp: float) -> float:
+            # Equation without subcooling.
+            # Solve condensing part:
+            L2_cdp = Q_(L_cdp, 'mm')
+            self.condensing_part.set_air_in(self.air_in)
+            self.condensing_part.solve(L2_cdp, i_max, tol)
+            self.rfg_out = self.condensing_part.rfg_out
+            # Set state of air entering the desuperheating part:
+            T_dsp_air_in = self.condensing_part.air_out.Tdb
+            dsp_air_in = HumidAir(Tdb=T_dsp_air_in, W=self.air_in.W)
+            self.desuperheating_part.set_air_in(dsp_air_in)
+            # Set state of air leaving the condenser:
+            T_air_out = T_dsp_air_in + self.desuperheating_part.dT_air
+            self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
+            # Get total heat rejection rate in the condenser:
+            self.Q_dot_dsp = self.desuperheating_part.Q_dot
+            self.Q_dot_cdp = self.condensing_part.Q_dot
+            self.Q_dot_scp = Q_(0.0, 'W')
+            self.Q_dot = self.Q_dot_dsp + self.Q_dot_cdp + self.Q_dot_scp
+            # Get flow lengths of subcooling, condensing and desuperheating
+            # part:
+            self.L2_scp = Q_(0.0, 'mm')
+            self.L2_cdp = L2_cdp
+            self.L2_dsp = self.desuperheating_part.determine_flow_length(self.L2)
+            # Determine total flow length and compare with actual flow length of
+            # the condenser:
+            L2 = self.L2_scp + self.L2_cdp + self.L2_dsp
+            dev = L2 - self.L2
+            return dev.to('mm').m
 
-    def _get_eps(self) -> float:
+        try:
+            # Try to find the subcooling flow length for which the calculated
+            # total condenser flow length equals the actual flow length of the
+            # condenser:
+            optimize.root_scalar(
+                _eq1,
+                method='secant',
+                x0=0.1 * self.L2.to('mm').m,  # initial guess
+                xtol=0.1,  # mm
+                maxiter=i_max
+            )
+        except Exception:
+            warnings.warn("No subcooling of refrigerant in condenser.", category=CondenserWarning)
+            # If no subcooling is possible at current operating conditions, try
+            # to find the condensing flow length for which the calculated total
+            # condenser flow length equals the actual flow length of the
+            # condenser:
+            try:
+                optimize.root_scalar(
+                    _eq2,
+                    method='secant',
+                    x0=0.5 * self.L2.to('mm').m,  # initial guess
+                    xtol=0.1,  # mm
+                    maxiter=i_max
+                )
+            except Exception as err:
+                raise ValueError(f"Rating of condenser failed: {err}")
+
+        return Result(
+            rfg_out=self.rfg_out,
+            air_out=self.air_out,
+            Q_dot=self.Q_dot,
+            eps=self.eps,
+            dP_air=self.dP_air,
+            dT_sc=self.dT_sc,
+            L2_desuperheating=self.L2_dsp,
+            L2_condensing=self.L2_cdp,
+            L2_subcooling=self.L2_scp,
+        )
+
+    @property
+    def eps(self) -> Quantity:
+        """Heat transfer effectiveness of the condenser."""
         T_cnd = self.condensing_part.rfg_sat_liq_out.T
-        eps = self.Q / (self.m_dot_air * CP_HUMID_AIR * (T_cnd - self.air_in.Tdb))
-        return eps
+        eps = self.Q_dot / (self.m_dot_air * CP_HUMID_AIR * (T_cnd - self.air_in.Tdb))
+        return eps.to('frac')
+
+    @property
+    def dP_air(self) -> Quantity:
+        """Air-side pressure drop across the condenser."""
+        if self.L2_scp.m > 0.0:
+            return (
+                self.subcooling_part.dP_air +
+                self.condensing_part.dP_air +
+                self.desuperheating_part.dP_air
+            )
+        else:
+            return (
+                self.condensing_part.dP_air +
+                self.desuperheating_part.dP_air
+            )
 
     @property
     def dT_sc(self) -> Quantity:
-        return self.subcooling_part.dT_sco
+        """Degree of subcooling of the refrigerant leaving the condenser."""
+        return self.subcooling_part.dT_sc
 
     def __call__(
         self,
@@ -316,7 +333,7 @@ class PlainFinTubeCounterFlowCondenser:
         m_dot_rfg: Quantity,
         air_in: HumidAir,
         rfg_in: FluidState,
-        i_max: int = 10,
+        i_max: int = 100,
         tol_eps: float = 0.01
     ) -> Result:
         """Combines the methods `set_operating_conditions` and `rate` in a
