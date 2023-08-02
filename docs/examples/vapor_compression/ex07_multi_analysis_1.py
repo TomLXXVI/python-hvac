@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor
 import pandas as pd
 from hvac import Quantity
 from hvac.logging import ModuleLogger, Logger
-from hvac.fluids import Fluid, HumidAir
+from hvac.fluids import Fluid, HumidAir, CoolPropWarning
 from hvac.vapor_compression import VariableSpeedCompressor
 from hvac.vapor_compression.machine_bis import SingleStageVaporCompressionMachine
 from hvac.heat_transfer.heat_exchanger.fin_tube import air_evaporator, air_condenser
@@ -20,9 +20,8 @@ from hvac.heat_transfer.heat_exchanger.fin_tube import air_evaporator, air_conde
 # Turn off any runtime warnings:
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
-# Turn off log messages coming from module logger `hvac.fluids.fluid`:
-fluid_logger = ModuleLogger.get_logger('hvac.fluids.fluid')
-fluid_logger.setLevel(ModuleLogger.CRITICAL)
+# Turn off warnings coming from module `hvac.fluids.fluid`:
+warnings.filterwarnings('ignore', category=CoolPropWarning)
 
 Q_ = Quantity
 

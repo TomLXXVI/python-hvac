@@ -240,13 +240,16 @@ class PlainFinTubeHeatExchangerCore:
             T_fluid_min = min(
                 self.int.fluid_mean.T.to('K'),
                 T_fluid_ext
-            ).m + 0.01
+            ).m + 1.e-3
             T_fluid_max = max(
                 self.int.fluid_mean.T.to('K'),
                 T_fluid_ext
-            ).m - 0.01
-            sol = optimize.root_scalar(_eq, bracket=[T_fluid_min, T_fluid_max])
-            self._T_wall = Q_(sol.root, 'K')
+            ).m - 1.e-3
+            try:
+                sol = optimize.root_scalar(_eq, bracket=[T_fluid_min, T_fluid_max])
+                self._T_wall = Q_(sol.root, 'K')
+            except ValueError:
+                self._T_wall = Q_((T_fluid_min + T_fluid_max) / 2, 'K')
         return self._T_wall
 
     @property

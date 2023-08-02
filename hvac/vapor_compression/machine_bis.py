@@ -161,7 +161,7 @@ class SingleStageVaporCompressionMachine:
         T_cnd = T_cnd_ini.to('degC')
         for i in range(i_max):
             self._log((
-                f"Iteration {i + 1} @ {self.n_cmp:~P.0f}: "
+                f"Iteration {i + 1}: "
                 f"try with T_evp = {T_evp:~P.3f} and "
                 f"T_cnd = {T_cnd:~P.3f}"
                 ), logging.INFO
@@ -203,6 +203,20 @@ class SingleStageVaporCompressionMachine:
             self.compressor.Te = T_evp
             self.compressor.Tc = T_cnd
             cmp_m_dot_rfg = self.compressor.m_dot.to('kg / hr')
+            self._log((
+                f"Iteration {i + 1}: "
+                f"compressor mass flow rate: {cmp_m_dot_rfg:~P.3f}, "
+                f"compressor power: {self.compressor.Wc_dot.to('kW'):~P.3f}"
+                ), logging.DEBUG
+            )
+            cnd_rfg_in = self.compressor.discharge_gas
+            self._log((
+                f"Iteration {i + 1}: "
+                "refrigerant at condenser entry: "
+                f"{cnd_rfg_in.T.to('degC'):~P.3f}, "
+                f"{cnd_rfg_in.P.to('bar'):~P.3f}"
+                ), logging.DEBUG
+            )
             # Determine performance of condenser with mass flow rate of
             # compressor:
             with warnings.catch_warnings(category=CondenserWarning):
@@ -212,13 +226,39 @@ class SingleStageVaporCompressionMachine:
                     m_dot_air=self.cnd_m_dot_air,
                     m_dot_rfg=cmp_m_dot_rfg,
                     air_in=self.cnd_air_in,
-                    rfg_in=self.compressor.discharge_gas,
+                    rfg_in=cnd_rfg_in,
                 )
+            self._log((
+                f"Iteration {i + 1}: "
+                "refrigerant at condenser exit: "
+                f"{r_cnd.rfg_out.T.to('degC'):~P.3f}, "
+                f"{r_cnd.rfg_out.P.to('bar'):~P.3f}, "
+                f"{r_cnd.rfg_out.h.to('kJ / kg'):~P.3f}, "
+                f"{r_cnd.rfg_out.x.to('frac'):~P.3f}, "
+                f"{r_cnd.rfg_out.phase}"
+                ), logging.DEBUG
+            )
+            self._log((
+                f"Iteration {i + 1}: "
+                "heat rejection rate: "
+                f"{r_cnd.Q_dot.to('kW'):~P.3f}"
+                ), logging.DEBUG
+            )
             # Determine state of refrigerant entering evaporator with mass
             # flow rate of compressor:
             evp_rfg_in = self.Refrigerant(
                 h=r_cnd.rfg_out.h,
                 P=self.compressor.Pe
+            )
+            self._log((
+                f"Iteration {i + 1}: "
+                f"refrigerant at evaporator entry: "
+                f"{evp_rfg_in.T.to('degC'):~P.3f}, "
+                f"{evp_rfg_in.P.to('bar'):~P.3f}, "
+                f"{evp_rfg_in.h.to('kJ / kg'):~P.3f}, "
+                f"{evp_rfg_in.x.to('frac'):~P.3f}, "
+                f"{evp_rfg_in.phase}"
+                ), logging.DEBUG
             )
             # Determine the mass flow rate let through by the expansion device
             # at the given operating conditions of the evaporator in order
@@ -230,7 +270,26 @@ class SingleStageVaporCompressionMachine:
                 dT_rfg_sh=self.dT_sh,
                 m_dot_rfg_ini=cmp_m_dot_rfg
             )
+            self._log((
+                f"Iteration {i + 1}: "
+                f"refrigerant at evaporator exit: "
+                f"{r_evp.rfg_out.T.to('degC'):~P.3f}, "
+                f"{r_evp.rfg_out.P.to('bar'):~P.3f}"
+                ), logging.DEBUG
+            )
+            self._log((
+                f"Iteration {i + 1}: "
+                f"heat absorption rate: "
+                f"{r_evp.Q_dot.to('kW'):~P.3f}"
+                ), logging.DEBUG
+            )
             evp_m_dot_rfg = r_evp.m_dot_rfg.to('kg / hr')
+            self._log((
+                f"Iteration {i + 1}: "
+                f"evaporator mass flow rate: "
+                f"{evp_m_dot_rfg.to('kg / hr'):~P.3f}"
+                ), logging.DEBUG
+            )
             # Determine new value for evaporation temperature based on the
             # heat rejection rate at the condenser and compressor power.
             Q_evp = r_cnd.Q_dot - self.compressor.Wc_dot
@@ -268,7 +327,7 @@ class SingleStageVaporCompressionMachine:
             abs_dev = abs(evp_m_dot_rfg - cmp_m_dot_rfg)
             rel_dev = abs_dev / abs(cmp_m_dot_rfg)
             self._log((
-                f"Iteration {i + 1}: error "
+                f"Iteration {i + 1}: deviation "
                 f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
                 f"{abs_dev.to('kg / hr'):~P.3f}, {rel_dev.to('pct'):~P3f}"
                 ), logging.INFO
@@ -295,6 +354,154 @@ class SingleStageVaporCompressionMachine:
             )
             raise ValueError('Steady-state performance could not be determined.')
 
+    def _eq_root(self, unknowns: np.ndarray, counter: list) -> np.ndarray:
+        i = counter[0]
+        T_evp = Q_(unknowns[0], 'degC')
+        T_cnd = Q_(unknowns[1], 'degC')
+        self._log((
+            f"Iteration {i + 1}: "
+            "try with "
+            f"T_evp = {T_evp:~P.3f} and "
+            f"T_cnd = {T_cnd:~P.3f}"
+            ), logging.INFO
+        )
+        # Check if condenser temperature is below critical temperature of
+        # refrigerant
+        T_crit = self.Refrigerant.critical_point.T
+        if T_cnd >= T_crit:
+            err_message = (
+                "Rating of VCM failed: "
+                f"Condenser temperature ({T_cnd:~P.3f}) exceeds critical "
+                f"temperature of refrigerant ({T_crit.to('degC'):~P.3f})."
+            )
+            self._log(err_message, logging.ERROR)
+            raise ValueError(err_message)
+        # Check if condenser temperature is above temperature of air
+        # entering the condenser:
+        if T_cnd <= self.cnd_air_in.Tdb:
+            err_message = (
+                "Rating of VCM failed: "
+                f"Condenser temperature ({T_cnd:~P.3f}) is lower than "
+                f"temperature of air entering condenser "
+                f"({self.cnd_air_in.Tdb.to('degC'):~P.3f})."
+            )
+            self._log(err_message, logging.ERROR)
+            raise ValueError(err_message)
+        # Check if evaporation temperature is lower than temperature of
+        # air entering evaporator:
+        if T_evp >= self.evp_air_in.Tdb:
+            err_message = (
+                "Rating of VCM failed: "
+                f"Evaporator temperature ({T_evp:~P.3f}) is higher than "
+                f"temperature of air entering evaporator "
+                f"({self.evp_air_in.Tdb.to('degC'):~P.3f})."
+            )
+            self._log(err_message, logging.ERROR)
+            raise ValueError(err_message)
+        self.compressor.Te = T_evp
+        self.compressor.Tc = T_cnd
+        cmp_m_dot_rfg = self.compressor.m_dot.to('kg / hr')
+        self._log((
+            f"Iteration {i + 1}: "
+            f"compressor mass flow rate: {cmp_m_dot_rfg:~P.3f}, "
+            f"compressor power: {self.compressor.Wc_dot.to('kW'):~P.3f}"
+            ), logging.DEBUG
+        )
+        cnd_rfg_in = self.compressor.discharge_gas
+        self._log((
+            f"Iteration {i + 1}: "
+            "refrigerant at condenser entry: "
+            f"{cnd_rfg_in.T.to('degC'):~P.3f}, "
+            f"{cnd_rfg_in.P.to('bar'):~P.3f}"
+            ), logging.DEBUG
+        )
+        with warnings.catch_warnings(category=CondenserWarning):
+            warnings.showwarning = self._warn_handler
+            r_cnd = self.condenser(
+                m_dot_air=self.cnd_m_dot_air,
+                m_dot_rfg=cmp_m_dot_rfg,
+                air_in=self.cnd_air_in,
+                rfg_in=cnd_rfg_in,
+            )
+        self._log((
+            f"Iteration {i + 1}: "
+            "refrigerant at condenser exit: "
+            f"{r_cnd.rfg_out.T.to('degC'):~P.3f}, "
+            f"{r_cnd.rfg_out.P.to('bar'):~P.3f}, "
+            f"{r_cnd.rfg_out.h.to('kJ / kg'):~P.3f}, "
+            f"{r_cnd.rfg_out.x.to('frac'):~P.3f}, "
+            f"{r_cnd.rfg_out.phase}"
+            ), logging.DEBUG
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            "heat rejection rate: "
+            f"{r_cnd.Q_dot.to('kW'):~P.3f}"
+            ), logging.DEBUG
+        )
+        evp_rfg_in = self.Refrigerant(
+            h=r_cnd.rfg_out.h,
+            P=self.compressor.Pe
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            f"refrigerant at evaporator entry: "
+            f"{evp_rfg_in.T.to('degC'):~P.3f}, "
+            f"{evp_rfg_in.P.to('bar'):~P.3f}, "
+            f"{evp_rfg_in.h.to('kJ / kg'):~P.3f}, "
+            f"{evp_rfg_in.x.to('frac'):~P.3f}, "
+            f"{evp_rfg_in.phase}"
+            ), logging.DEBUG
+        )
+        r_evp = self.evaporator(
+            air_in=self.evp_air_in,
+            m_dot_air=self.evp_m_dot_air,
+            rfg_in=evp_rfg_in,
+            dT_rfg_sh=self.dT_sh,
+            m_dot_rfg_ini=cmp_m_dot_rfg
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            f"refrigerant at evaporator exit: "
+            f"{r_evp.rfg_out.T.to('degC'):~P.3f}, "
+            f"{r_evp.rfg_out.P.to('bar'):~P.3f}"
+            ), logging.DEBUG
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            f"heat absorption rate: "
+            f"{r_evp.Q_dot.to('kW'):~P.3f}"
+            ), logging.DEBUG
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            f"evaporator mass flow rate: "
+            f"{r_evp.m_dot_rfg.to('kg / hr'):~P.3f}"
+            ), logging.DEBUG
+        )
+        Q_evp = r_cnd.Q_dot - self.compressor.Wc_dot
+        h_air_out_sat = (
+                self.evaporator.air_in.h
+                - Q_evp / (r_evp.eps * self.evaporator.m_dot_air)
+        )
+        air_out_sat = HumidAir(h=h_air_out_sat, RH=Q_(100, 'pct'))
+        T_evp_new = air_out_sat.Tdb
+        Q_cnd = self.evaporator.Q_dot + self.compressor.Wc_dot
+        T_cnd_new = (
+            self.condenser.air_in.Tdb +
+            Q_cnd / (r_cnd.eps * CP_HUMID_AIR * self.condenser.m_dot_air)
+        )
+        dev_T_evp = T_evp_new.to('K') - T_evp.to('K')
+        dev_T_cnd = T_cnd_new.to('K') - T_cnd.to('K')
+        self._log((
+            f"Iteration {i + 1}: deviation "
+            f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
+            f"for T_evp = {dev_T_evp:~P.3f}, T_cnd = {dev_T_cnd:~P.3f}"
+        ), logging.INFO
+        )
+        counter[0] += 1
+        return np.array([dev_T_evp.m, dev_T_cnd.m])
+
     def rate_root(
         self,
         T_evp_ini: Quantity,
@@ -317,109 +524,125 @@ class SingleStageVaporCompressionMachine:
             consecutive values of `T_evp` and `T_cnd` is at most `rel_tol`
             (percentage or fraction).
         """
-        def _eq(unknowns: np.ndarray) -> np.ndarray:
-            nonlocal i
-            T_evp = Q_(unknowns[0], 'degC')
-            T_cnd = Q_(unknowns[1], 'degC')
-            self._log((
-                f"Iteration {i + 1} @ {self.n_cmp:~P.0f}: "
-                f"try with T_evp = {T_evp:~P.3f} and "
-                f"T_cnd = {T_cnd:~P.3f}"
-                ), logging.INFO
-            )
-            # Check if condenser temperature is below critical temperature of
-            # refrigerant
-            T_crit = self.Refrigerant.critical_point.T
-            if T_cnd >= T_crit:
-                err_message = (
-                    "Rating of VCM failed: "
-                    f"Condenser temperature ({T_cnd:~P.3f}) exceeds critical "
-                    f"temperature of refrigerant ({T_crit.to('degC'):~P.3f})."
-                )
-                self._log(err_message, logging.ERROR)
-                raise ValueError(err_message)
-            # Check if condenser temperature is above temperature of air
-            # entering the condenser:
-            if T_cnd <= self.cnd_air_in.Tdb:
-                err_message = (
-                    "Rating of VCM failed: "
-                    f"Condenser temperature ({T_cnd:~P.3f}) is lower than "
-                    f"temperature of air entering condenser "
-                    f"({self.cnd_air_in.Tdb.to('degC'):~P.3f})."
-                )
-                self._log(err_message, logging.ERROR)
-                raise ValueError(err_message)
-            # Check if evaporation temperature is lower than temperature of
-            # air entering evaporator:
-            if T_evp >= self.evp_air_in.Tdb:
-                err_message = (
-                    "Rating of VCM failed: "
-                    f"Evaporator temperature ({T_evp:~P.3f}) is higher than "
-                    f"temperature of air entering evaporator "
-                    f"({self.evp_air_in.Tdb.to('degC'):~P.3f})."
-                )
-                self._log(err_message, logging.ERROR)
-                raise ValueError(err_message)
-            self.compressor.Te = T_evp
-            self.compressor.Tc = T_cnd
-            cmp_m_dot_rfg = self.compressor.m_dot.to('kg / hr')
-            with warnings.catch_warnings(category=CondenserWarning):
-                warnings.showwarning = self._warn_handler
-                r_cnd = self.condenser(
-                    m_dot_air=self.cnd_m_dot_air,
-                    m_dot_rfg=cmp_m_dot_rfg,
-                    air_in=self.cnd_air_in,
-                    rfg_in=self.compressor.discharge_gas,
-                )
-            evp_rfg_in = self.Refrigerant(
-                h=r_cnd.rfg_out.h,
-                P=self.compressor.Pe
-            )
-            r_evp = self.evaporator(
-                air_in=self.evp_air_in,
-                m_dot_air=self.evp_m_dot_air,
-                rfg_in=evp_rfg_in,
-                dT_rfg_sh=self.dT_sh,
-                m_dot_rfg_ini=cmp_m_dot_rfg
-            )
-            Q_evp = r_cnd.Q_dot - self.compressor.Wc_dot
-            h_air_out_sat = (
-                self.evaporator.air_in.h
-                - Q_evp / (r_evp.eps * self.evaporator.m_dot_air)
-            )
-            air_out_sat = HumidAir(h=h_air_out_sat, RH=Q_(100, 'pct'))
-            T_evp_new = air_out_sat.Tdb
-            Q_cnd = self.evaporator.Q_dot + self.compressor.Wc_dot
-            T_cnd_new = (
-                self.condenser.air_in.Tdb +
-                Q_cnd / (r_cnd.eps * CP_HUMID_AIR * self.condenser.m_dot_air)
-            )
-            dev_T_evp = T_evp_new.to('K') - T_evp.to('K')
-            dev_T_cnd = T_cnd_new.to('K') - T_cnd.to('K')
-            self._log((
-                f"Iteration {i + 1} @ {self.n_cmp:~P.0f}: error "
-                f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
-                f"for T_evp = {dev_T_evp:~P.3f}, for T_cnd = {dev_T_cnd:~P.3f}"
-                ), logging.INFO
-            )
-            i += 1
-            return np.array([dev_T_evp.m, dev_T_cnd.m])
-
         if isinstance(self.compressor, VariableSpeedCompressor):
             self.compressor.speed = self.n_cmp
         self.compressor.dT_sh = self.dT_sh
-        i = 0
+        i = [0]
         sol = optimize.root(
-            _eq,
+            self._eq_root,
+            args=(i,),
             x0=np.array([T_evp_ini.to('degC').m, T_cnd_ini.to('degC').m]),
             options=dict(xtol=rel_tol.to('frac').m, maxfev=i_max)
         )
         self._log((
-            f"Rating finished after {i + 1} iterations: {sol.message}"
+            f"Rating finished after {i[0]} iterations: {sol.message}"
             ), logging.INFO
         )
         self.compressor.Te = Q_(sol.x[0], 'degC')
         self.compressor.Tc = Q_(sol.x[1], 'degC')
+
+    def _eq_minimize(self, unknowns: np.ndarray, counter: list) -> float:
+        i = counter[0]
+        T_evp = Q_(unknowns[0], 'degC')
+        T_cnd = Q_(unknowns[1], 'degC')
+        self._log((
+            f"Iteration {i + 1}: "
+            "try with "
+            f"T_evp = {T_evp:~P.3f} and "
+            f"T_cnd = {T_cnd:~P.3f}"
+            ), logging.INFO
+        )
+        self.compressor.Te = T_evp
+        self.compressor.Tc = T_cnd
+        cmp_m_dot_rfg = self.compressor.m_dot.to('kg / hr')
+        cnd_rfg_in = self.compressor.discharge_gas
+        self._log((
+            f"Iteration {i + 1}: "
+            f"compressor mass flow rate: {cmp_m_dot_rfg:~P.3f}, "
+            f"compressor power: {self.compressor.Wc_dot.to('kW'):~P.3f}"
+            ), logging.DEBUG
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            "refrigerant at condenser entry: "
+            f"{cnd_rfg_in.T.to('degC'):~P.3f}, "
+            f"{cnd_rfg_in.P.to('bar'):~P.3f}"
+            ), logging.DEBUG
+        )
+        with warnings.catch_warnings(category=CondenserWarning):
+            warnings.showwarning = self._warn_handler
+            r_cnd = self.condenser(
+                m_dot_air=self.cnd_m_dot_air,
+                m_dot_rfg=cmp_m_dot_rfg,
+                air_in=self.cnd_air_in,
+                rfg_in=cnd_rfg_in,
+            )
+        self._log((
+            f"Iteration {i + 1}: "
+            "refrigerant at condenser exit: "
+            f"{r_cnd.rfg_out.T.to('degC'):~P.3f}, "
+            f"{r_cnd.rfg_out.P.to('bar'):~P.3f}, "
+            f"{r_cnd.rfg_out.h.to('kJ / kg'):~P.3f}, "
+            f"{r_cnd.rfg_out.x.to('frac'):~P.3f}, "
+            f"{r_cnd.rfg_out.phase}"
+            ), logging.DEBUG
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            "heat rejection rate: "
+            f"{r_cnd.Q_dot.to('kW'):~P.3f}"
+            ), logging.DEBUG
+        )
+        evp_rfg_in = self.Refrigerant(
+            h=r_cnd.rfg_out.h,
+            P=self.compressor.Pe
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            f"refrigerant at evaporator entry: "
+            f"{evp_rfg_in.T.to('degC'):~P.3f}, "
+            f"{evp_rfg_in.P.to('bar'):~P.3f}, "
+            f"{evp_rfg_in.h.to('kJ / kg'):~P.3f}, "
+            f"{evp_rfg_in.x.to('frac'):~P.3f}, "
+            f"{evp_rfg_in.phase}"
+            ), logging.DEBUG
+        )
+        r_evp = self.evaporator(
+            air_in=self.evp_air_in,
+            m_dot_air=self.evp_m_dot_air,
+            rfg_in=evp_rfg_in,
+            dT_rfg_sh=self.dT_sh,
+            m_dot_rfg_ini=cmp_m_dot_rfg
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            f"refrigerant at evaporator exit: "
+            f"{r_evp.rfg_out.T.to('degC'):~P.3f}, "
+            f"{r_evp.rfg_out.P.to('bar'):~P.3f}"
+        ), logging.DEBUG
+        )
+        self._log((
+            f"Iteration {i + 1}: "
+            f"heat absorption rate: "
+            f"{r_evp.Q_dot.to('kW'):~P.3f}"
+            ), logging.DEBUG
+        )
+        evp_m_dot_rfg = r_evp.m_dot_rfg.to('kg / hr')
+        self._log((
+            f"Iteration {i + 1}: "
+            f"evaporator mass flow rate: "
+            f"{evp_m_dot_rfg:~P.3f}"
+            ), logging.DEBUG
+        )
+        dev = abs(evp_m_dot_rfg - cmp_m_dot_rfg)
+        self._log((
+            f"Iteration {i + 1}: deviation "
+            f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
+            f"{dev:~P.3f}"
+            ), logging.INFO
+        )
+        counter[0] += 1
+        return dev.m
 
     def rate_min(
         self,
@@ -461,53 +684,10 @@ class SingleStageVaporCompressionMachine:
         -------
         None
         """
-        def _eq(unknowns: np.ndarray) -> float:
-            nonlocal i
-            T_evp = Q_(unknowns[0], 'degC')
-            T_cnd = Q_(unknowns[1], 'degC')
-            self._log((
-                f"Iteration {i + 1} @ {self.n_cmp:~P.0f}: "
-                f"try with T_evp = {T_evp:~P.3f} and "
-                f"T_cnd = {T_cnd:~P.3f}"
-                ), logging.INFO
-            )
-            self.compressor.Te = T_evp
-            self.compressor.Tc = T_cnd
-            cmp_m_dot_rfg = self.compressor.m_dot.to('kg / hr')
-            with warnings.catch_warnings(category=CondenserWarning):
-                warnings.showwarning = self._warn_handler
-                r_cnd = self.condenser(
-                    m_dot_air=self.cnd_m_dot_air,
-                    m_dot_rfg=cmp_m_dot_rfg,
-                    air_in=self.cnd_air_in,
-                    rfg_in=self.compressor.discharge_gas,
-                )
-            evp_rfg_in = self.Refrigerant(
-                h=r_cnd.rfg_out.h,
-                P=self.compressor.Pe
-            )
-            r_evp = self.evaporator(
-                air_in=self.evp_air_in,
-                m_dot_air=self.evp_m_dot_air,
-                rfg_in=evp_rfg_in,
-                dT_rfg_sh=self.dT_sh,
-                m_dot_rfg_ini=cmp_m_dot_rfg
-            )
-            evp_m_dot_rfg = r_evp.m_dot_rfg.to('kg / hr')
-            dev = abs(evp_m_dot_rfg - cmp_m_dot_rfg)
-            self._log((
-                f"Iteration {i + 1} @ {self.n_cmp:~P.0f}: error "
-                f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
-                f"{dev:~P.3f}"
-                ), logging.INFO
-            )
-            i += 1
-            return dev.m
-
         if isinstance(self.compressor, VariableSpeedCompressor):
             self.compressor.speed = self.n_cmp
         self.compressor.dT_sh = self.dT_sh
-        i = 0
+        i = [0]
         # Set physical bounds on the values for evaporation and condensation
         # temperature:
         T_crit = self.Refrigerant.critical_point.T
@@ -516,7 +696,8 @@ class SingleStageVaporCompressionMachine:
             (self.cnd_air_in.Tdb.to('degC').m, T_crit.to('degC').m)  # T_cnd
         )
         sol = optimize.minimize(
-            _eq,
+            self._eq_minimize,
+            args=(i,),
             x0=np.array([T_evp_ini.to('degC').m, T_cnd_ini.to('degC').m]),
             method='Nelder-Mead',
             bounds=bounds,
@@ -528,7 +709,7 @@ class SingleStageVaporCompressionMachine:
             )
         )
         self._log((
-            f"Rating finished after {i + 1} iterations: {sol.message}"
+            f"Rating finished after {i[0]} iterations: {sol.message}"
             ), logging.INFO
         )
         self.compressor.Te = Q_(sol.x[0], 'degC')

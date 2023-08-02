@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from scipy.optimize import fsolve
 from .. import Quantity
-from ..fluids import Fluid, FluidState
+from ..fluids import Fluid, FluidState, CoolPropMixtureError
 
 
 Q_ = Quantity
@@ -261,7 +261,7 @@ class FixedSpeedCompressor:
         h_mix = self.liquid.h
         try:
             mixture = self.refrigerant_type(P=P_eva, h=h_mix)
-        except IndexError:  # refrigerant is mixture
+        except CoolPropMixtureError:  # refrigerant is mixture
             mixture = self.refrigerant_type(P=P_eva, h=h_mix, x=Q_(0, 'pct'))
         return mixture
 
@@ -284,7 +284,7 @@ class FixedSpeedCompressor:
         h_dis = self.suction_gas.h + wc
         try:
             discharge_gas = self.refrigerant_type(P=P_con, h=h_dis)
-        except IndexError:  # refrigerant is mixture
+        except CoolPropMixtureError:  # refrigerant is mixture
             discharge_gas = self.refrigerant_type(P=P_con, h=h_dis, T=self.Tc)
         return discharge_gas
 
@@ -297,7 +297,7 @@ class FixedSpeedCompressor:
         s_suc = self.suction_gas.s
         try:
             h_is_dis = self.refrigerant_type(P=P_con, s=s_suc).h
-        except IndexError:  # refrigerant is mixture
+        except CoolPropMixtureError:  # refrigerant is mixture
             h_is_dis = self.refrigerant_type(P=P_con, s=s_suc, T=self.Tc).h
         Wis_dot = self.m_dot * (h_is_dis - h_suc)
         return Wis_dot

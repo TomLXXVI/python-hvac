@@ -21,13 +21,14 @@ import pandas as pd
 from hvac import Quantity
 from hvac.logging import ModuleLogger
 from hvac.charts import LineChart
-from hvac.fluids import Fluid, HumidAir
+from hvac.fluids import Fluid, HumidAir, CoolPropWarning
 from hvac.heat_transfer.heat_exchanger.fin_tube import air_condenser, air_evaporator
 from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
-logger = ModuleLogger.get_logger('hvac.fluids.fluid')
-logger.setLevel(ModuleLogger.CRITICAL)
+warnings.filterwarnings('ignore', category=CoolPropWarning)
+warnings.filterwarnings('ignore', category=air_condenser.CondenserWarning)
+
 logger = ModuleLogger.get_logger(__name__)
 
 Q_ = Quantity

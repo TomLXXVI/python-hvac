@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from hvac import Quantity
 from hvac.logging import ModuleLogger
-from hvac.fluids import Fluid, HumidAir
+from hvac.fluids import Fluid, HumidAir, CoolPropWarning
 from hvac.heat_transfer.heat_exchanger.fin_tube import air_evaporator, air_condenser
 from hvac.vapor_compression.real_compressor import VariableSpeedCompressor
 from hvac.vapor_compression.machine_bis import SingleStageVaporCompressionMachine
@@ -24,10 +24,8 @@ from hvac.vapor_compression.machine_bis import SingleStageVaporCompressionMachin
 
 Q_ = Quantity
 
-# Hide log messages from module hvac.fluids.fluid and RuntimeWarnings
-fluid_logger = ModuleLogger.get_logger('hvac.fluids.fluid')
-fluid_logger.setLevel(ModuleLogger.ERROR)
-
+# Hide warnings from module hvac.fluids.fluid and RuntimeWarnings
+warnings.filterwarnings('ignore', category=CoolPropWarning)
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 

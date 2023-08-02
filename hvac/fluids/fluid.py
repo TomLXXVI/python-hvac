@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Optional, Dict, Tuple
 from dataclasses import dataclass
 import CoolProp
@@ -5,11 +6,21 @@ import CoolProp.CoolProp as CP
 import numpy as np
 from scipy.optimize import fsolve
 from .. import Quantity
-from ..logging import ModuleLogger
+
 
 Q_ = Quantity
 
-fluid_logger = ModuleLogger.get_logger(__name__)
+
+class CoolPropWarning(Warning):
+    pass
+
+
+class CoolPropError(Exception):
+    pass
+
+
+class CoolPropMixtureError(CoolPropError):
+    pass
 
 
 @dataclass
@@ -170,9 +181,10 @@ class Fluid:
                 self._state.update(*inputs)
             except ValueError as err:
                 if self._is_mixture():
-                    raise IndexError  # signal to caller that mixture state cannot be solved
+                    raise CoolPropMixtureError(err) from None  # signal to caller that mixture state cannot be solved
                 else:
-                    fluid_logger.error(err)
+                    raise CoolPropError(err) from None
+
         if len(input_qties) == 3:  # special case for mixture
             self._find_mixture_state(**input_qties)
 
@@ -223,7 +235,10 @@ class Fluid:
             )
             return qty
         except ValueError as err:
-            fluid_logger.warning(f"CoolProp could not solve for quantity '{qty_name}: {err}'")
+            warnings.warn(
+                f"CoolProp could not solve for quantity '{qty_name}: {err}'",
+                category=CoolPropWarning
+            )
             return None
 
     def _get_state(self) -> FluidState:
@@ -256,6 +271,8 @@ class Fluid:
         return self._get_state()
 
     def __deepcopy__(self, memo):
+        # needed this to solve copy-trouble with CoolProp: create a new instance
+        # with the same attributes as the instance to be copied.
         new_fluid = type(self)(
             self.fluid_name,
             self.backend,

@@ -125,7 +125,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         self,
         m_dot_rfg_ini: Quantity,
         i_max: int = 100,
-        tol: Quantity = Q_(0.001, 'kg / s'),
+        tol: Quantity = Q_(0.1, 'kg / hr'),
     ) -> tuple[Quantity, HumidAir, Quantity, Quantity]:
         """Determines by iteration the mass flow rate of refrigerant needed to
         get saturated refrigerant vapor at the outlet of the evaporator.
@@ -161,9 +161,10 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
             Pressure drop on the air-side of the evaporator.
         """
         def _eq(m_dot_rfg: float) -> float:
+            m_dot_rfg = Q_(m_dot_rfg, 'kg / hr')
             # Set initial guess of refrigerant mass flow rate on the heat
             # exchanger core:
-            self._hex_core.m_dot_int = Q_(m_dot_rfg, 'kg / hr')
+            self._hex_core.m_dot_int = m_dot_rfg
             # Calculate heat transfer rate across boiling region:
             Q = self._hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
             # Calculate state of air leaving evaporator:

@@ -99,6 +99,15 @@ class PlainFinTubeCounterFlowEvaporator:
         self.m_dot_rfg: Quantity | None = None
         self.dP_air: Quantity | None = None
 
+    @staticmethod
+    def _check_entering_refrigerant(rfg_in: FluidState) -> FluidState:
+        if 0 < rfg_in.x.to('frac').m < 1:
+            return rfg_in
+        else:
+            raise ValueError(
+                f"Entering refrigerant is not a liquid/vapor-mixture."
+            )
+
     def set_operating_conditions(
         self,
         air_in: HumidAir,
@@ -137,7 +146,7 @@ class PlainFinTubeCounterFlowEvaporator:
         self.dP_air = None
         self.air_in = air_in
         self.m_dot_air = m_dot_air.to('kg / s')
-        self.rfg_in = rfg_in
+        self.rfg_in = self._check_entering_refrigerant(rfg_in)
         self.dT_rfg_sh = dT_rfg_sh.to('K')
         self.m_dot_rfg_ini = m_dot_rfg_ini.to('kg / s')
         # Set fixed operating conditions on superheating part:
@@ -154,10 +163,35 @@ class PlainFinTubeCounterFlowEvaporator:
             rfg_in=self.rfg_in
         )
 
+    def _fun_find_m_dot_rfg(
+        self,
+        m_dot_rfg: float,
+        i_max: int = 100,
+        tol_m_dot_rfg: Quantity = Q_(0.1, 'kg / hr')
+    ) -> float:
+        m_dot_rfg = Q_(m_dot_rfg, 'kg / hr')
+        # Set mass flow rate through superheating part:
+        self.superheating_part.set_mass_flow_rate_refrigerant(m_dot_rfg)
+        # Determine the flow length required to superheat the refrigerant
+        # vapor to the degree set on the expansion device:
+        self.L2_superheat = self.superheating_part.determine_flow_length(self.L2)
+        # Determine available flow length for boiling the refrigerant:
+        self.L2_boiling = self.L2 - self.L2_superheat
+        self.boiling_part.set_flow_length(self.L2_boiling)
+        # Set state of air entering the boiling part = state of air leaving
+        # the superheating part:
+        self.boiling_part.set_air_in(self.superheating_part.air_out)
+        # Determine the mass flow rate of refrigerant required to transform
+        # the refrigerant entering the evaporator into saturated vapor:
+        m_dot_rfg_new, *_ = self.boiling_part.rate(m_dot_rfg, i_max, tol_m_dot_rfg)
+        # Determine deviation between new and previous mass flow rate:
+        dev_m_dot_rfg = m_dot_rfg_new - m_dot_rfg
+        return dev_m_dot_rfg.to('kg / hr').m
+
     def rate(
         self,
         i_max: int = 100,
-        tol_m_dot_rfg: Quantity = Q_(0.001, 'kg / s')
+        tol_m_dot_rfg: Quantity = Q_(0.1, 'kg / hr')
     ) -> Result:
         """Finds by iteration the actual mass flow rate of refrigerant under
         given operating conditions, so that the refrigerant at the outlet of the
@@ -200,28 +234,8 @@ class PlainFinTubeCounterFlowEvaporator:
             L2_boiling: Quantity
                 Flow length of boiling region.
         """
-        def _eq(m_dot_rfg: float) -> float:
-            m_dot_rfg = Q_(m_dot_rfg, 'kg / hr')
-            # Set mass flow rate through superheating part:
-            self.superheating_part.set_mass_flow_rate_refrigerant(m_dot_rfg)
-            # Determine the flow length required to superheat the refrigerant
-            # vapor to the degree set on the expansion device:
-            self.L2_superheat = self.superheating_part.determine_flow_length(self.L2)
-            # Determine available flow length for boiling the refrigerant:
-            self.L2_boiling = self.L2 - self.L2_superheat
-            self.boiling_part.set_flow_length(self.L2_boiling)
-            # Set state of air entering the boiling part = state of air leaving
-            # the superheating part:
-            self.boiling_part.set_air_in(self.superheating_part.air_out)
-            # Determine the mass flow rate of refrigerant required to transform
-            # the refrigerant entering the evaporator into saturated vapor:
-            m_dot_rfg_new, *_ = self.boiling_part.rate(m_dot_rfg, i_max, tol_m_dot_rfg)
-            # Determine deviation between new and previous mass flow rate:
-            dev_m_dot_rfg = m_dot_rfg_new - m_dot_rfg
-            return dev_m_dot_rfg.to('kg / hr').m
-
         sol = optimize.root_scalar(
-            _eq,
+            self._fun_find_m_dot_rfg,
             method='secant',
             x0=self.m_dot_rfg_ini.to('kg / hr').m,
             maxiter=i_max,
@@ -259,7 +273,7 @@ class PlainFinTubeCounterFlowEvaporator:
         dT_rfg_sh: Quantity,
         m_dot_rfg_ini: Quantity,
         i_max: int = 100,
-        tol_m_dot_rfg: Quantity = Q_(0.001, 'kg / s')
+        tol_m_dot_rfg: Quantity = Q_(0.01, 'kg / hr')
     ) -> Result:
         """Combines the methods `set_operating_conditions` and `rate` in a
         single method.

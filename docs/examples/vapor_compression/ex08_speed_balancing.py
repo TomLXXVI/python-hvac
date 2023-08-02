@@ -1,16 +1,20 @@
+"""Find the steady-state compressor speed of a single-stage vapor compression
+machine at which the given evaporation and condensation will be reached under
+given operating conditions.
+"""
 import warnings
 from pathlib import Path
 from hvac import Quantity
 from hvac.logging import ModuleLogger
-from hvac.fluids import Fluid, HumidAir
+from hvac.fluids import Fluid, HumidAir, CoolPropWarning
 from hvac.vapor_compression import VariableSpeedCompressor
 from hvac.heat_transfer.heat_exchanger.fin_tube import air_evaporator, air_condenser
 from hvac.vapor_compression.machine_bis import SingleStageVaporCompressionMachine
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
+warnings.filterwarnings('ignore', category=CoolPropWarning)
 
-logger = ModuleLogger.get_logger('hvac.fluids.fluid')
-logger.setLevel(ModuleLogger.CRITICAL)
+logger = ModuleLogger.get_logger(__name__)
 
 Q_ = Quantity
 
@@ -50,7 +54,8 @@ def create_machine() -> SingleStageVaporCompressionMachine:
     machine = SingleStageVaporCompressionMachine(
         evaporator, condenser, compressor, R134a,
         n_cmp_min=Q_(2100, '1 / min'),
-        n_cmp_max=Q_(4000, '1 / min')
+        n_cmp_max=Q_(4000, '1 / min'),
+        logger=logger
     )
     return machine
 
@@ -77,13 +82,18 @@ def balance(
 
 if __name__ == '__main__':
     machine = create_machine()
+    T_evp, T_cnd = Q_(6, 'degC'), Q_(51, 'degC')
     n_cmp = balance(
         machine,
         evp_m_dot_air=Q_(1500, 'kg / hr'),
         cnd_m_dot_air=Q_(3000, 'kg / hr'),
         evp_air_in=HumidAir(Tdb=Q_(24, 'degC'), RH=Q_(50, 'pct')),
         cnd_air_in=HumidAir(Tdb=Q_(35, 'degC'), RH=Q_(30, 'pct')),
-        T_evp=Q_(6, 'degC'),
-        T_cnd=Q_(51, 'degC')
+        T_evp=T_evp,
+        T_cnd=T_cnd
     )
-    print(n_cmp)
+    print(
+        f"The evaporation temperature of {T_evp:~P} and the condensation "
+        f"temperature of {T_cnd:~P} are reached at a compressor "
+        f"speed around {n_cmp.to('1 / min'):~P.0f}."
+    )

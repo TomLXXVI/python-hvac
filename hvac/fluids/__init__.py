@@ -5,10 +5,16 @@ from .constants import (
     STANDARD_TEMPERATURE
 )
 
-# from .water import Water
-#
-# from .ice import Ice
+from .water import Water
 
-from .fluid import Fluid, FluidState, fluid_logger
+from .ice import Ice
+
+from .fluid import (
+    Fluid,
+    FluidState,
+    CoolPropWarning,
+    CoolPropError,
+    CoolPropMixtureError
+)
 
 from .humid_air import HumidAir

@@ -111,7 +111,7 @@ def _plot_n_cmp_fixed(
     unit: str,
     y_scale: tuple
 ) -> None:
-    """Plots line chart on screen of values in `column` as function of outdoor
+    """Plots a line chart on screen of values in `column` as function of outdoor
     temperature at given compressor speeds in `n_cmp_rng`.
 
     Parameters
@@ -291,6 +291,35 @@ def plot_WQQ(
     chart.show()
 
 
+def plot_T_cnd_vs_T_evp(
+    df: pd.DataFrame,
+    n_cmp_rng: list[float]
+) -> None:
+    """Plots condensation temperature against evaporation temperature at
+    compressor speeds in `n_cmp_rng`.
+    """
+    T_evp_rng_list, T_cnd_rng_list = [], []
+    for n_cmp in n_cmp_rng:
+        *_, T_evp_rng = _get_values_at_n_cmp(df, n_cmp, 'T_evp [degC]')
+        *_, T_cnd_rng = _get_values_at_n_cmp(df, n_cmp, 'T_cnd [degC]')
+        T_evp_rng_list.append(T_evp_rng)
+        T_cnd_rng_list.append(T_cnd_rng)
+    chart = LineChart((8, 6))
+    for n_cmp, T_evp_rng, T_cnd_rng in zip(n_cmp_rng, T_evp_rng_list, T_cnd_rng_list):
+        chart.add_xy_data(
+            label=f'T_cnd vs. T_evp @ {n_cmp} rpm',
+            x1_values=T_evp_rng,
+            y1_values=T_cnd_rng,
+            style_props={'marker': 'o', 'linestyle': 'none'}
+        )
+    chart.x1.add_title('T_evp, °C')
+    chart.y1.add_title('T_cnd, °C')
+    chart.x1.scale(0, 11, 1)
+    chart.y1.scale(0, 80, 10)
+    chart.add_legend()
+    chart.show()
+
+
 def get_ctrl_n_cmp(df: pd.DataFrame, target_Q_evp: float) -> tuple[list, list]:
     """Returns from `df` the range of outdoor temperatures and the corresponding
     range of compressor speeds at which the refrigeration capacity would match
@@ -339,9 +368,11 @@ def curve_fit_ctrl_n_cmp(
     n_cmp_rng: list[float]
 ) -> tuple[np.ndarray, np.ndarray, tuple]:
     """Returns a range of outdoor temperatures and the corresponding range of
-    compressor speeds at which the refrigeration capacity would match with
-    `target_Q_evp` determined after a straight line curve-fit of data-points
-    (`T_out_rng`, `n_cmp_rng`) returned from function `get_ctrl_n_cmp`.
+    compressor speeds at which the refrigeration capacity match with the
+    `target_Q_evp` determined with a straight-line curve-fit of the data-points
+    (`T_out_rng`, `n_cmp_rng`) returned from the function `get_ctrl_n_cmp`.
+    Also returns a tuple with the parameters `a` and `b`of the straight-line
+    equation `a * x + b`.
     """
     # filter out any nan-values
     arr = np.array([T_out_rng, n_cmp_rng])
@@ -364,8 +395,8 @@ def curve_fit_ctrl_n_cmp(
 
 
 def plot_ctrl_n_cmp(df: pd.DataFrame, target_Q_evp: float) -> tuple:
-    """Plots  in a line chart the compressor speed at which the refrigeration
-    capacity would match with `target_Q_evp` against outdoor temperature.
+    """Plots a line chart of the compressor speed against outdoor temperature
+    for which the refrigeration capacity would match the `target_Q_evp`.
     """
     try:
         T_out_rng_data, n_cmp_rng_data = get_ctrl_n_cmp(df, target_Q_evp)
@@ -391,7 +422,7 @@ def plot_ctrl_n_cmp(df: pd.DataFrame, target_Q_evp: float) -> tuple:
         fig.add_legend(anchor='upper left', position=(0.01, 0.99))
         # Show line chart:
         fig.show()
-        # Return the curve-fit parameters
+        # Return the curve-fit parameters:
         return popt
 
 
@@ -432,5 +463,10 @@ def test_02(target_Q_evp: float):
     plot_ctrl_n_cmp(df, target_Q_evp)
 
 
+def test_03(n_cmp_rng: list[float]):
+    df = read_dataframe()
+    plot_T_cnd_vs_T_evp(df, n_cmp_rng)
+
+
 if __name__ == '__main__':
-    test_02(3.5)
+    test_03([2700, 3000, 3300, 3600, 3900, 4200, 4500, 4800, 5100, 5400])
