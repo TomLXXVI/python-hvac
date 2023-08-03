@@ -328,7 +328,7 @@ class SingleStageVaporCompressionMachine:
             rel_dev = abs_dev / abs(cmp_m_dot_rfg)
             self._log((
                 f"Iteration {i + 1}: deviation "
-                f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
+                f"with {T_evp:~P.3f} and {T_cnd:~P.3f}: "
                 f"{abs_dev.to('kg / hr'):~P.3f}, {rel_dev.to('pct'):~P3f}"
                 ), logging.INFO
             )
@@ -495,7 +495,7 @@ class SingleStageVaporCompressionMachine:
         dev_T_cnd = T_cnd_new.to('K') - T_cnd.to('K')
         self._log((
             f"Iteration {i + 1}: deviation "
-            f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
+            f"with {T_evp:~P.3f} and {T_cnd:~P.3f}: "
             f"for T_evp = {dev_T_evp:~P.3f}, T_cnd = {dev_T_cnd:~P.3f}"
         ), logging.INFO
         )
@@ -637,7 +637,7 @@ class SingleStageVaporCompressionMachine:
         dev = abs(evp_m_dot_rfg - cmp_m_dot_rfg)
         self._log((
             f"Iteration {i + 1}: deviation "
-            f"with ({self.n_cmp:~P.0f}, {T_evp:~P.3f}, {T_cnd:~P.3f}): "
+            f"with {T_evp:~P.3f} and {T_cnd:~P.3f}: "
             f"{dev:~P.3f}"
             ), logging.INFO
         )

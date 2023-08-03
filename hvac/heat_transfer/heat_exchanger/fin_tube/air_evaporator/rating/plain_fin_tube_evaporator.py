@@ -74,6 +74,7 @@ class PlainFinTubeCounterFlowEvaporator:
         k_f:
             Thermal conductivity of the external fin material.
         """
+        self.N_r = N_r
         self.L2 = N_r * S_l
         self._geo_dict = {
             'L1': L1, 'L3': L3,

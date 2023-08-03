@@ -2,6 +2,7 @@ import logging
 from logging import StreamHandler, FileHandler, Logger
 from logging.handlers import QueueHandler
 from multiprocessing import Queue
+from pathlib import Path
 
 
 class ModuleLogger:
@@ -79,9 +80,10 @@ class ModuleLogger:
         return logger
 
     @staticmethod
-    def sort_log_by_process_id(file_path: str) -> list[str]:
-        """Sort the log entries in a log file at `file_path` by the process-ID
-        mentioned in each log entry.
+    def sort_log_by_process_id(file_path: Path | str) -> list[str]:
+        """Sorts the log entries in a log file at `file_path` by the process-ID
+        mentioned in each log entry and saves the sorted file back to disk
+        with suffix '_sorted' added to the original filename.
         """
         log_entries = []
         traceback_lines = []
@@ -118,4 +120,16 @@ class ModuleLogger:
             log_entries,
             key=lambda entry: _get_pid(entry)
         )
+
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
+        dir_path = file_path.parent
+        file_name = file_path.stem
+        extension = file_path.suffix
+        new_filepath = dir_path / Path(file_name + "_sorted" + extension)
+
+        with open(new_filepath, 'w', encoding='utf-8') as fh:
+            fh.writelines(line + '\n' for line in sorted_log_entries)
+
         return sorted_log_entries

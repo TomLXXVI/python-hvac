@@ -53,7 +53,7 @@ class CondensingUnit:
         return Tc
 
 
-class SingleStageVCMachine:
+class SimpleSingleStageVCM:
 
     def __init__(
         self,
