@@ -11,8 +11,9 @@ A Python package for HVAC engineering:
 Example scripts and notebooks can be found under `docs/examples`. More examples
 will be added over time.
 
-This project replaces the older project `HVAC`, which is no longer under 
-development and will be no longer maintained.
+> [!INFO]
+> This project replaces the older project `HVAC`, which is no longer under 
+> development and will be no longer maintained.
 
 ## Overview
 At this moment following sub-packages are part of `hvac`:
