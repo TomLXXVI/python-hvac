@@ -24,14 +24,14 @@ A package about air-conditioning processes and systems, including VAV-systems.
 **cooling_load_calc**<br>
 A package for doing cooling load calculations of a building, based upon ASHRAE's
 RTS-method. It uses a lumped linear thermal network model to take the thermal 
-inertia of flat, opaque building components into account, and also for the simple
-modeling of the internal thermal mass of a space. It uses a sub-package
-**climate**, also included in main package `hvac`, for developing daily 
-temperature profiles from a limited number of climate design parameters. This 
-package also contains a sub-package **sun** for calculating solar irradiance and
-irradiation on surfaces based on the ASHRAE Clear-Sky Model or based on TMY-data.
-For calculating the position of the sun, the third-party library `astral` is 
-used.
+inertia of flat, opaque building components into account, and it is also used to
+implement a simple model for the internal thermal mass of a space. It uses a 
+sub-package **climate**, also included in main package `hvac`, for developing 
+daily temperature profiles from a limited number of climate design parameters. 
+This package also contains a sub-package **sun** for calculating solar irradiance 
+and irradiation on surfaces based on the ASHRAE Clear-Sky Model or based on 
+TMY-data. For calculating the position of the sun, the third-party library 
+`astral` is used.
 
 **heating_load_calc**<br>
 A package for doing heating load calculations of a building based on the method 
@@ -50,14 +50,14 @@ Package for sizing refrigerant lines (suction line, discharge line, and liquid
 line) between an outdoor unit and indoor unit of an air conditioning system.
 
 **heat_transfer**<br>
-This packages implements a number of correlations for calculating convection
+This package implements a number of correlations for calculating convection
 heat transfer coefficients and friction factors for different geometries. Most 
 correlations were taken from the book "Introduction to Engineering Heat Transfer" 
 by G.F. Nellis and S.A. Klein (Cambridge University Press).
 
 Also part of this package is the sub-package **heat_exchanger**. It implements
 the effectiveness-NTU method for both dry and wet external heat transfer 
-surfaces. It also contains rating and sizing procedures for some 
+surfaces, and it contains rating and sizing procedures for some 
 fin-tube heat exchangers (see `heat_transfer.heat_exchanger.fin_tube`), which 
 are applicable to single-phase fluid flow, and which are implementations of 
 the procedures described in the book "Fundamentals of Heat Exchanger Design" by 
@@ -66,12 +66,12 @@ R. K. Shah and D. P. Sekulic (John Wiley & Sons, 2003).
 **vapor_compression**<br>
 Furthermore, sub-package `heat_transfer.heat_exchanger.fin_tube` also contains 
 a model for a plain fin-tube, counter-flow air evaporator and similar air 
-condenser. These models are used, together with a model for a fixed or variable 
-speed compressor, in the module `machine_bis` of sub-package `vapor_compression`. 
+condenser. These models are used together with a model for a fixed or variable 
+speed compressor in the module `machine_bis` of sub-package `vapor_compression`. 
 Purpose of this module is to simulate the steady-state performance of a 
-single-stage air conditioning machine (vapor compression machine, heat pump). 
-Multiple examples of such simulations have been included in the folder 
-`vapor_compression` of `docs/examples`.
+single-stage vapor compression machine (air conditioning machine, heat pump). 
+Several application examples have been included in the folder `vapor_compression` 
+of `docs/examples`.
 
 **vrf_system**<br>
 This sub-package can be used to model a VRF-system in relation to the building
