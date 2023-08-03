@@ -34,15 +34,15 @@ used.
 
 **heating_load_calc**<br>
 A package for doing heating load calculations of a building based on the method 
-of European standard EN 12831-1 (July 2017). An example
+of European standard EN 12831-1 (July 2017).
 
 **energy_estimation**<br>
 Estimation of the energy consumption of a building using the bin table method.
 
 **fluid_flow**<br>
-A calculation package for designing pipe and duct systems. It also includes a 
-large number of fittings taken from Crane Technical Paper No. 410M and SMACNA's 
-HVAC Systems Duct Design Manual.
+A package about fluid flow in pipes and ducts and for designing and analyzing 
+pipe and duct network systems. It includes a large number of fittings taken 
+from Crane Technical Paper No. 410M and SMACNA's HVAC Systems Duct Design Manual.
 
 **refrigerant_piping**<br>
 Package for sizing refrigerant lines (suction line, discharge line, and liquid
@@ -67,7 +67,7 @@ Furthermore, sub-package `heat_transfer.heat_exchanger.fin_tube` also contains
 a model for a plain fin-tube, counter-flow air evaporator and similar air 
 condenser. These models are used, together with a model for a fixed or variable 
 speed compressor, in the module `machine_bis` of sub-package `vapor_compression`. 
-Purpose of this package is to simulate the steady-state performance of a 
+Purpose of this module is to simulate the steady-state performance of a 
 single-stage air conditioning machine (vapor compression machine, heat pump). 
 Multiple examples of such simulations have been included in the folder 
 `vapor_compression` of `docs/examples`.
@@ -75,25 +75,25 @@ Multiple examples of such simulations have been included in the folder
 **vrf_system**<br>
 This sub-package can be used to model a VRF-system in relation to the building
 in which it is installed, with the purpose to estimate its energy consumption
-during a typical heating or cooling season. Example of such an energy consumption
-analysis and a comparison between different VRF-systems in relation to the same 
-building have been included in the folder `vrf_system` of `docs/examples`.
+during a typical heating or cooling season. An example of such an energy 
+consumption estimation and a comparison between different candidate VRF-systems 
+in relation to the same building have been included in the folder `vrf_system` 
+of `docs/examples`.
 
-Besides the aforementioned application-oriented packages, main package `hvac` 
-also includes a few fundamental sub-packages that are used throughout the other
-packages of `hvac`:
+Besides the aforementioned application-oriented packages, `hvac` also includes a 
+number of more basic sub-packages which are used throughout the code of `hvac`:
 
 First of all, `hvac` is entirely based on the third-party library *Pint* for
 representing physical quantities. Module `pint_setup.py` does the necessary
 setup for using Pint's `Quantity` class throughout the package.
 
 Sub-package `fluids` contains a number of modules with classes that act like more
-object-oriented wrappers around third-party libraries `CoolProp` and `aipws`. 
-The principal classes of `fluids` that are used throughout the code are `Fluid` 
-and `HumidAir`, which encapsulate CoolProp's API, mainly to allow the use of 
-`Quantity` objects.
+object-oriented wrappers around the third-party libraries `CoolProp` and `aipws`. 
+The most principal classes of `fluids`, that are used throughout the code, are 
+`Fluid` and `HumidAir`, which encapsulate CoolProp's API, mainly to allow the 
+use of `Quantity` objects.
 
 Finally, sub-package `charts` contains a thin wrapper around the third-party 
-library `matplotlib` and also has two modules for plotting refrigeration cycles 
-on a log-p-h diagram and for plotting air conditioning processes on a 
-psychrometric chart.
+library `matplotlib`. It also has two modules for plotting refrigeration cycles 
+on the log-p-h diagram of a refrigerant and for plotting air conditioning 
+processes on a psychrometric chart.
