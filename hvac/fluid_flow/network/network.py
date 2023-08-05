@@ -54,7 +54,7 @@ class FlowPath(List[TConduit]):
 
     @property
     def dynamic_pressure_difference(self) -> Quantity:
-        """Get the total pressure loss between the end and start node of the
+        """Get the total pressure loss between the start and end node of the
         flow path due to fluid flow friction and fitting losses.
          """
         return sum(conduit.pressure_drop for conduit in self.conduits)
@@ -62,8 +62,8 @@ class FlowPath(List[TConduit]):
     @property
     def elevation_pressure_difference(self) -> Quantity:
         """Returns the elevation pressure difference (aka thermal gravity effect
-        or chimney effect) due to any height difference between the end and
-        start node of the flow path.
+        or chimney effect) due to any height difference between the start and
+        end node of the flow path.
         """
         first_node = self.conduits[0].start_node
         last_node = self.conduits[-1].end_node
@@ -76,7 +76,7 @@ class FlowPath(List[TConduit]):
 
     @property
     def total_pressure_difference(self) -> Quantity:
-        """Returns the total pressure difference between the end and start node
+        """Returns the total pressure difference between the start and end node
         of the flow path. It is the sum of the elevation pressure difference
         and the dynamic pressure difference.
         """

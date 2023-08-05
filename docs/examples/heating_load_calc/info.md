@@ -29,10 +29,10 @@ design heat load - Part 1: Space heating load.*
 In the text that follows, we first go over the main concepts and classes that 
 are needed to program the heat loss calculation of a building.
 
-The script `house.py` in the same folder as this document demonstrates 
+The script `house.py` in the folder `example_01` demonstrates 
 how package `hvac.heating_load_calc` can be used to program the heating load 
-calculation of a simple house. Opening `floor_plan.pdf` will show the floor plan 
-of this example house.
+calculation of a simple house. Opening `floor_plan.pdf` in the folder `example_01` 
+will show the floor plan of this example house.
 
 ## Construction assembly
 The first step in a heating load calculation is to determine the construction 
@@ -69,8 +69,8 @@ geometrical properties are: width, height, and area.
 If width and height are specified, the area can be calculated. Otherwise, the
 area of the building material needs to be specified. However, as we are mostly 
 interested in the heat flux, i.e. the heat transfer per unit of area, through a 
-construction assembly, the area of the building material will be 1 unit of area 
-(e.g. 1 m²).
+construction assembly, the default area of the building material will be 1 unit 
+of area (e.g. 1 m²).
 
 An exception to this general rule applies to cases where different building
 materials are combined in a single layer of the construction assembly, e.g.
@@ -529,7 +529,7 @@ standard.
 In the following, an example will be used to explain how a program for the 
 heating load calculation of a building can be structured and which classes and 
 functions from the package are required or can be used for this. 
-In the script `house.py`, in the same directory as this document, the heating load
+In the script `house.py`, in the directory `example_01`, the heating load
 calculation of a simple two-storey house has been programmed. Also in this 
 directory is the floor plan of this house (`floor_plan.pdf`). The bottom of the 
 floor plan is oriented to the South, the right side of the floor plan points to 

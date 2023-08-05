@@ -1,0 +1,16 @@
+conduit_ID,start_node_ID,end_node_ID,loop_ID,length,volume_flow_rate,nominal_diameter,fixed_pressure_difference
+D3,N1,N2,L3,25.5,-222,160,
+D4,N2,N7,"(L3, L4)",2.2,-61,125,
+D5,N2,N8,"(L4, L5)",4.5,-61,125,
+D6,N2,N9,"(L5, L6)",5.9,-50,125,
+D7,N2,N10,L6,25.4,-50,125,
+D2,N1,N6,"(L2, L3)",3.5,-50,125,
+D8,N1,N3,L2,20.9,150,125,
+D9,N3,N5,"(L1, L2)",10.7,-100,125,
+D10,N3,N4,L1,5.5,50,125,
+D11,N4,N5,L1,,,,0
+D12,N5,N6,L2,,,,0
+D13,N10,N9,L6,,,,0
+D14,N9,N8,L5,,,,0
+D15,N8,N7,L4,,,,0
+D16,N7,N6,L3,,,,0
