@@ -82,19 +82,23 @@ in relation to the same building have been included in the folder `vrf_system`
 of `docs/examples`.
 
 Besides the aforementioned application-oriented packages, `hvac` also includes a 
-number of more basic sub-packages which are used throughout the code of `hvac`:
+number of more basic sub-packages which are used throughout the modules of 
+`hvac`:
 
-First of all, `hvac` is entirely based on the third-party library *Pint* for
-representing physical quantities. Module `pint_setup.py` does the necessary
-setup for using Pint's `Quantity` class throughout the package.
+First of all, `hvac` is heavily based on third-party library `pint` for
+working with physical quantities in Python. Module `pint_setup.py` inside `hvac`
+does the necessary setup for using Pint's `Quantity` class throughout the 
+package. When you write a script using package `hvac`, simply write `from hvac
+import Quantity` to work with physical quantities in your script.
 
-Sub-package `fluids` contains a number of modules with classes that act like more
-object-oriented wrappers around the third-party libraries `CoolProp` and `aipws`. 
-The most principal classes of `fluids`, that are used throughout the code, are 
-`Fluid` and `HumidAir`, which encapsulate CoolProp's API, mainly to allow the 
-use of `Quantity` objects.
+Sub-package `fluids` contains a number of modules with classes that act like
+object-oriented wrappers around third-party libraries `CoolProp` and `aipws`. 
+The principal classes of `fluids`, that are used extensively throughout 
+the code, are `Fluid` and `HumidAir`, which encapsulate CoolProp's API and
+allow to accept `Quantity` objects.
 
-Finally, sub-package `charts` contains a thin wrapper around the third-party 
-library `matplotlib`. It also has two modules for plotting refrigeration cycles 
-on the log-p-h diagram of a refrigerant and for plotting air conditioning 
-processes on a psychrometric chart.
+Finally, sub-package `charts` contains a package `matplotlibwrapper`, being a 
+tiny wrapper around third-party library `matplotlib`, meant to ease the drawing
+of some frequently used chart types. It also contains a module to plot 
+refrigeration cycles on the log-p-h diagram of a refrigerant and to plot air 
+conditioning processes on a psychrometric chart.

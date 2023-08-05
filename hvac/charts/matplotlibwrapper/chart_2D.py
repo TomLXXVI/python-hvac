@@ -41,7 +41,11 @@ class Chart(ABC):
             self.figure = constructs[0]
             self.axes = constructs[1]
         else:
-            self.figure, self.axes = plt.subplots(figsize=size, dpi=dpi, layout='constrained')
+            self.figure, self.axes = plt.subplots(
+                figsize=size,
+                dpi=dpi,
+                layout='constrained'
+            )
         self.x1: X1Axis = X1Axis(self.axes)
         self.y1: Y1Axis = Y1Axis(self.axes)
         self.x2: Optional[X2Axis] = None
@@ -71,9 +75,10 @@ class Chart(ABC):
         """
         Add x- and y- data to chart for drawing.
 
-        If the chart has a secondary x-axis (x2) and/or a secondary y-axis (y2), also `x2_values` and `y2_values` can
-        be added to the chart. `style_props` can be a dictionary with values for properties that style the plot
-        (eg. {'marker': 'o', 'linestyle': 'none'})
+        If the chart has a secondary x-axis (x2) and/or a secondary y-axis (y2),
+        also `x2_values` and `y2_values` can be added to the chart.
+        `style_props` can be a dictionary with values for properties that style
+        the plot (e.g. {'marker': 'o', 'linestyle': 'none'})
         """
         self.datasets[label] = {
             'x1_values': x1_values,
@@ -98,14 +103,18 @@ class Chart(ABC):
 
         Parameters
         ----------
-        anchor: {'upper left', 'upper center', 'upper right', 'center right', 'lower right', 'lower center',
-                 'lower left', 'center left', 'center', 'best'}
-            reference point on the border of the legend for positioning the legend on the chart.
+        anchor: {'upper left', 'upper center', 'upper right', 'center right',
+                 'lower right', 'lower center', 'lower left', 'center left',
+                 'center', 'best'}
+            Reference point on the border of the legend for positioning the
+            legend on the chart.
         position:
-            tuple with x and y coordinates of the anchor position with respect to the origin of the axes.
-            By default, the legend is positioned at the bottom and at the center of the chart, under the x-axis.
+            Tuple with x and y coordinates of the anchor position with respect
+            to the origin of the axes. By default, the legend is positioned at
+            the bottom and at the center of the chart, under the x-axis.
         columns:
-            number of label columns the legend list is to be divided in. Default is 2 columns.
+            Number of label columns the legend list is to be divided in.
+            Default is 2 columns.
         """
         self.legend = Legend(self.y1, self.y2, anchor, position, columns)
 
@@ -125,7 +134,12 @@ class Chart(ABC):
         self.draw(with_grid)
         plt.show()
 
-    def save(self, name: str, location: Optional[str] = None, fmt: str = 'png', with_grid: bool = True):
+    def save(
+        self, name: str,
+        location: Optional[str] = None,
+        fmt: str = 'png',
+        with_grid: bool = True
+    ):
         """Draw and save the chart on disk."""
         self.draw(with_grid)
         location = location or os.getcwd()
