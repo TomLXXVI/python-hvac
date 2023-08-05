@@ -21,11 +21,10 @@ odfpy = "^1.4.1"
 multiprocess = "^0.70.14"
 
 [tool.poetry.group.dev.dependencies]
-jupyterlab = ">=3.5.0"
-jupyter-lsp = "^2.0.1"
-jupyterlab-lsp = "^4.0.1"
-python-lsp-server = "^1.7.1"
-jupyterlab-spellchecker = "^0.7.3"
+jupyterlab = "^3.6.0"
+jupyterlab-lsp = "^4.2.0"
+jupyter-lsp = "^2.2.0"
+python-lsp-server = { version = "^1.7.4", extras = ["all"]}
 
 [build-system]
 requires = ["poetry-core"]
