@@ -1,0 +1,13 @@
+conduit_ID,start_node_ID,end_node_ID,loop_ID,schedule,length,volume_flow_rate,specific_pressure_drop
+P1,S0,S1,L1,copper,4,0.458,0.2
+P2,S1,S2,L2,copper,2,0.397,0.2
+P3,S2,S3,L3,copper,2,0.214,0.2
+P4,S3,S4,L4,copper,2,0.122,0.2
+P5,S1,R1,"(L1, L2)",pex,25,0.061,0.2
+P6,S2,R2,"(L2, L3)",pex,25,0.183,0.2
+P7,S3,R3,"(L3, L4) ",pex,15,0.092,0.2
+P8,S4,R4,L4,pex,20,0.122,0.2
+P9,R4,R3,L4,copper,2,0.122,0.2
+P10,R3,R2,L3,copper,2,0.214,0.2
+P11,R2,R1,L2,copper,2,0.397,0.2
+P12,R1,R0,L1,copper,4,0.458,0.2

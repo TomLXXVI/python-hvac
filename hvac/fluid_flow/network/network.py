@@ -1096,15 +1096,15 @@ def save_network(
     file_path: str
 ) -> None:
     """Saves a `Network` object to disk file. For example, after designing a
-    network you can save it to disk, to open it in another script for analyzing
-    the network.
+     network, you can save it to disk, to open it in another script for
+     analyzing the network.
     """
     with open(file_path, 'wb') as fh:
         pickle.dump(network, fh)
 
 
 def load_network(file_path: str) -> Union[PipeNetwork, DuctNetwork]:
-    """Loads a `Network` object from disk file."""
+    """Loads a `Network` object from a disk file."""
     with open(file_path, 'rb') as fh:
         network = pickle.load(fh)
     return network

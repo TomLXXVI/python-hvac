@@ -25,7 +25,7 @@ class CoolPropMixtureError(CoolPropError):
 
 @dataclass
 class FluidState:
-    fluid: 'Fluid'
+    fluid_attrs: Dict[str, Quantity]
     state_dict: Dict[str, Quantity]
 
     def __post_init__(self):
@@ -60,6 +60,18 @@ class FluidState:
             case CoolProp.iphase_not_imposed:
                 return 'not imposed'
 
+    @property
+    def fluid(self) -> 'Fluid':
+        # workaround for the fact that a `Fluid` object cannot be pickled
+        # (not even with `dill`), due to CoolProp's `AbstractState` object.
+        return Fluid(
+            name=self.fluid_attrs['fluid_name'],
+            backend=self.fluid_attrs['backend'],
+            mass_fractions=self.fluid_attrs['mass_fractions'],
+            vol_fractions=self.fluid_attrs['vol_fractions'],
+            reference=self.fluid_attrs['reference']
+        )
+
 
 class Fluid:
     _coolprop_qties: Dict[str, Tuple[int, str]] = {
@@ -87,27 +99,27 @@ class Fluid:
         reference: str = 'DEF'
     ):
         """
-        Create a `Fluid`-instance.
+        Creates a `Fluid`-instance.
 
         Parameters
         ----------
         name: str
-            Name of the fluid or mixture. The fluid or the constituents of the
-            mixture must be known by CoolProp. In case of mixture, the constituents
+            Name of the fluid or mixture. CoolProp must know the fluid or the
+            constituents of the mixture. In case of a mixture, the constituents
             are separated by an ampersand (&) without spaces.
         backend: str, default: 'HEOS'
             The backend CoolProp must use to perform state calculations. See
             CoolProp's documentation for which backends are possible.
         mass_fractions: List[Quantity], default `None`
             Only for mixtures or incompressible fluids which are mass-based
-            binary mixtures (i.e. water-based mixtures). The mass fractions of
+            binary mixtures (i.e., water-based mixtures). The mass fractions of
             the constituents in the mixture in the same order as the
             constituents given in `name`. In case of a binary, water-based
             mixture only the mass fraction of the constituent which is not water
             needs to be specified.
         vol_fractions: List[Quantity], default `None`
             Only for mixtures or incompressible fluids which are volume-based
-            binary mixtures (i.e. water-based mixtures). The volume fractions
+            binary mixtures (i.e., water-based mixtures). The volume fractions
             of the constituents in the same order as the constituents given in
             `name`. In case of a binary, water-based mixture only the volume
             fraction of the constituent which is not water needs to be specified.
@@ -242,30 +254,47 @@ class Fluid:
             return None
 
     def _get_state(self) -> FluidState:
-        """Get the current state of the fluid wrapped in a new `FluidState`-
+        """Get the current state of the fluid wrapped in a new `FluidState`
         instance."""
-        d = {k: self._get_quantity(k) for k in self._coolprop_qties.keys()}
-        return FluidState(self, d)
+        fluid_attrs = {
+            'fluid_name': self.fluid_name,
+            'backend': self.backend,
+            'mass_fractions': self.mass_fractions,
+            'vol_fractions': self.vol_fractions,
+            'reference': self.reference
+        }
+        fluid_state = {
+            k: self._get_quantity(k)
+            for k in self._coolprop_qties.keys()
+        }
+        return FluidState(fluid_attrs, fluid_state)
 
     def __call__(self, **input_qties: Quantity) -> FluidState:
         """Pass the input state variables that change the fluid's current state
-        and get the new state wrapped in a `FluidState`-instance.
-        Normally only two input state variables are needed to define the state.
-        But in the case of mixtures the possible combinations are restricted.
+        and get the new state wrapped in a `FluidState` instance.
+        Normally, only two input state variables are needed to define the state.
+        But in the case of mixtures, the possible combinations are restricted.
         Only for the following combinations CoolProp can determine the state of
         a mixture:
-        - P and T, or
-        - P and x, or
-        - T and x
-        However it is possible to find the state of a mixture for other combinations
-        if one of the state variables is P, T or x and the second is any other
-        valid state variable. Therefore, it is however needed that an initial
-        guess is also given for a third state variable, which must be either P, T or
-        x, but of course cannot be equal to the first state variable.
+        - `P` and `T`, or
+        - `P` and `x`, or
+        - `T` and `x`
+        However it is possible to find the state of a mixture for other
+        combinations if one of the state variables is P, T or x and the second
+        is any other valid state variable. Therefore, it is, however, needed
+        that an initial guess is also given for a third state variable, which
+        must be either P, T or x, but of course cannot be equal to the first
+        state variable.
 
         Example
         -------
-        evaporator_in = R454B(T=Q_(-10, 'degC'), h=condenser_out.h, x=Q_(0, 'frac'))
+        ```
+        evaporator_in = R454B(
+            T=Q_(-10, 'degC'),
+            h=condenser_out.h,
+            x=Q_(0, 'frac')
+        )
+        ```
         """
         self._update(**input_qties)
         return self._get_state()
