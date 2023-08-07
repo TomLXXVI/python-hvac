@@ -8,7 +8,7 @@ import pandas as pd
 from hvac import Quantity, UNITS
 from hvac.fluids import Fluid, FluidState
 from .cross_section import TCrossSection
-from . import exceptions
+from .exceptions import ConduitConfigurationError, ConduitIterationOverflow
 
 u = UNITS
 Q_ = Quantity
@@ -208,7 +208,7 @@ class PseudoConduit(AbstractConduit):
     @property
     def denominator(self) -> Quantity:
         """Used internally when analyzing a network with the Hardy-Cross method."""
-        return Quantity(0.0, 'Pa * s / m ** 3')
+        return Q_(0.0, 'Pa * s / m ** 3')
 
     @property
     def pressure_drop(self) -> Quantity:
@@ -226,7 +226,7 @@ class Conduit(AbstractConduit):
         super().__init__()
         self.length: Quantity = float('nan') * u.m
         self.wall_roughness: Quantity = float('nan') * u.mm
-        self.fluid: FluidState = Water(T=Quantity(15.0, 'degC'), P=Quantity(101.325, 'kPa'))
+        self.fluid: FluidState = Water(T=Q_(15.0, 'degC'), P=Q_(101.325, 'kPa'))
         self._cross_section: Optional[TCrossSection] = None
         self._volume_flow_rate: Quantity = Quantity(float('nan'), 'm ** 3 / s')
         self._pressure_drop: Quantity = float('nan') * u.Pa
@@ -264,10 +264,10 @@ class Conduit(AbstractConduit):
         pressure_drop: optional
             Pressure drop across the conduit.
         specific_pressure_drop: optional
-            Pressure drop per unit length of the conduit (this is used e.g. in
+            Pressure drop per unit length of the conduit (this is used, e.g., in
             the equal friction method to size air ducts).
         machine_coefficients: optional
-            List of polynomial coefficients that describe the pump or fan curve,
+            List of polynomial coefficients that describe the pump or fan curve
             if a pump or fan should be present in the conduit.
 
         Notes
@@ -314,7 +314,7 @@ class Conduit(AbstractConduit):
         elif flow_rate_given and diameter_given:
             obj._calculate_pressure_drop()
         else:
-            raise exceptions.ConduitConfigurationError('arguments missing')
+            raise ConduitConfigurationError('arguments missing')
         return obj
 
     @staticmethod
@@ -412,7 +412,7 @@ class Conduit(AbstractConduit):
             f = (f1 - (f2 - f1) ** 2.0 / (f3 - 2.0 * f2 + f1)) ** -2.0
             return f
         else:
-            # no flow, is no friction
+            # no flow means no friction
             return 0.0
 
     def _calculate_equivalent_diameter(self):
@@ -439,7 +439,7 @@ class Conduit(AbstractConduit):
             f = f_new
             i += 1
         else:
-            raise exceptions.ConduitIterationOverflow('no solution for diameter')
+            raise ConduitIterationOverflow('no solution for diameter')
         self._cross_section.equivalent_diameter = d_eq * u.m  # this assignment may also change the cross-section's size
         if self._cross_section.schedule:
             # if also schedule is set, a commercially available size will be
@@ -472,7 +472,7 @@ class Conduit(AbstractConduit):
             f = f_new
             i += 1
         else:
-            raise exceptions.ConduitIterationOverflow('no solution for volume flow rate')
+            raise ConduitIterationOverflow('no solution for volume flow rate')
         A = self._cross_section.area.to('m ** 2').magnitude
         self._volume_flow_rate = Quantity(v * A, 'm ** 3 / s')
 
@@ -692,7 +692,7 @@ TConduit = Union[PseudoConduit, Conduit, Pipe, Duct]
 
 
 class Loop(List[AbstractConduit]):
-    """Class derived from list that represents a `Loop` in a network of conduits.
+    """Class derived from `list` that represents a `Loop` in a network of conduits.
     Used for analyzing a network with the Hardy-Cross method.
     """
     def __init__(self, ID: str = '', *args, **kwargs):

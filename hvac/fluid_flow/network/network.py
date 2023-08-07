@@ -30,7 +30,7 @@ def pretty_unit(unit: str) -> str:
 
 
 class FlowPath(List[TConduit]):
-    """Class derived from list that represents a flow path between the start
+    """Class derived from `list` representing a flow path between the start
     and end node of a network.
     """
 
@@ -53,14 +53,14 @@ class FlowPath(List[TConduit]):
         return self._conduits
 
     @property
-    def dynamic_pressure_difference(self) -> Quantity:
+    def dyn_pressure_diff(self) -> Quantity:
         """Get the total pressure loss between the start and end node of the
         flow path due to fluid flow friction and fitting losses.
          """
         return sum(conduit.pressure_drop for conduit in self.conduits)
 
     @property
-    def elevation_pressure_difference(self) -> Quantity:
+    def elev_pressure_diff(self) -> Quantity:
         """Returns the elevation pressure difference (aka thermal gravity effect
         or chimney effect) due to any height difference between the start and
         end node of the flow path.
@@ -75,13 +75,13 @@ class FlowPath(List[TConduit]):
         return g * (rho - rho_a) * (z2 - z1)
 
     @property
-    def total_pressure_difference(self) -> Quantity:
+    def tot_pressure_diff(self) -> Quantity:
         """Returns the total pressure difference between the start and end node
         of the flow path. It is the sum of the elevation pressure difference
         and the dynamic pressure difference.
         """
-        dp_elev = self.elevation_pressure_difference
-        dp_dyn = self.dynamic_pressure_difference
+        dp_elev = self.elev_pressure_diff
+        dp_dyn = self.dyn_pressure_diff
         dp_tot = dp_elev + dp_dyn  # dp_tot = (tp1 - tp2) + dp_pump
         return dp_tot
 
@@ -107,12 +107,12 @@ class FlowPath(List[TConduit]):
         -------
         SystemCurve
         """
-        dp_dyn = self.dynamic_pressure_difference
-        dp_elev = self.elevation_pressure_difference
+        dp_dyn = self.dyn_pressure_diff
+        dp_elev = self.elev_pressure_diff
         dp_loss = dp_dyn + dp_wp
-        R_hyd = dp_loss / (V_wp ** 2)  # hydraulic resistance of flow path
+        R_hyd = dp_loss / (V_wp ** 2)  # hydraulic resistance of the flow path
         p_v1 = self.conduits[0].velocity_pressure
-        p_t1 = p_g1 + p_v1  # total pressure at start node of flow path
+        p_t1 = p_g1 + p_v1  # total pressure at start node of the flow path
         p_t2 = p_t1 - dp_elev - dp_dyn  # total pressure at end node
         # p_v2 = self.conduits[-1].velocity_pressure
         # p_g2 = p_t2 - p_v2  # static pressure at end node
@@ -196,13 +196,13 @@ class Network(ABC):
             Height of the start node with respect to a reference plane to
             which the heights of all network nodes are referred to.
         end_node_ID: optional
-            ID of the end node of the network.
+            ID of the network's end node.
         end_node_height: default 0 m
             Height of the end node referred to the same reference plane as the
             network's start node.
         units:
-            Dictionary with the keys being the names of the quantities and the
-            values the units to be used for these quantities. See class
+            Dictionary of which the keys are the names of the quantities and the
+            values are the units to be used for these quantities. See class
             attribute `default_units` for a list of the quantities.
             Also, when reading a network configuration from csv-file, the values
             in the table will be assumed to be expressed in the units set through
@@ -307,7 +307,7 @@ class Network(ABC):
                 conduit_duplicate = Conduit.duplicate(
                     conduit,
                     flow_sign=conduit.flow_sign.reverse()
-                    # flow sign in other loop is opposite to first loop
+                    # flow sign in the other loop is opposite to the first loop
                 )
                 other_loop.append(conduit_duplicate)
                 conduit_duplicate.loops = [
@@ -328,14 +328,17 @@ class Network(ABC):
         for loop in self.loops.values():
             loop.calculate_correction_term()
 
-        # apply the correction terms to the flow rate of each section in each loop
+        # apply the correction terms to the flow rate of each section in each
+        # loop
         for loop in self.loops.values():
             for conduit in loop:
-                # correction terms cannot be applied to pseudo-sections as they have no flow
+                # correction terms cannot be applied to pseudo-sections as they
+                # have no flow
                 if not isinstance(conduit, PseudoConduit):
                     # check if the section is common to 2 loops
                     if len(conduit.loops) == 2:
-                        # if a section belongs to 2 loops: get the correction term of the other loop
+                        # if a section belongs to 2 loops: get the correction
+                        # term of the other loop
                         if conduit.loops[0].ID != loop.ID:
                             other_loop = conduit.loops[0]
                         else:
@@ -463,7 +466,7 @@ class Network(ABC):
         the start node and end node of the network that has the greatest
         pressure loss.
         """
-        dp_tots = [fp.total_pressure_difference for fp in self.flow_paths]
+        dp_tots = [fp.tot_pressure_diff for fp in self.flow_paths]
         index_max = dp_tots.index(max(dp_tots))
         return self._flow_paths[index_max]
 
@@ -474,12 +477,15 @@ class Network(ABC):
         applicable to a network with one entry (start node) and one exit
         (end node).
         """
-        return sum(conduit.volume_flow_rate for conduit in self.start_node.outgoing)
+        return sum(
+            conduit.volume_flow_rate
+            for conduit in self.start_node.outgoing
+        )
 
     @property
     def total_pressure_difference(self) -> Quantity:
         """Get the total pressure loss along the critical path of the network."""
-        return self.critical_path.total_pressure_difference
+        return self.critical_path.tot_pressure_diff
 
     @property
     def hydraulic_resistance(self) -> Quantity:
@@ -487,13 +493,14 @@ class Network(ABC):
         R = dP_crit / V² with dP_crit the pressure loss along the critical
         path and V the volume flow rate that enters and leaves the network.
         """
-        dp_loss = self.critical_path.dynamic_pressure_difference.to('Pa')
+        dp_loss = self.critical_path.dyn_pressure_diff.to('Pa')
         V = self.volume_flow_rate.to('m ** 3 / s')
         return dp_loss / (V ** 2)
 
     def get_flow_path_table(self) -> pd.DataFrame:
         """Returns a Pandas DataFrame object with an overview of the flow
-        paths in the network from start to end node of the network."""
+        paths from start node to end node in the network.
+        """
         headers = [
             "path",
             f"Δp-elev. [{self.units['pressure']}]",
@@ -502,12 +509,12 @@ class Network(ABC):
             f"Δp-deficit [{self.units['pressure']}]"
         ]
         table = {header: [] for header in headers}
-        for flow_path in self.flow_paths:
-            table[headers[0]].append(str(flow_path))
-            table[headers[1]].append(flow_path.elevation_pressure_difference.to(self.units['pressure']).magnitude)
-            table[headers[2]].append(flow_path.dynamic_pressure_difference.to(self.units['pressure']).magnitude)
-            table[headers[3]].append(flow_path.total_pressure_difference.to(self.units['pressure']).magnitude)
-            dp_deficit = self.total_pressure_difference - flow_path.total_pressure_difference
+        for fp in self.flow_paths:
+            table[headers[0]].append(str(fp))
+            table[headers[1]].append(fp.elev_pressure_diff.to(self.units['pressure']).magnitude)
+            table[headers[2]].append(fp.dyn_pressure_diff.to(self.units['pressure']).magnitude)
+            table[headers[3]].append(fp.tot_pressure_diff.to(self.units['pressure']).magnitude)
+            dp_deficit = self.total_pressure_difference - fp.tot_pressure_diff
             table[headers[4]].append(dp_deficit.to(self.units['pressure']).magnitude)
         return pd.DataFrame(table)
 
@@ -581,7 +588,7 @@ class Network(ABC):
                     )
                 )
             else:
-                # create `PseudoConduit` object with fixed pressure drop.
+                # create a `PseudoConduit` object with a fixed pressure drop.
                 conduit = PseudoConduit.create(
                     fixed_pressure_drop=self._quantify(
                         row['fixed_pressure_difference'],
@@ -808,7 +815,7 @@ class PipeNetwork(Network):
             added. (A cross-over is a conduit that runs between the supply
             and return pipe of a hydronic network to feed e.g. radiator panels.)
         pressure_drop_full_open: default 3 kPa
-            Pressure drop across the balancing valve when is fully open.
+            Pressure drop across the balancing valve when it is fully open.
 
         Returns
         -------
@@ -847,7 +854,7 @@ class PipeNetwork(Network):
         target_authority: default 0.5
             The control valve authority aimed at. Control valve authority is
             defined as the ratio of the pressure drop across the fully open valve
-            to the pressure drop across the fully closed valve. Practically the
+            to the pressure drop across the fully closed valve. Practically, the
             pressure drop across the fully closed valve is determined as the
             pressure drop across the cross-over when the design volume flow
             rate is flowing through the cross-over.
@@ -861,7 +868,7 @@ class PipeNetwork(Network):
             pipe=self.conduits[cross_over_ID],
             ID=f'CTRL-VLV-{cross_over_ID}',
             target_authority=target_authority,
-            pressure_drop_crit_path=self.critical_path.total_pressure_difference
+            pressure_drop_crit_path=self.critical_path.tot_pressure_diff
         )
         self.control_valves[cross_over_ID] = control_valve
         return control_valve.calculate_preliminary_Kvs()
@@ -905,12 +912,12 @@ class PipeNetwork(Network):
         the pressure drop along each flow path of the network becomes equal
         to the pressure drop along the critical path.
         """
-        dp_crit = self.critical_path.total_pressure_difference
+        dp_crit = self.critical_path.tot_pressure_diff
         flow_paths = copy(self.flow_paths)
         for balancing_valve in self.balancing_valves.values():
             for i, flow_path in enumerate(flow_paths):
                 if balancing_valve.pipe in flow_path:
-                    dp_flow_path = flow_path.total_pressure_difference
+                    dp_flow_path = flow_path.tot_pressure_diff
                     dp_deficit = dp_crit - dp_flow_path
                     balancing_valve.calculate_Kv_setting(dp_deficit)
                     balancing_valve.pipe.add_fitting(balancing_valve.zeta, balancing_valve.ID)
@@ -938,7 +945,7 @@ class PipeNetwork(Network):
         """Returns a Pandas `DataFrame` object with an overview of the control
         valves in the network.
         """
-        dp_crit = self.critical_path.total_pressure_difference
+        dp_crit = self.critical_path.tot_pressure_diff
         table = {
             'pipe ID': [],
             'valve ID': [],
@@ -1023,9 +1030,10 @@ class DuctNetwork(Network):
             ID of the conduit in the network to which the balancing damper is
             added.
         damper_type: default 'A15A'
-            The type of balancing damper. At this stage only 1 type of balancing
-            damper has been implemented in the program. 'A15A' refers to the
-            table in appendix A of the SMACNA Handbook HVAC SYSTEMS DUCT DESIGN.
+            The type of balancing damper.
+            At this stage, only 1 type of balancing damper has been implemented
+            in the program. 'A15A' refers to the table in appendix A of the
+            SMACNA guide "HVAC SYSTEMS DUCT DESIGN".
 
         Returns
         -------
@@ -1050,12 +1058,12 @@ class DuctNetwork(Network):
         each flow path of the network becomes equal to the pressure drop along
         the critical path.
         """
-        dp_crit = self.critical_path.total_pressure_difference
+        dp_crit = self.critical_path.tot_pressure_diff
         flow_paths = copy(self.flow_paths)
         for balancing_damper in self.balancing_dampers.values():
             for i, flow_path in enumerate(flow_paths):
                 if balancing_damper.duct in flow_path:
-                    dp_flow_path = flow_path.total_pressure_difference
+                    dp_flow_path = flow_path.tot_pressure_diff
                     dp_deficit = dp_crit - dp_flow_path
                     dp_tot = balancing_damper.pressure_drop + dp_deficit
                     dp_tot = dp_tot.to('Pa').magnitude
