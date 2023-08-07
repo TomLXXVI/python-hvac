@@ -1,2 +1,4 @@
 /test_scripts/
 /.idea/
+.ipynb_checkpoints/
+.virtual_documents/
