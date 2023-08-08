@@ -63,14 +63,8 @@ class FluidState:
     @property
     def fluid(self) -> 'Fluid':
         # workaround for the fact that a `Fluid` object cannot be pickled
-        # (not even with `dill`), due to CoolProp's `AbstractState` object.
-        return Fluid(
-            name=self.fluid_attrs['fluid_name'],
-            backend=self.fluid_attrs['backend'],
-            mass_fractions=self.fluid_attrs['mass_fractions'],
-            vol_fractions=self.fluid_attrs['vol_fractions'],
-            reference=self.fluid_attrs['reference']
-        )
+        # (not even with `dill`) due to CoolProp's `AbstractState` object.
+        return Fluid(**self.fluid_attrs)
 
 
 class Fluid:
