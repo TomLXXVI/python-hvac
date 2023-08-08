@@ -88,7 +88,7 @@ class Ventilation:
         """
         External airflow rate into the space through leakages and ATDs.
         (EN 12831-1 eq. 19: the leakage airflow rate into the ventilation zone
-        is divided among the spaces according to their envelope surface area
+        is divided among the spaces according to their envelope surface area,
         and the airflow rate through ATDs into the ventilation zone is divided
         among the spaces according to their design airflow rate through ATDs).
         """
@@ -134,8 +134,8 @@ class Ventilation:
     @property
     def V_min(self) -> float:
         """
-        Minimum required airflow rate of the space that needs to be ensured in
-        order to maintain an appropriate level of air hygiene.
+        The minimum required airflow rate of the space that needs to be ensured
+        in order to maintain an appropriate level of air hygiene.
         (EN 12831-1 eq. 33)
         """
         return self.n_min * self.space.volume.to('m ** 3').m
@@ -239,8 +239,8 @@ class Space:
             Instance of `ClimateData`, containing the relevant climatic data
             for the "design day".
         T_int_fun:
-            Function that takes the time t in seconds from 00:00:00 and returns
-            the setpoint space air temperature at that time. Can also be
+            Function that takes time t in seconds from 00:00:00 and returns
+            the setpoint space air temperature at that time. It can also be
             an instance of class `TemperatureSchedule`.
         RH_int:
             Design value for the relative humidity in the space (used to
@@ -248,7 +248,7 @@ class Space:
         cooling_schedule:
             Function that takes the time t in seconds from 00:00:00 and returns
             a boolean to indicate if the cooling system is ON (True) or OFF
-            (False). Can also be an instance of class `OnOffSchedule`.
+            (False). It can also be an instance of class `OnOffSchedule`.
         """
         space = cls()
         space.ID = ID
@@ -333,7 +333,7 @@ class Space:
         F_rad: float = 0.46
     ) -> InteriorBuildingElement:
         """
-        Add interior building element to the space.
+        Add an interior building element to the space.
 
         Parameters
         ----------
@@ -348,7 +348,7 @@ class Space:
             the building element.
         T_adj_fun:
             Function that takes the time t in seconds from 00:00:00 and returns
-            the temperature of the adjacent space at that time. Can also be
+            the temperature of the adjacent space at that time. It can also be
             an instance of class `TemperatureSchedule`.
         F_rad:
             Fraction of conductive heat flow that is transferred by radiation to
@@ -426,7 +426,7 @@ class Space:
         n_min:
             Minimum air change rate required for the space for reasons of air
             quality/hygiene and comfort (NBN EN 12831-1, B.2.10 - Table B.7).
-            Default value applies to permanent dwelling areas (living rooms,
+            The default value applies to permanent dwelling areas (living rooms,
             offices) and a ceiling height less than 3 m.
         V_open: Quantity, optional
             External air volume flow rate into the space through large openings
@@ -451,10 +451,10 @@ class Space:
             Temperature of the ventilation supply air after passing heat recovery
             (see NBN EN 12831-1 §6.3.3.7) or after passive pre-cooling. Any
             temperature fall by active pre-cooling, which requires power from a
-            cooling machine, shall not be taken into account (ventilation load is
-            not a space load in that case).
+            cooling machine, shall not be taken into account (the ventilation
+            load is not a space load in that case).
         T_trf:
-            Temperature of the transfer air volume flow into the space from
+            Temperature of the transfer air that flows into the space from
             another space. In case the room height of the other space is less
             than 4 m, it is equal to the internal design temperature of the other
             space; otherwise, it is equal to mean air temperature of the other
@@ -518,9 +518,9 @@ class Space:
         Q_unit: str = 'W'
     ) -> pd.DataFrame:
         """
-        Returns the thermal mass temperature, the heat flow into the thermal
-        mass, the heat flow out of the thermal mass, and the heat being stored
-        in the thermal mass.
+        Returns the thermal mass temperature, the flow of heat into the thermal
+        mass, the flow of heat out of the thermal mass, and the amount of heat
+        being stored in the thermal mass.
         """
         if self._hbm is None:
             self._hbm = HeatBalanceMethod(self, self.dt_hr, self.n_cycles)
@@ -719,8 +719,8 @@ class HeatBalanceMethod:
 
     def _calculate_conv_therm_mass_gain(self, k: int, T_nodes: list[float]) -> float:
         """
-        Calculate heat flow from interior thermal mass to space air at time
-        index k
+        Calculate the flow of heat from the interior thermal mass to the space
+        air at time index k.
         """
         T_itm = T_nodes[-1]
         if self.space.cooling_schedule is None:
@@ -854,9 +854,9 @@ class HeatBalanceMethod:
         T_nodes: list[float]
     ) -> tuple[float, ...]:
         """
-        Calculate heat flow into internal thermal mass, heat stored in internal
-        thermal mass and heat flow out from internal thermal mass at time index
-        k.
+        Calculate the flow of heat into the internal thermal mass, the amount of
+        heat stored in the internal thermal mass, and the flow of heat out of
+        the internal thermal mass at time index k.
         """
         # heat flow from exterior building elements into internal thermal mass
         # at time index k

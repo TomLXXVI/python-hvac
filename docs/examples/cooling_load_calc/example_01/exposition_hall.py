@@ -1,4 +1,15 @@
-"""Cooling load calculation of an exposition hall."""
+"""
+Cooling load calculation of an exposition hall.
+
+The exposition hall has three exterior walls (north, west, and east). The
+roof has two skylights. The exterior walls have no windows. Heat flows
+through interior partition walls are assumed zero. The building can be
+considered as one single space. The building's floor area is 18,68 m x 28,02 m
+= 523,4136 m². The building height is 6 m.
+
+More information about the cooling load calculation API can be found in the
+file "info.md" in docs/examples/heating_load_calc.
+"""
 from datetime import date
 import pandas as pd
 from hvac import Quantity
@@ -29,9 +40,11 @@ Q_ = Quantity
 
 
 class ConstructionAssemblies:
-
+    """Class that bundles a number of construction assemblies from which the
+    building elements of the building can be made.
+    """
     @staticmethod
-    def create_ext_wall_type1(
+    def exterior_wall_type1(
         T_ext: Quantity,
         T_int: Quantity,
         T_asp: Quantity,
@@ -39,6 +52,29 @@ class ConstructionAssemblies:
         v_wind: Quantity,
         t_ins: Quantity
     ) -> ConstructionAssembly:
+        """Creates the construction assembly of exterior wall type 1 (light
+        construction).
+
+        Parameters
+        ----------
+        T_ext:
+            outdoor air temperature
+        T_int:
+            indoor air temperature
+        T_asp:
+            mean airspace temperature
+        dT_asp:
+            temperature difference across airspace
+        v_wind:
+            wind speed
+        t_ins:
+            thickness of the insulation layer
+
+        Returns
+        -------
+        ConstructionAssembly
+        """
+        # Define the layers of the construction assembly:
         ext_surf_film = SurfaceLayer.create(
             ID='ext_surf_film',
             geometry=Geometry(),
@@ -81,6 +117,11 @@ class ConstructionAssemblies:
                 c=Q_(840, 'J / (kg * K)')
             )
         )
+        # We divide the insulation layer in a number of slices from which the
+        # linear thermal network model of the exterior wall will be derived
+        # (each slice represents a temperature node; by default, a layer has
+        # only one temperature node in which all the heat capacity is
+        # concentrated):
         insulation.slices = 7
         plasterboard = BuildingComponent.create(
             ID='plasterboard',
@@ -97,10 +138,11 @@ class ConstructionAssemblies:
             heat_flow_direction=HeatFlowDirection.HORIZONTAL,
             Tmn=T_int
         )
+        # Create the construction assembly;
         ext_wall = ConstructionAssembly.create(
             ID=f"ext_wall_type1 (t_ins = {t_ins.to('mm'):~P.0f})",
             layers=[
-                ext_surf_film,
+                ext_surf_film,  # layers must be ordered from outdoor to indoor
                 cement_plaster,
                 chipboard,
                 air_gap,
@@ -112,12 +154,16 @@ class ConstructionAssemblies:
         return ext_wall
 
     @staticmethod
-    def create_ext_wall_type2(
+    def exterior_wall_type2(
         T_ext: Quantity,
         T_int: Quantity,
         v_wind: Quantity,
         t_ins: Quantity
     ) -> ConstructionAssembly:
+        """Creates the construction assembly of exterior wall type 2
+        (heavy construction). For the meaning of the parameters refer to
+        `create_exterior_wall_type1`.
+        """
         ext_surf_film = SurfaceLayer.create(
             ID='ext_surf_film',
             geometry=Geometry(),
@@ -164,13 +210,17 @@ class ConstructionAssemblies:
         return ext_wall
 
     @staticmethod
-    def create_roof(
+    def roof(
         T_ext: Quantity,
         T_int: Quantity,
         v_wind: Quantity,
         t_ins: Quantity,
         heat_flow_dir: HeatFlowDirection
     ) -> ConstructionAssembly:
+        """Creates the construction assembly of the roof.
+        Parameter `heat_flow_dir` indicates the direction of heat flow through
+        the construction assembly.
+        """
         ext_surf_film = SurfaceLayer.create(
             ID='ext_surf_film',
             geometry=Geometry(),
@@ -228,7 +278,10 @@ class ConstructionAssemblies:
         return roof
 
     @staticmethod
-    def create_sky_light() -> WindowThermalProperties:
+    def sky_light() -> WindowThermalProperties:
+        """Returns the thermal properties of the skylights on the roof of the
+        exposition hall, bundled in a `WindowThermalProperties` object.
+        """
         sky_light_props = WindowThermalProperties(
             ID='sky_light_props',
             U=Q_(1.6, 'W / (m ** 2 * K)'),
@@ -246,159 +299,232 @@ class ConstructionAssemblies:
         return sky_light_props
 
 
-class Hall:
+class Construction:
+    """Class that provides the building construction of the single-space
+    building.
+    """
+    light_wall: ConstructionAssembly
+    heavy_wall: ConstructionAssembly
+    roof: ConstructionAssembly
+
+    @classmethod
+    def init(cls, T_int: Quantity, T_ext: Quantity):
+        """Creates the construction assemblies of the space."""
+        cls.light_wall = ConstructionAssemblies.exterior_wall_type1(
+            T_ext=T_ext,
+            T_int=T_int,
+            T_asp=Q_(32.2, 'degC'),
+            dT_asp=Q_(5.6, 'K'),
+            v_wind=Q_(3.4, 'm / s'),
+            t_ins=Q_(140, 'mm')
+        )
+        cls.heavy_wall = ConstructionAssemblies.exterior_wall_type2(
+            T_ext=T_ext,
+            T_int=T_int,
+            v_wind=Q_(3.4, 'm / s'),
+            t_ins=Q_(140, 'mm')
+        )
+        cls.roof = ConstructionAssemblies.roof(
+            T_ext=T_ext,
+            T_int=T_int,
+            v_wind=Q_(3.4, 'm / s'),
+            t_ins=Q_(169, 'mm'),
+            heat_flow_dir=HeatFlowDirection.DOWNWARDS
+        )
+
+    @classmethod
+    def add(cls, space: Space, is_heavy: bool = False) -> None:
+        """Adds the building construction to the space. With boolean `is_heavy`
+        a choice can be made between a heavy wall construction (concrete
+        exterior walls) or a light-weight construction.
+        """
+        if is_heavy:
+            wall = cls.heavy_wall
+        else:
+            wall = cls.light_wall
+        cls._add_north_wall(space, wall)
+        cls._add_west_wall(space, wall)
+        cls._add_east_wall(space, wall)
+        cls._add_roof(space, cls.roof)
+        cls._add_thermal_mass(space)
 
     @staticmethod
-    def add_north_wall(space: Space, ca: ConstructionAssembly) -> None:
+    def _add_north_wall(space: Space, constr_assem: ConstructionAssembly) -> None:
+        """Adds the north wall to the space."""
         space.add_ext_building_element(
             ID='north_wall',
             azimuth=Q_(0, 'deg'),
             tilt=Q_(90.0, 'deg'),
             width=Q_(18.68, 'm'),
             height=Q_(6.0, 'm'),
-            construction_assembly=ca,
+            construction_assembly=constr_assem,
             surface_color='light-colored'
         )
 
     @staticmethod
-    def add_west_wall(space: Space, ca: ConstructionAssembly) -> None:
+    def _add_west_wall(space: Space, constr_assem: ConstructionAssembly) -> None:
+        """Adds the west wall to the space."""
         space.add_ext_building_element(
             ID='west_wall',
             azimuth=Q_(270, 'deg'),
             tilt=Q_(90, 'deg'),
             width=Q_(1.5 * 18.68, 'm'),
             height=Q_(6.0, 'm'),
-            construction_assembly=ca,
+            construction_assembly=constr_assem,
             surface_color='light-colored'
         )
 
     @staticmethod
-    def add_east_wall(space: Space, ca: ConstructionAssembly) -> None:
+    def _add_east_wall(space: Space, constr_assem: ConstructionAssembly) -> None:
+        """Adds the east wall to the space."""
         space.add_ext_building_element(
             ID='east_wall',
             azimuth=Q_(90, 'deg'),
             tilt=Q_(90, 'deg'),
             width=Q_(1.5 * 18.68, 'm'),
             height=Q_(6.0, 'm'),
-            construction_assembly=ca,
+            construction_assembly=constr_assem,
             surface_color='light-colored'
         )
 
     @staticmethod
-    def add_roof(space: Space, ca: ConstructionAssembly) -> None:
+    def _add_roof(space: Space, constr_assem: ConstructionAssembly) -> None:
+        """Adds the roof to the space."""
         roof = space.add_ext_building_element(
             ID='roof',
             azimuth=Q_(0, 'deg'),
             tilt=Q_(0, 'deg'),
             width=Q_(18.68, 'm'),
             height=Q_(1.5 * 18.68, 'm'),
-            construction_assembly=ca,
+            construction_assembly=constr_assem,
             surface_color='dark-colored'
         )
+        # Add skylight 1:
         roof.add_window(
             ID='sky_light_1',
             width=Q_(3, 'm'),
             height=Q_(10, 'm'),
-            therm_props=ConstructionAssemblies.create_sky_light(),
+            therm_props=ConstructionAssemblies.sky_light(),
         )
+        # Add skylight 2:
         roof.add_window(
             ID='sky_light_2',
             width=Q_(3, 'm'),
             height=Q_(10, 'm'),
-            therm_props=ConstructionAssemblies.create_sky_light(),
+            therm_props=ConstructionAssemblies.sky_light(),
         )
 
     @staticmethod
-    def add_int_thermal_mass(space: Space) -> None:
+    def _add_thermal_mass(space: Space) -> None:
+        """Adds the interior thermal mass to the space."""
         space.add_internal_thermal_mass(
             A=Q_(348.81, 'm ** 2'),
             R=Q_(0.015, 'm ** 2 * K / W'),
             C=Q_(300, 'kJ / (m ** 2 * K)')
         )
+    
 
+class ExpositionHall:
+    """Class that models the single-zone building (exposition hall)."""
+    
     @classmethod
-    def create_building(
-        cls,
-        climate_data: ClimateData,
-        internal_heat_gains: list[InternalHeatGain] | None,
-        T_setpoint_schedule: TemperatureSchedule,
-        cooling_schedule: OnOffSchedule | None
-    ) -> Space:
-        # create space -> ventilation zone -> building entity -> building
-        space = Space.create(
-            ID='industrial_hall',
-            height=Q_(6.0, 'm'),
-            length=Q_(1.5 * 18.68, 'm'),
-            width=Q_(18.68, 'm'),
-            climate_data=climate_data,
-            T_int_fun=T_setpoint_schedule,
-            cooling_schedule=cooling_schedule
+    def create(cls, climate: ClimateData) -> Space:
+        """Creates the building and returns its single space."""
+        # Create cooling schedule:
+        cooling_schedule = None  # cls._create_cooling_schedule()
+        # Create a setpoint schedule for the interior temperature in the
+        # building:
+        int_temp_schedule = cls._create_T_setpoint_schedule(
+            T_comfort=Q_(26.0, 'degC'),
+            T_absence=Q_(26.0, 'degC')
         )
-        vz = VentilationZone.create(
-            ID='exposition_hall'
+        # Create the internal heat gains in the building:
+        internal_heat_gains = cls._create_internal_heat_gains(
+            people_max=200, 
+            people_min=100
         )
-        vz.add_space(space)
-        space.add_ventilation(vz)
-        be = BuildingEntity.create(ID='exposition_hall')
-        be.add_ventilation_zone(vz)
-        bu = Building.create(ID='exposition_hall')
-        bu.add_building_entity(be)
-
-        # create construction assemblies for the building elements of the space
-        # ext_wall_type1 = ConstructionAssemblies.create_ext_wall_type1(
-        #     T_ext=climate_data.Tdb_avg,
-        #     T_int=T_setpoint_schedule.base_value,
-        #     T_asp=Q_(32.2, 'degC'),
-        #     dT_asp=Q_(5.6, 'K'),
-        #     v_wind=Q_(3.4, 'm / s'),
-        #     t_ins=Q_(140, 'mm')
-        # )
-        ext_wall_type2 = ConstructionAssemblies.create_ext_wall_type2(
-            T_ext=climate_data.Tdb_avg,
-            T_int=T_setpoint_schedule.base_value,
-            v_wind=Q_(3.4, 'm / s'),
-            t_ins=Q_(140, 'mm')
+        # Create the single space of the building:
+        space = cls._create_building_hierarchy(
+            climate,
+            int_temp_schedule,
+            cooling_schedule,
+            internal_heat_gains
         )
-        roof = ConstructionAssemblies.create_roof(
-            T_ext=climate_data.Tdb_avg,
-            T_int=T_setpoint_schedule.base_value,
-            v_wind=Q_(3.4, 'm / s'),
-            t_ins=Q_(169, 'mm'),
-            heat_flow_dir=HeatFlowDirection.DOWNWARDS
+        # Add the building construction to the space:
+        Construction.init(
+            T_int=int_temp_schedule.base_value,
+            T_ext=climate.Tdb_avg
         )
-
-        # create and add the building elements to the space
-        ext_wall = ext_wall_type2
-        cls.add_north_wall(space, ext_wall)
-        cls.add_west_wall(space, ext_wall)
-        cls.add_east_wall(space, ext_wall)
-        cls.add_roof(space, roof)
-        cls.add_int_thermal_mass(space)
-
-        # add internal heat gains to the space
-        if internal_heat_gains:
-            for ihg in internal_heat_gains:
-                space.add_internal_heat_gain(ihg)
-
+        Construction.add(space, is_heavy=False)
+        # Return the space:
         return space
 
     @staticmethod
-    def create_T_setpoint_schedule(
+    def _create_building_hierarchy(
+        climate: ClimateData,
+        interior_temperature_schedule: TemperatureSchedule,
+        cooling_schedule: OnOffSchedule,
+        internal_heat_gains: list[InternalHeatGain]
+    ) -> Space:
+        """Creates the building hierarchy and returns the single space of this
+        building.
+        """
+        # Create space:
+        space = Space.create(
+            ID='exposition_hall',
+            height=Q_(6.0, 'm'),
+            length=Q_(1.5 * 18.68, 'm'),
+            width=Q_(18.68, 'm'),
+            climate_data=climate,
+            T_int_fun=interior_temperature_schedule,
+            cooling_schedule=cooling_schedule,
+        )
+        # Add internal heat gains to the space:
+        for ihg in internal_heat_gains:
+            space.add_internal_heat_gain(ihg)
+        # Create ventilation zone; add space to the zone, and zone to the space:
+        vz = VentilationZone.create(ID='exposition_hall')
+        vz.add_space(space)
+        space.add_ventilation(vz)
+        # Create building entity; add ventilation zone to the building entity:
+        be = BuildingEntity.create(ID='exposition_hall')
+        be.add_ventilation_zone(vz)
+        # Create building; add building entity to the building:
+        bu = Building.create(ID='exposition_hall')
+        bu.add_building_entity(be)
+        # Only return the space:
+        return space
+   
+    @staticmethod
+    def _create_T_setpoint_schedule(
         T_comfort: Quantity,
         T_absence: Quantity
     ) -> TemperatureSchedule:
+        """Creates a fixed timing schedule for the setpoint of the space air
+        temperature. Between 18 h and 8 h the space air temperature setpoint is
+        set to `T_absence`. During the other hours of the day, the setpoint is
+        set to `T_comfort`.
+        """
+        # Create schedule:
         schedule = TemperatureSchedule.create(
-            ID='setpoint_temperature_schedule',
+            ID='sch_space_air',
             base_value=T_comfort
         )
+        # Set setpoint to "absence" between 0 and 8 h:
         for t in range(8):
             schedule.set_value(t, T_absence)
+
+        # Set setpoint to "absence" again between 18 and 24 h:
         for t in range(18, 24):
             schedule.set_value(t, T_absence)
         return schedule
 
     @staticmethod
-    def create_cooling_schedule() -> OnOffSchedule:
+    def _create_cooling_schedule() -> OnOffSchedule:
+        """Creates a fixed timing schedule for turning the cooling on or off.
+        Between 18 h and 8 h the cooling system is turned off. During the other
+        hours of the day, the cooling system is turned on.
+        """
         schedule = OnOffSchedule.create(
             ID='cooling_schedule',
             base_value=True
@@ -410,16 +536,23 @@ class Hall:
         return schedule
 
     @staticmethod
-    def create_internal_heat_gains() -> list[InternalHeatGain]:
-        int_heat_gains = []
+    def _create_internal_heat_gains(
+        people_max: int,
+        people_min: int
+    ) -> list[InternalHeatGain]:
+        """Creates the internal heat gains in the space. Only the internal heat
+        gain of people is being considered. Between 18 h and 8 h the number of
+        people in the space is equal to `people_min`. During the other hours of
+        the day, the number of people is equal to `people_max`.
+        """
         occupancy_schedule = OccupancySchedule.create(
             ID='occupancy_schedule',
-            base_value=200
+            base_value=people_max
         )
         for t in range(8):
-            occupancy_schedule.set_value(t, 100)
+            occupancy_schedule.set_value(t, people_min)
         for t in range(18, 24):
-            occupancy_schedule.set_value(t, 100)
+            occupancy_schedule.set_value(t, people_min)
         people = PeopleHeatGain.create(
             ID='people',
             Q_sen_person=Q_(75, 'W'),
@@ -427,13 +560,12 @@ class Hall:
             F_rad=Q_(58, 'pct'),
             schedule=occupancy_schedule
         )
-        int_heat_gains.append(people)
-        return int_heat_gains
+        return [people]
 
 
 def main():
-    # set location and climate design data
-    climate_data = ClimateData.create(
+    # Set location and climate design data:
+    climate = ClimateData.create(
         location=Location(
             name='Ghent',
             lat=Q_(51.183, 'deg'),
@@ -448,35 +580,15 @@ def main():
         tau_beam=0.426,
         tau_dif=2.247
     )
-
-    # define time schedule for space air temperature setpoint
-    T_setpoint_schedule = Hall.create_T_setpoint_schedule(
-        T_comfort=Q_(26.0, 'degC'),
-        T_absence=Q_(26.0, 'degC')
-    )
-
-    # define time schedule for turning the cooling system on/off
-    # cooling_schedule = Hall.create_cooling_schedule()
-
-    # create the internal heat gains
-    ihg_list = Hall.create_internal_heat_gains()
-
-    # create the space
-    hall = Hall.create_building(
-        climate_data=climate_data,
-        internal_heat_gains=ihg_list,
-        T_setpoint_schedule=T_setpoint_schedule,
-        cooling_schedule=None
-    )
-
-    # get the cooling loads on an hourly basis
+    # Create the building:
+    hall = ExpositionHall.create(climate)
+    # Show table of the heat gains and cooling load on an hourly basis:
     Q_gains = hall.get_heat_gains(unit='kW')
     with pd.option_context('display.width', None):
         print(Q_gains)
-
-    # show diagram of hourly cooling load and indoor air temperature
+    # Show diagram of the hourly cooling load and the evolution of the indoor
+    # air temperature:
     T_int_df = hall.get_space_air_temperatures()
-
     chart = LineChart()
     chart.add_y2_axis()
     chart.add_xy_data(
@@ -493,26 +605,29 @@ def main():
     chart.x1.add_title('hour of the day')
     chart.x1.scale(0, 24, 1)
     chart.y1.add_title('cooling load, W')
+    chart.y1.scale(0, 55, 5)
     chart.y2.add_title('space air temperature, °C')
+    chart.y2.scale(0, 35, 5)
     chart.show()
-
+    # Show table of the heat flows into and out from the interior thermal
+    # mass:
     Q_stor = hall.get_thermal_storage_heat_flows(Q_unit='kW')
     with pd.option_context('display.width', None):
         print(Q_stor)
-
-    # show diagram of dry-bulb outdoor air temperature
-    # time_arr = climate_data.Tdb_profile['t']
-    # Tdb_arr = climate_data.Tdb_profile['T']
-    # chart2 = LineChart()
-    # chart2.add_xy_data(
-    #     label='dry-bulb outdoor air temperature',
-    #     x1_values=[time.hour for time in time_arr],
-    #     y1_values=[Tdb.to('degC').m for Tdb in Tdb_arr]
-    # )
-    # chart2.x1.add_title('hour of the day')
-    # chart2.x1.scale(0, 24, 1)
-    # chart2.y1.add_title('dry-bulb outdoor air temperature, °C')
-    # chart2.show()
+    # Show diagram of the hourly dry-bulb outdoor air temperature during the
+    # cooling design day:
+    time_arr = climate.Tdb_profile['t']
+    Tdb_arr = climate.Tdb_profile['T']
+    chart2 = LineChart()
+    chart2.add_xy_data(
+        label='dry-bulb outdoor air temperature',
+        x1_values=[time.hour for time in time_arr],
+        y1_values=[Tdb.to('degC').m for Tdb in Tdb_arr]
+    )
+    chart2.x1.add_title('hour of the day')
+    chart2.x1.scale(0, 24, 1)
+    chart2.y1.add_title('dry-bulb outdoor air temperature, °C')
+    chart2.show()
 
 
 if __name__ == '__main__':

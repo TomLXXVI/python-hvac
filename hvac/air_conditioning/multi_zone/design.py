@@ -320,8 +320,10 @@ class VAVSystem:
             self.T_cold = self.T_supply - dT_supply_fan - dT_supply_duct
             self.cooled_air = HumidAir(Tdb=self.T_cold, RH=self.RH_supply)
             if self.cooled_air.Tdb > self.mixed_air.Tdb:
-                # the required cooling coil leaving temperature is greater than the mixed air temperature at the cooling
-                # coil entrance ==> preheat the mixed air to be equal to the set cooled air temperature.
+                # the required cooling coil leaving temperature is greater than
+                # the mixed air temperature at the cooling coil entrance
+                # ==> preheats the mixed air to be equal to the set cooled
+                # air temperature.
                 self.preheat_coil = AirConditioningProcess(
                     air_in=self.mixed_air,
                     air_out=self.cooled_air,
