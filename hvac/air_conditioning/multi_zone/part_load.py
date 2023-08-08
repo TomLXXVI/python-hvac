@@ -12,7 +12,13 @@ class VAVSystem:
 
     class Summer:
 
-        def __init__(self, system: 'VAVSystem', T_supply: Quantity, outdoor_air: HumidAir, V_vent: Quantity):
+        def __init__(
+            self,
+            system: 'VAVSystem',
+            T_supply: Quantity,
+            outdoor_air: HumidAir,
+            V_vent: Quantity
+        ) -> None:
             self.system = system
             self.T_supply = T_supply
             self.outdoor_air = outdoor_air
@@ -36,8 +42,14 @@ class VAVSystem:
                     T_ao=zone.summer.zone_air.Tdb,
                     Q_sen=zone.summer.Q_sen
                 )
-                zone.summer.m_supply = max(0.6 * zone.summer.m_supply, p.m_da + zone.summer.m_exhaust)
-            self.m_supply = sum(zone.summer.m_supply for zone in self.system.zones)
+                zone.summer.m_supply = max(
+                    0.6 * zone.summer.m_supply,
+                    p.m_da + zone.summer.m_exhaust
+                )
+            self.m_supply = sum(
+                zone.summer.m_supply
+                for zone in self.system.zones
+            )
 
         def determine_supply_air(self):
             for zone in self.system.zones:

@@ -52,7 +52,7 @@ zone_air = HumidAir(Tdb=Q_(26, 'degC'), W=Q_(8.0, 'g / kg'))
 # State of outdoor air at climatic design conditions:
 outdoor_air = HumidAir(Tdb=Q_(31, 'degC'), W=Q_(10.0, 'g / kg'))
 
-
+# Set up air conditioning system:
 airco_system = AircoSystem(
     zone_air=zone_air,
     outdoor_air=outdoor_air,
@@ -64,6 +64,7 @@ airco_system = AircoSystem(
     eps_hr_W=Q_(11, 'pct')
 )
 
+# Get the results needed for sizing the air cooling coil:
 print(
     f"cooling coil load @ design = "
     f"{airco_system.Q_cc.to('kW'):~P.3f}",
