@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import optimize
 from hvac import Quantity
-from hvac.fluids import Fluid, FluidState, HumidAir, CP_HUMID_AIR
+from hvac.fluids import Fluid, FluidState, HumidAir, CP_HUMID_AIR, CoolPropError
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
 from hvac.heat_transfer.heat_exchanger.eps_ntu import CounterFlowHeatExchanger
 
@@ -137,7 +137,29 @@ class PlainFinTubeCounterflowCondensingCondenser:
             self.rfg_out.x if self.rfg_out is not None else Q_(0.5, 'frac'),
             Q_(1.e-12, 'frac')
         )
-        rfg_mean = self.Rfg(T=T_rfg_mean, x=x_rfg)
+        try:
+            rfg_mean = self.Rfg(T=T_rfg_mean, x=x_rfg)
+        except CoolPropError:
+            # if `self.Rfg` is a pseudo-pure fluid, `x` cannot be an input
+            # variable
+            x_target = x_rfg.to('frac').m
+
+            def _eq(h: float) -> float:
+                state = self.Rfg(
+                    P=self.rfg_sat_liq_out.P,
+                    h=Q_(h, 'kJ / kg')
+                )
+                x = state.x.to('frac').m
+                return x - x_target
+
+            h_ini = self.rfg_sat_liq_out.h.to('kJ / kg').m
+            h_fin = self.rfg_sat_vap_in.h.to('kJ / kg').m
+            sol = optimize.root_scalar(_eq, bracket=[h_ini, h_fin])
+            h = Q_(sol.root, 'kJ / kg')
+            rfg_mean = self.Rfg(
+                P=self.rfg_sat_liq_out.P,
+                h=h
+            )
         air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
         return rfg_mean, air_mean
 

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import optimize
 from hvac import Quantity
-from hvac.fluids import HumidAir, FluidState, Fluid
+from hvac.fluids import HumidAir, FluidState, Fluid, CoolPropError
 from hvac.heat_transfer.heat_exchanger.eps_ntu_wet import CounterFlowHeatExchanger
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
 
@@ -245,5 +245,27 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
     def _get_mean_refrigerant(self) -> FluidState:
         """Determine the mean or bulk refrigerant properties."""
         x_rfg_avg = (self.rfg_in.x + self.rfg_sat_vap_out.x) / 2
-        rfg_mean = self._Rfg(T=self.rfg_in.T, x=x_rfg_avg)
+        try:
+            rfg_mean = self._Rfg(T=self.rfg_in.T, x=x_rfg_avg)
+        except CoolPropError:
+            # if `self._Rfg` is a pseudo-pure fluid, `x` cannot be an input
+            # variable
+            x_target = x_rfg_avg.to('frac').m
+
+            def _eq(h: float) -> float:
+                state = self._Rfg(
+                    P=self.rfg_sat_vap_out.P,
+                    h=Q_(h, 'kJ / kg')
+                )
+                x = state.x.to('frac').m
+                return x - x_target
+
+            h_ini = self.rfg_in.h.to('kJ / kg').m
+            h_fin = self.rfg_sat_vap_out.h.to('kJ / kg').m
+            sol = optimize.root_scalar(_eq, bracket=[h_ini, h_fin])
+            h = Q_(sol.root, 'kJ / kg')
+            rfg_mean = self._Rfg(
+                P=self.rfg_sat_vap_out.P,
+                h=h
+            )
         return rfg_mean

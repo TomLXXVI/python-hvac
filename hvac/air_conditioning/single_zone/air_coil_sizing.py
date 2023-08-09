@@ -20,7 +20,7 @@ class AircoSystem:
     so that the desired zone air temperature will be maintained given the sensible
     cooling load of the zone, while face velocity and refrigerant temperature
     remain at the values given in the datasheet. In this way, the heat and mass
-    transfer characteristics of the air cooler can be assumed to be identical
+    transfer effectiveness of the air cooler can be assumed to be identical
     to the values that are valid for the given set of operating conditions in
     the datasheet.
     """
@@ -169,8 +169,7 @@ class AircoSystem:
         # anymore between two successive loops, i.e. when the difference between
         # the present and previous value is smaller than the allowable tolerance,
         # or when the maximum number of iterations has been reached.
-        i = 0
-        while i <= i_max:
+        for i in range(i_max):
             self.mixed_air = self._determine_mixed_air()
             self.supply_air = self._determine_supply_air()
             self.m_supply, self.V_supply_ntp = self._determine_supply_air_flow_rate()
@@ -178,7 +177,6 @@ class AircoSystem:
             if self._check_zone_humidity_ratio(zone_air_new):
                 break
             self.zone_air = zone_air_new
-            i += 1
         else:
             warnings.warn(
                 'the maximum number of iterations to find the final zone air '
@@ -207,7 +205,7 @@ class AircoSystem:
     def _determine_supply_air(self) -> HumidAir:
         # The mixed air goes to the inlet of the air cooler. The state of the
         # supply air at the outlet of the air cooler is determined by the
-        # air cooler attribute (see class `WetDXAirCooler`).
+        # air cooler property `air_out` (see class `WetDXAirCooler`).
         self.air_cooler.air_in = self.mixed_air
         return self.air_cooler.air_out
 
@@ -278,6 +276,11 @@ class AircoSystem:
         """
         info = [
             (
+                "- mixed air: "
+                f"{self.mixed_air.Tdb.to('degC'):~P.1f} DB "
+                f"{self.mixed_air.RH.to('pct'):~P.1f} RH"
+            ),
+            (
                 "- supply air: "
                 f"{self.supply_air.Tdb.to('degC'):~P.1f} DB "
                 f"{self.supply_air.RH.to('pct'):~P.0f} RH"
@@ -286,11 +289,6 @@ class AircoSystem:
                 "- zone air: "
                 f"{self.zone_air.Tdb.to('degC'):~P.1f} DB "
                 f"{self.zone_air.RH.to('pct'):~P.0f} RH"
-            ),
-            (
-                "- mixed air: "
-                f"{self.mixed_air.Tdb.to('degC'):~P.1f} DB "
-                f"{self.mixed_air.RH.to('pct'):~P.1f} RH"
             ),
             (
                 "- mass flow rate supply air: "

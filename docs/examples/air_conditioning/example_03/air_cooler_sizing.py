@@ -1,6 +1,38 @@
+"""
+In this example, an air conditioning system is designed for air cooling of a
+single zone based on the performance specifications of an air cooler with a
+given heat exchanger core geometry that was selected from a catalog.
+
+The aim of the exercise is to determine the required supply air mass and volume
+flow rate to the zone and the required face area of the air cooler, such that
+the air face velocity remains equal to the air face velocity in the datasheet.
+Also, the conditions on the refrigerant side of the air cooler are maintained.
+In this way, it can be assumed that the heat and mass transfer effectiveness of
+the air cooler remain unchanged. Then, it is possible to determine the state
+of air leaving the air cooler for any state of mixed air entering the air cooler.
+
+Knowing the state of air leaving the air cooler and being supplied to the zone,
+the required mass flow rate of supply air can be determined from a sensible
+heat-load balance of the zone, in order to maintain the desired zone air
+temperature. The resulting zone air humidity will, however, depend on the latent
+load of the zone.
+
+Once the volume flow rate of supply air through the air cooler has been
+determined, the required face area of the air cooler can be determined with
+the known value of the air face velocity.
+
+As the required supply air mass flow rate is unknown at the beginning, the
+mass flow rate of recirculation air will also be unknown. Therefore, to be able
+to determine the state of mixed air at the entry of the air cooler, the
+ventilation air mass flow rate needs to be specified as a fraction of the still
+unknown supply air mass flow rate. At the end of the calculation, the resulting
+ventilation flow rate can be determined, which can then be checked against the
+ventilation requirements of the zone. If the ventilation requirement is not
+fulfilled, we can try with another fraction.
+"""
 from hvac import Quantity
 from hvac.fluids import HumidAir
-from hvac.air_conditioning.single_zone.air_cooling import AircoSystem
+from hvac.air_conditioning.single_zone.air_coil_sizing import AircoSystem
 
 Q_ = Quantity
 
@@ -22,7 +54,7 @@ class Specs:
     dP_ntp = Q_(50, 'Pa')
 
 
-# AIRCO-SYSTEM DESIGN WITH KNOWN AIR COOLER
+# AIRCO-SYSTEM DESIGN WITH KNOWN AIR COOLER SPECS FROM DATASHEET
 Q_sen_zone = Q_(30.514, 'kW')
 Q_lat_zone = Q_(12.967, 'kW')
 Q_zone = Q_sen_zone + Q_lat_zone

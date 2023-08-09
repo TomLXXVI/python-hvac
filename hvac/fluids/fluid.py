@@ -251,7 +251,7 @@ class Fluid:
         """Get the current state of the fluid wrapped in a new `FluidState`
         instance."""
         fluid_attrs = {
-            'fluid_name': self.fluid_name,
+            'name': self.fluid_name,
             'backend': self.backend,
             'mass_fractions': self.mass_fractions,
             'vol_fractions': self.vol_fractions,
