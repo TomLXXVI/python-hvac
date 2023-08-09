@@ -56,7 +56,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         k_f:
             Thermal conductivity of the external fin material.
         """
-        self._hex_core = HexCore(
+        self.hex_core = HexCore(
             L1, L3,
             S_t, S_l,
             D_i, D_o,
@@ -99,7 +99,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         self.Q_dot = None
         self.air_out = None
         self.dP_air = None
-        self._hex_core.m_dot_ext = m_dot_air
+        self.hex_core.m_dot_ext = m_dot_air
         self.rfg_in = rfg_in
         self._Rfg = rfg_in.fluid
         # The state of the refrigerant at the outlet is already fixed at the
@@ -119,7 +119,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         """Sets the provisional length of the tube bank parallel to the direction
         of external flow where refrigerant is boiling.
         """
-        self._hex_core.L2 = L2
+        self.hex_core.L2 = L2
 
     def rate(
         self,
@@ -164,42 +164,42 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
             m_dot_rfg = Q_(m_dot_rfg, 'kg / hr')
             # Set initial guess of refrigerant mass flow rate on the heat
             # exchanger core:
-            self._hex_core.m_dot_int = m_dot_rfg
+            self.hex_core.m_dot_int = m_dot_rfg
             # Calculate heat transfer rate across boiling region:
-            Q = self._hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
+            Q = self.hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
             # Calculate state of air leaving evaporator:
-            h_air_out = self.air_in.h - Q / self._hex_core.m_dot_ext
+            h_air_out = self.air_in.h - Q / self.hex_core.m_dot_ext
             air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
             # Calculate mean states of air and refrigerant needed for calculating
             # the heat transfer parameters of the heat exchanger core:
             air_mean = self._get_mean_air(air_out)
             rfg_mean = self._get_mean_refrigerant()
-            self._hex_core.ext.fluid_mean = air_mean
-            self._hex_core.int.fluid_mean = rfg_mean
-            self._hex_core.int.Q = Q  # this is needed for calculating h
+            self.hex_core.ext.fluid_mean = air_mean
+            self.hex_core.int.fluid_mean = rfg_mean
+            self.hex_core.int.Q = Q  # this is needed for calculating h
             # Calculate new value for the heat transfer rate assuming a
             # wet air-side surface in the boiling region:
             cof_hex = CounterFlowHeatExchanger(
-                m_dot_r=self._hex_core.m_dot_int,
-                m_dot_a=self._hex_core.m_dot_ext,
+                m_dot_r=self.hex_core.m_dot_int,
+                m_dot_a=self.hex_core.m_dot_ext,
                 T_r_in=self.rfg_in.T,
                 T_r_out=self.rfg_sat_vap_out.T,
                 P_r=self.rfg_in.P,
                 refrigerant=self._Rfg,
                 air_in=self.air_in,
-                h_ext=self._hex_core.ext.h,
-                h_int=self._hex_core.int.h,
-                eta_surf_wet=self._hex_core.ext.eta,
+                h_ext=self.hex_core.ext.h,
+                h_int=self.hex_core.int.h,
+                eta_surf_wet=self.hex_core.ext.eta,
                 A_ext_to_A_int=(
-                    self._hex_core.ext.geo.alpha /
-                    self._hex_core.int.geo.alpha
+                        self.hex_core.ext.geo.alpha /
+                        self.hex_core.int.geo.alpha
                 ).to('m / m').m,
-                A_ext=self._hex_core.ext.geo.A
+                A_ext=self.hex_core.ext.geo.A
             )
             # Get new value for the refrigerant mass flow rate:
             m_dot_rfg_new = cof_hex.Q / (self.rfg_sat_vap_out.h - self.rfg_in.h)
             # Determine deviation between new and previous value:
-            dev_m_dot_rfg = m_dot_rfg_new - self._hex_core.m_dot_int
+            dev_m_dot_rfg = m_dot_rfg_new - self.hex_core.m_dot_int
             return dev_m_dot_rfg.to('kg / hr').m
 
         sol = optimize.root_scalar(
@@ -209,13 +209,13 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
             xtol=tol.to('kg / hr').m,
             maxiter=i_max
         )
-        self._hex_core.m_dot_int = Q_(sol.root, 'kg / hr')
-        self.Q_dot = self._hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
-        h_air_out = self.air_in.h - self.Q_dot / self._hex_core.m_dot_ext
+        self.hex_core.m_dot_int = Q_(sol.root, 'kg / hr')
+        self.Q_dot = self.hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
+        h_air_out = self.air_in.h - self.Q_dot / self.hex_core.m_dot_ext
         self.air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
-        self.dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        self.dP_air = self.hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
         return (
-            self._hex_core.m_dot_int,
+            self.hex_core.m_dot_int,
             self.air_out,
             self.Q_dot,
             self.dP_air

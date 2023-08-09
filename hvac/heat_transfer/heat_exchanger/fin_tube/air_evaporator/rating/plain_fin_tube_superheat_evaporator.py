@@ -61,7 +61,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         k_f:
             Thermal conductivity of the external fin material.
         """
-        self._hex_core = HexCore(
+        self.hex_core = HexCore(
             L1, L3,
             S_t, S_l,
             D_i, D_o,
@@ -111,7 +111,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         self.Q_dot = None
         self.air_out = None
         self.air_in = air_in
-        self._hex_core.m_dot_ext = m_dot_air.to('kg / s')
+        self.hex_core.m_dot_ext = m_dot_air.to('kg / s')
         self.Rfg = Rfg
         # Refrigerant state at the inlet of the superheated region = saturated vapor
         self.rfg_sat_in = self.Rfg(P=P_rfg_sat, x=Q_(1.0, 'frac'))
@@ -126,11 +126,11 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         """Sets the provisional mass flow rate of refrigerant through the
         superheated region of the evaporator.
         """
-        self._hex_core.m_dot_int = m_dot_rfg.to('kg / s')
+        self.hex_core.m_dot_int = m_dot_rfg.to('kg / s')
         # Determine heat transfer rate in superheated region of evaporator:
-        self.Q_dot = self._hex_core.m_dot_int * (self.rfg_out.h - self.rfg_sat_in.h)
+        self.Q_dot = self.hex_core.m_dot_int * (self.rfg_out.h - self.rfg_sat_in.h)
         # Determine air outlet state:
-        h_a_out = self.air_in.h - self.Q_dot / self._hex_core.m_dot_ext
+        h_a_out = self.air_in.h - self.Q_dot / self.hex_core.m_dot_ext
         W_a_out = self.air_in.W  # assume heat transfer is only sensible: humidity ratio = constant
         self.air_out = HumidAir(h=h_a_out, W=W_a_out)
 
@@ -144,20 +144,20 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         # and outlet states and the mass flow rate of refrigerant (see
         # method `set_operating_conditions`).
         def eq(L2: float) -> float:
-            self._hex_core.L2 = Q_(L2, 'm')
+            self.hex_core.L2 = Q_(L2, 'm')
             cof_hex = CounterFlowHeatExchanger(
-                C_cold=rfg_mean.cp * self._hex_core.m_dot_int,
-                C_hot=air_mean.cp * self._hex_core.m_dot_ext,
+                C_cold=rfg_mean.cp * self.hex_core.m_dot_int,
+                C_hot=air_mean.cp * self.hex_core.m_dot_ext,
                 T_cold_in=self.rfg_sat_in.T,
                 T_hot_in=self.air_in.Tdb,
-                UA=self._hex_core.UA
+                UA=self.hex_core.UA
             )
             dQ = cof_hex.Q - self.Q_dot
             return dQ.to('W').m
 
         air_mean, rfg_mean = self._determine_mean_fluid_states()
-        self._hex_core.ext.fluid_mean = air_mean
-        self._hex_core.int.fluid_mean = rfg_mean
+        self.hex_core.ext.fluid_mean = air_mean
+        self.hex_core.int.fluid_mean = rfg_mean
         try:
             L2 = root_scalar(eq, bracket=[1.e-6, L2_ini.to('m').m]).root
         except ValueError:
@@ -180,8 +180,8 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         )
         cp_rfg = rfg_avg.cp
         # Determine capacitance rates:
-        C_air = cp_air * self._hex_core.m_dot_ext
-        C_rfg = cp_rfg * self._hex_core.m_dot_int
+        C_air = cp_air * self.hex_core.m_dot_ext
+        C_rfg = cp_rfg * self.hex_core.m_dot_int
         C_max = max(C_air, C_rfg)
         C_min = min(C_air, C_rfg)
         C_r = C_min / C_max
@@ -219,5 +219,5 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         """Returns air-side pressure drop across superheating region of
         evaporator.
         """
-        dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        dP_air = self.hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
         return dP_air

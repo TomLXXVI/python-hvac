@@ -197,3 +197,8 @@ class AircoSystem:
     def V_supply_ntp(self) -> Quantity:
         """Get the volume flow rate of supply air referred to NTP."""
         return self.m_supply / air_ntp.rho
+
+    @property
+    def V_vent_ntp(self) -> Quantity:
+        """Get the volume flow rate of ventilation air referred to NTP."""
+        return self.outdoor_air.rho * self.V_vent / air_ntp.rho

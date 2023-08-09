@@ -52,7 +52,7 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         k_f:
             Thermal conductivity of the external fin material.
         """
-        self._hex_core = HexCore(
+        self.hex_core = HexCore(
             L1, L3,
             S_t, S_l,
             D_i, D_o,
@@ -99,8 +99,8 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         self.rfg_out = None
         self.Q_dot = None
         self.eps = None
-        self._hex_core.m_dot_ext = m_dot_air
-        self._hex_core.m_dot_int = m_dot_rfg
+        self.hex_core.m_dot_ext = m_dot_air
+        self.hex_core.m_dot_int = m_dot_rfg
         self.air_in = air_in
         self.rfg_sat_liq_in = Rfg(P=P_rfg, x=Q_(0.0, 'frac'))
         self.Rfg = Rfg
@@ -166,13 +166,13 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         -------
         None
         """
-        self._hex_core.L2 = L2
+        self.hex_core.L2 = L2
         # Guess specific heats of air and refrigerant:
         cp_air = CP_HUMID_AIR
         cp_rfg = self.rfg_sat_liq_in.cp
         # Calculate capacitance rates:
-        C_air = cp_air * self._hex_core.m_dot_ext
-        C_rfg = cp_rfg * self._hex_core.m_dot_int
+        C_air = cp_air * self.hex_core.m_dot_ext
+        C_rfg = cp_rfg * self.hex_core.m_dot_int
         C_min = min(C_air, C_rfg)
         # Guess initial value for the heat transfer effectiveness:
         self.eps = 0.75
@@ -203,15 +203,15 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
             )
             # Update heat exchanger core with mean states for calculating
             # the overall heat transfer conductance:
-            self._hex_core.int.fluid_mean = rfg_mean
-            self._hex_core.ext.fluid_mean = air_mean
+            self.hex_core.int.fluid_mean = rfg_mean
+            self.hex_core.ext.fluid_mean = air_mean
             # Solve heat exchanger equation:
             cof_hex = CounterFlowHeatExchanger(
                 C_cold=C_air,
                 C_hot=C_rfg,
                 T_cold_in=self.air_in.Tdb,
                 T_hot_in=self.rfg_sat_liq_in.T,
-                UA=self._hex_core.UA
+                UA=self.hex_core.UA
             )
             # Get new value for heat transfer effectiveness:
             eps_new = cof_hex.eps
@@ -238,7 +238,7 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
     @property
     def dP_air(self) -> Quantity:
         """Air-side pressure drop across condensing part of condenser."""
-        return self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        return self.hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
 
     @property
     def dT_sc(self) -> Quantity:

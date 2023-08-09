@@ -49,7 +49,7 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
         k_f:
             Thermal conductivity of the external fin material.
         """
-        self._hex_core = HexCore(
+        self.hex_core = HexCore(
             L1, L3,
             S_t, S_l,
             D_i, D_o,
@@ -90,15 +90,15 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
         self.air_in = None
         self.air_out = None
         self.L2_desuperheat = None
-        self._hex_core.m_dot_ext = m_dot_air
+        self.hex_core.m_dot_ext = m_dot_air
         self.rfg_in = rfg_in
-        self._hex_core.m_dot_int = m_dot_rfg
+        self.hex_core.m_dot_int = m_dot_rfg
         self.rfg_sat_vap_out = self.rfg_in.fluid(
             P=self.rfg_in.P,
             x=Q_(1.0, 'frac')
         )
-        self.Q_dot = self._hex_core.m_dot_int * (self.rfg_in.h - self.rfg_sat_vap_out.h)
-        self.dT_air = self.Q_dot / (self._hex_core.m_dot_ext * CP_HUMID_AIR)
+        self.Q_dot = self.hex_core.m_dot_int * (self.rfg_in.h - self.rfg_sat_vap_out.h)
+        self.dT_air = self.Q_dot / (self.hex_core.m_dot_ext * CP_HUMID_AIR)
         self.Rfg = rfg_in.fluid
         self.P_rfg = rfg_in.P
 
@@ -117,8 +117,8 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
         """Returns the mean states of refrigerant and air across the
         desuperheating region of the condenser.
         """
-        C_air = (self.air_in.cp + self.air_out.cp) / 2 * self._hex_core.m_dot_ext
-        C_rfg = (self.rfg_in.cp + self.rfg_sat_vap_out.cp) / 2 * self._hex_core.m_dot_int
+        C_air = (self.air_in.cp + self.air_out.cp) / 2 * self.hex_core.m_dot_ext
+        C_rfg = (self.rfg_in.cp + self.rfg_sat_vap_out.cp) / 2 * self.hex_core.m_dot_int
         C_min = min(C_air, C_rfg)
         C_max = max(C_air, C_rfg)
         C_r = C_min / C_max
@@ -155,18 +155,18 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
         the inlet state to the saturated vapor state.
         """
         def _get_new_flow_length(A_int: Quantity) -> Quantity:
-            n = A_int / (np.pi * self._hex_core.int.geo.D_i * self._hex_core.int.geo.L1)
+            n = A_int / (np.pi * self.hex_core.int.geo.D_i * self.hex_core.int.geo.L1)
             n -= 0.5
-            d = self._hex_core.int.geo.L3 / (self._hex_core.int.geo.S_t * self._hex_core.int.geo.S_l)
-            d -= 1 / (2 * self._hex_core.int.geo.S_l)
+            d = self.hex_core.int.geo.L3 / (self.hex_core.int.geo.S_t * self.hex_core.int.geo.S_l)
+            d -= 1 / (2 * self.hex_core.int.geo.S_l)
             L2 = n / d
             return L2.to('mm')
 
         def _eq(unknowns):
             L2 = Q_(unknowns[0], 'mm')
-            self._hex_core.L2 = L2
-            h_int = self._hex_core.int.h
-            T_wall = self._hex_core.T_wall
+            self.hex_core.L2 = L2
+            h_int = self.hex_core.int.h
+            T_wall = self.hex_core.T_wall
             R_int = (rfg_mean.T - T_wall) / self.Q_dot
             A_int = 1 / (R_int * h_int)
             L2_new = _get_new_flow_length(A_int.to('m ** 2'))
@@ -174,8 +174,8 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
             return np.array([dev.to('mm').m])
 
         rfg_mean, air_mean = self._get_mean_fluid_states()
-        self._hex_core.int.fluid_mean = rfg_mean
-        self._hex_core.ext.fluid_mean = air_mean
+        self.hex_core.int.fluid_mean = rfg_mean
+        self.hex_core.ext.fluid_mean = air_mean
         roots = optimize.fsolve(_eq, np.array([L2_ini.to('mm').m]), xtol=0.001)
         L2 = Q_(roots[0], 'mm')
         return L2
@@ -183,10 +183,10 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
     @property
     def eps(self) -> float:
         """Heat transfer effectiveness of desuperheating part of condenser."""
-        rfg_mean = self._hex_core.int.fluid_mean
-        air_mean = self._hex_core.ext.fluid_mean
-        C_rfg = rfg_mean.cp * self._hex_core.m_dot_int
-        C_air = air_mean.cp * self._hex_core.m_dot_ext
+        rfg_mean = self.hex_core.int.fluid_mean
+        air_mean = self.hex_core.ext.fluid_mean
+        C_rfg = rfg_mean.cp * self.hex_core.m_dot_int
+        C_air = air_mean.cp * self.hex_core.m_dot_ext
         C_min = min(C_rfg, C_air)
         Q_max = C_min * (self.rfg_in.T - self.air_in.Tdb)
         eps = self.Q_dot / Q_max
@@ -195,5 +195,5 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
     @property
     def dP_air(self) -> Quantity:
         """Air-side pressure drop across desuperheating part of condenser."""
-        dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        dP_air = self.hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
         return dP_air

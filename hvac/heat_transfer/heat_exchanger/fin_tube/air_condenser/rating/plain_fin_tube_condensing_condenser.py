@@ -54,7 +54,7 @@ class PlainFinTubeCounterflowCondensingCondenser:
             Thermal conductivity of the external fin material.
         """
         # Create heat exchanger core:
-        self._hex_core = HexCore(
+        self.hex_core = HexCore(
             L1, L3,
             S_t, S_l,
             D_i, D_o,
@@ -104,12 +104,12 @@ class PlainFinTubeCounterflowCondensingCondenser:
         self.rfg_out = None
         self.eps = None
         self.L2_condensing = None
-        self._hex_core.m_dot_ext = m_dot_air
-        self._hex_core.m_dot_int = m_dot_rfg
+        self.hex_core.m_dot_ext = m_dot_air
+        self.hex_core.m_dot_int = m_dot_rfg
         self.rfg_sat_vap_in = Rfg(P=P_rfg, x=Q_(1.0, 'frac'))
         self.rfg_sat_liq_out = Rfg(P=P_rfg, x=Q_(0.0, 'frac'))
-        self.Q_dot = self._hex_core.m_dot_int * (self.rfg_sat_vap_in.h - self.rfg_sat_liq_out.h)
-        self.dT_air = self.Q_dot / (self._hex_core.m_dot_ext * CP_HUMID_AIR)
+        self.Q_dot = self.hex_core.m_dot_int * (self.rfg_sat_vap_in.h - self.rfg_sat_liq_out.h)
+        self.dT_air = self.Q_dot / (self.hex_core.m_dot_ext * CP_HUMID_AIR)
         self.Rfg = Rfg
         self.P_rfg = P_rfg
 
@@ -168,18 +168,18 @@ class PlainFinTubeCounterflowCondensingCondenser:
         vapor to saturated liquid.
         """
         def _get_new_flow_length(A_int: Quantity) -> Quantity:
-            n = A_int / (np.pi * self._hex_core.int.geo.D_i * self._hex_core.int.geo.L1)
+            n = A_int / (np.pi * self.hex_core.int.geo.D_i * self.hex_core.int.geo.L1)
             n -= 0.5
-            d = self._hex_core.int.geo.L3 / (self._hex_core.int.geo.S_t * self._hex_core.int.geo.S_l)
-            d -= 1 / (2 * self._hex_core.int.geo.S_l)
+            d = self.hex_core.int.geo.L3 / (self.hex_core.int.geo.S_t * self.hex_core.int.geo.S_l)
+            d -= 1 / (2 * self.hex_core.int.geo.S_l)
             L2 = n / d
             return L2.to('mm')
 
         def _eq(unknowns):
             L2 = Q_(unknowns[0], 'mm')
-            self._hex_core.L2 = L2
-            h_int = self._hex_core.int.h
-            T_wall = self._hex_core.T_wall
+            self.hex_core.L2 = L2
+            h_int = self.hex_core.int.h
+            T_wall = self.hex_core.T_wall
             R_int = (rfg_mean.T - T_wall) / self.Q_dot
             A_int = 1 / (R_int * h_int)
             L2_new = _get_new_flow_length(A_int.to('m ** 2'))
@@ -187,8 +187,8 @@ class PlainFinTubeCounterflowCondensingCondenser:
             return np.array([dev.to('mm').m])
 
         rfg_mean, air_mean = self._get_mean_fluid_states()
-        self._hex_core.int.fluid_mean = rfg_mean
-        self._hex_core.ext.fluid_mean = air_mean
+        self.hex_core.int.fluid_mean = rfg_mean
+        self.hex_core.ext.fluid_mean = air_mean
         roots = optimize.fsolve(_eq, np.array([L2_ini.to('mm').m]), xtol=0.001)
         L2 = Q_(roots[0], 'mm')
         return L2
@@ -212,10 +212,10 @@ class PlainFinTubeCounterflowCondensingCondenser:
         -------
         None
         """
-        self._hex_core.L2 = L2
+        self.hex_core.L2 = L2
         # Guess specific heat of air:
         cp_air = CP_HUMID_AIR
-        C_min = C_air = self._hex_core.m_dot_ext * cp_air
+        C_min = C_air = self.hex_core.m_dot_ext * cp_air
         # Guess an initial value for the heat transfer effectiveness:
         self.eps = 0.75
         # Calculate heat transfer rate:
@@ -223,17 +223,17 @@ class PlainFinTubeCounterflowCondensingCondenser:
         self.Q_dot = self.eps * Q_max
         # Calculate state of air and refrigerant leaving condensing part:
         T_air_out = self.air_in.Tdb + self.Q_dot / C_air
-        h_rfg_out = self.rfg_sat_vap_in.h - self.Q_dot / self._hex_core.m_dot_int
+        h_rfg_out = self.rfg_sat_vap_in.h - self.Q_dot / self.hex_core.m_dot_int
         if T_air_out > self.rfg_sat_vap_in.T:
             T_air_out = self.rfg_sat_vap_in.T
             self.Q_dot = C_air * (T_air_out - self.air_in.Tdb)
             self.eps = self.Q_dot / Q_max
-            h_rfg_out = self.rfg_sat_vap_in.h - self.Q_dot / self._hex_core.m_dot_int
+            h_rfg_out = self.rfg_sat_vap_in.h - self.Q_dot / self.hex_core.m_dot_int
             self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
             self.rfg_out = self.Rfg(h=h_rfg_out, P=self.P_rfg)
         if h_rfg_out < self.rfg_sat_liq_out.h:
             h_rfg_out = self.rfg_sat_liq_out.h
-            self.Q_dot = self._hex_core.m_dot_int * (self.rfg_sat_vap_in.h - h_rfg_out)
+            self.Q_dot = self.hex_core.m_dot_int * (self.rfg_sat_vap_in.h - h_rfg_out)
             self.eps = self.Q_dot / Q_max
             T_air_out = self.air_in.Tdb + self.Q_dot / C_air
             self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
@@ -245,15 +245,15 @@ class PlainFinTubeCounterflowCondensingCondenser:
             rfg_mean, air_mean = self._get_mean_fluid_states()
             # Update heat exchanger core with mean states for calculating overall
             # conductance:
-            self._hex_core.int.fluid_mean = rfg_mean
-            self._hex_core.ext.fluid_mean = air_mean
+            self.hex_core.int.fluid_mean = rfg_mean
+            self.hex_core.ext.fluid_mean = air_mean
             # Solve heat exchanger equation:
             cof_hex = CounterFlowHeatExchanger(
-                C_cold=self._hex_core.m_dot_ext * CP_HUMID_AIR,
+                C_cold=self.hex_core.m_dot_ext * CP_HUMID_AIR,
                 C_hot=Q_(float('inf'), 'W / K'),
                 T_cold_in=self.air_in.Tdb,
                 T_hot_in=self.rfg_sat_vap_in.T,
-                UA=self._hex_core.UA
+                UA=self.hex_core.UA
             )
             # Get new value of heat transfer effectiveness:
             eps_new = cof_hex.eps
@@ -261,7 +261,7 @@ class PlainFinTubeCounterflowCondensingCondenser:
             self.Q_dot = eps_new * Q_max
             # Get new state of leaving air and refrigerant:
             T_air_out = cof_hex.T_cold_out
-            h_rfg_out = self.rfg_sat_vap_in.h - self.Q_dot / self._hex_core.m_dot_int
+            h_rfg_out = self.rfg_sat_vap_in.h - self.Q_dot / self.hex_core.m_dot_int
             self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
             self.rfg_out = self.Rfg(h=h_rfg_out, P=self.P_rfg)
             # Check if deviation between new and previous value is small enough:
@@ -277,5 +277,5 @@ class PlainFinTubeCounterflowCondensingCondenser:
     @property
     def dP_air(self) -> Quantity:
         """Air-side pressure drop across condensing part of condenser."""
-        dP_air = self._hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
+        dP_air = self.hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
         return dP_air
