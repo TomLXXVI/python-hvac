@@ -380,6 +380,8 @@ class _InternalHeatTransferSurface(ABC):
         assuming that the fluid is fed into the first row of the heat exchanger
         and leaves the heat exchanger through the last row.
         """
+        # Mass velocity [kg / (s.m^2)] = mass flow rate of refrigerant divided
+        # by the minimum flow area of a single row:
         G_rfg = self.m_dot / (self.geometry.A_o / self.geometry.N_r)
         m_dot_tube = G_rfg * (PI * self.geometry.D_i ** 2 / 4)
         return m_dot_tube

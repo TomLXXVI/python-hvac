@@ -1,3 +1,5 @@
+import time
+import functools
 import warnings
 import logging
 import numpy as np
@@ -83,6 +85,35 @@ class SingleStageVaporCompressionMachine:
     def _warn_handler(self, message, category, filename, lineno, file=None, line=None):
         self._log(message, logging.WARNING)
 
+    @staticmethod
+    def time_it(fun):
+        @functools.wraps(fun)
+        def wrapper(self, *args, **kwargs):
+            t_start = time.perf_counter()
+            result = fun(self, *args, **kwargs)
+            t_finish = time.perf_counter()
+            dt_exec = t_finish - t_start
+            self._log(
+                f"Execution time: {dt_exec} seconds",
+                logging.INFO
+            )
+            mb_err = self.check_mass_balance()
+            eb_err = self.check_energy_balance()
+            self._log((
+                "Error mass balance: "
+                f"absolute error = {mb_err[0].to('kg / hr'):~P.3f}, "
+                f"relative error = {mb_err[1].to('pct'):~P.2f}"
+                ), logging.INFO
+            )
+            self._log((
+                "Error energy balance: "
+                f"absolute error = {eb_err[0].to('kW'):~P.3f}, "
+                f"relative error = {eb_err[1].to('pct'):~P.2f}"
+                ), logging.INFO
+            )
+            return result
+        return wrapper
+
     def set_operating_conditions(
         self,
         evp_m_dot_air: Quantity,
@@ -122,6 +153,7 @@ class SingleStageVaporCompressionMachine:
         self.dT_sh = dT_sh.to('K')
         self.n_cmp = n_cmp
 
+    @time_it
     def rate(
         self,
         T_evp_ini: Quantity,
@@ -481,8 +513,8 @@ class SingleStageVaporCompressionMachine:
         )
         Q_evp = r_cnd.Q_dot - self.compressor.Wc_dot
         h_air_out_sat = (
-                self.evaporator.air_in.h
-                - Q_evp / (r_evp.eps * self.evaporator.m_dot_air)
+            self.evaporator.air_in.h
+            - Q_evp / (r_evp.eps * self.evaporator.m_dot_air)
         )
         air_out_sat = HumidAir(h=h_air_out_sat, RH=Q_(100, 'pct'))
         T_evp_new = air_out_sat.Tdb
@@ -502,7 +534,8 @@ class SingleStageVaporCompressionMachine:
         counter[0] += 1
         return np.array([dev_T_evp.m, dev_T_cnd.m])
 
-    def rate_root(
+    @time_it
+    def rate_by_root_finding(
         self,
         T_evp_ini: Quantity,
         T_cnd_ini: Quantity,
@@ -575,7 +608,7 @@ class SingleStageVaporCompressionMachine:
                 m_dot_air=self.cnd_m_dot_air,
                 m_dot_rfg=cmp_m_dot_rfg,
                 air_in=self.cnd_air_in,
-                rfg_in=cnd_rfg_in,
+                rfg_in=cnd_rfg_in
             )
         self._log((
             f"Iteration {i + 1}: "
@@ -644,7 +677,8 @@ class SingleStageVaporCompressionMachine:
         counter[0] += 1
         return dev.m
 
-    def rate_min(
+    @time_it
+    def rate_by_minimization(
         self,
         T_evp_ini: Quantity,
         T_cnd_ini: Quantity,
@@ -655,9 +689,9 @@ class SingleStageVaporCompressionMachine:
         """Alternative implementation of `rate` using `scipy.optimize.minimize`.
 
         The algorithm tries to find the evaporation and condensation temperature
-        for which the difference between the mass flow rate of refrigerant
-        according to the compressor model and the mass flow rate of refrigerant
-        according to the evaporator model is minimal.
+        for which the difference is minimal between the mass flow rate of
+        refrigerant according to the compressor model and the mass flow rate
+        of refrigerant according to the evaporator model.
 
         Parameters
         ----------
@@ -715,6 +749,7 @@ class SingleStageVaporCompressionMachine:
         self.compressor.Te = Q_(sol.x[0], 'degC')
         self.compressor.Tc = Q_(sol.x[1], 'degC')
 
+    @time_it
     def balance_by_speed(
         self,
         T_evp: Quantity,
@@ -724,9 +759,10 @@ class SingleStageVaporCompressionMachine:
     ) -> Quantity | None:
         """Finds the compressor speed for which the mass flow rate of refrigerant
         displaced by the compressor balances the mass flow rate of refrigerant
-        let through by the expansion device in order to maintain the set
+        let through by the expansion device, while maintaining the set
         degree of superheat at the given evaporation and condensing temperature
-        and at the operating conditions set with `set_operating_conditions`.
+        under the operating conditions that were set with
+        `set_operating_conditions`.
 
         Parameters
         ----------
@@ -767,12 +803,14 @@ class SingleStageVaporCompressionMachine:
                     f"{cmp_m_dot_rfg.to('kg / hr'):~P.3f}"
                     ), logging.INFO
                 )
-                r_cnd = self.condenser(
-                    m_dot_air=self.cnd_m_dot_air,
-                    m_dot_rfg=cmp_m_dot_rfg,
-                    air_in=self.cnd_air_in,
-                    rfg_in=self.compressor.discharge_gas
-                )
+                with warnings.catch_warnings(category=CondenserWarning):
+                    warnings.showwarning = self._warn_handler
+                    r_cnd = self.condenser(
+                        m_dot_air=self.cnd_m_dot_air,
+                        m_dot_rfg=cmp_m_dot_rfg,
+                        air_in=self.cnd_air_in,
+                        rfg_in=self.compressor.discharge_gas
+                    )
                 evp_rfg_in = self.Refrigerant(
                     h=r_cnd.rfg_out.h,
                     P=self.compressor.Pe
@@ -947,8 +985,8 @@ class SingleStageVaporCompressionMachine:
         the refrigeration capacity according to the evaporator model.
         The relative error is the ratio of the absolute error to the
         refrigeration capacity according to the compressor model. It expresses
-        the deviation of the refrigerant capacity according to the evaporator
-        model with respect to the refrigerant capacity according to the
+        the deviation of the refrigeration capacity according to the evaporator
+        model with respect to the refrigeration capacity according to the
         compressor model as a fraction (percentage).
         """
         Q_evp_cmp_model = self.condenser.Q_dot - self.compressor.Wc_dot

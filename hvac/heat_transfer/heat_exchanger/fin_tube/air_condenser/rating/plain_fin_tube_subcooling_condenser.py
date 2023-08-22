@@ -1,9 +1,11 @@
 import numpy as np
 from hvac import Quantity
-from hvac.fluids import HumidAir, Fluid, FluidState, CP_HUMID_AIR
+from hvac.fluids import HumidAir, Fluid, FluidState, CP_HUMID_AIR, CoolPropError
 from hvac.heat_transfer.heat_exchanger.eps_ntu import CounterFlowHeatExchanger
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
 
+from hvac.logging import ModuleLogger
+logger = ModuleLogger.get_logger(__name__)
 
 Q_ = Quantity
 HexCore = core.plain_fin_tube.PlainFinTubeHeatExchangerCore
@@ -108,8 +110,8 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
 
     def _get_mean_fluid_states(
         self,
-        T_rfg_out: Quantity,
-        T_air_out: Quantity,
+        rfg_out: FluidState,
+        air_out: HumidAir,
         C_rfg: Quantity,
         C_air: Quantity
     ) -> tuple[FluidState, HumidAir]:
@@ -120,37 +122,43 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         C_max = max(C_air, C_rfg)
         C_r = C_min / C_max
         if C_r >= 0.5:
-            T_rfg_mean = (self.rfg_sat_liq_in.T.to('K') + T_rfg_out.to('K')) / 2
-            T_air_mean = (self.air_in.Tdb.to('K') + T_air_out.to('K')) / 2
-            rfg_mean = self.Rfg(T=T_rfg_mean, P=self.rfg_sat_liq_in.P)  # we assume constant condenser pressure
-            air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
+            h_rfg_mean = (self.rfg_sat_liq_in.h + rfg_out.h) / 2
+            h_air_mean = (self.air_in.h + air_out.h) / 2
+            rfg_mean = self.Rfg(h=h_rfg_mean, P=self.rfg_sat_liq_in.P)  # we assume constant condenser pressure
+            air_mean = HumidAir(h=h_air_mean, W=self.air_in.W)
             return rfg_mean, air_mean
         else:
+            Dh = (
+                self.rfg_sat_liq_in.h - air_out.h,
+                rfg_out.h - self.air_in.h
+            )
+            Dh_max = max(Dh)
+            Dh_min = min(Dh)
+            if Dh_min < 0:
+                logger.debug('Dh_min < 0 -> set to 1e-12 J/kg')
+                Dh_min = Q_(1e-12, 'J / kg')
+            LMED = (Dh_max - Dh_min) / np.log(Dh_max / Dh_min)
             if C_max == C_rfg:
                 # Refrigerant has the smallest temperature change.
-                T_rfg_mean = (self.rfg_sat_liq_in.T.to('K') + T_rfg_out.to('K')) / 2
-                DT_max = T_rfg_mean - self.air_in.Tdb.to('K')
-                DT_min = max(Q_(1.e-12, 'K'), T_rfg_mean - T_air_out.to('K'))
-                LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
-                T_air_mean = T_rfg_mean - LMTD
-                rfg_mean = self.Rfg(T=T_rfg_mean, P=self.rfg_sat_liq_in.P)
-                air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
-                return rfg_mean, air_mean
+                h_rfg_mean = (self.rfg_sat_liq_in.h + rfg_out.h) / 2
+                h_air_mean = h_rfg_mean - LMED
             else:  # C_max == C_ext
                 # Air has the smallest temperature change.
-                T_air_mean = (self.air_in.Tdb.to('K') + T_air_out.to('K')) / 2
-                DT_max = self.rfg_sat_liq_in.T.to('K') - T_air_mean
-                DT_min = max(Q_(1.e-12, 'K'), T_rfg_out.to('K') - T_air_mean)
-                LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
-                T_rfg_mean = T_air_mean + LMTD
-                rfg_mean = self.Rfg(T=T_rfg_mean, P=self.rfg_sat_liq_in.P)
-                air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
-                return rfg_mean, air_mean
+                h_air_mean = (self.air_in.h + air_out.h) / 2
+                h_rfg_mean = h_air_mean + LMED
+            try:
+                rfg_mean = self.Rfg(h=h_rfg_mean, P=self.rfg_sat_liq_in.P)
+                # if T_rfg_mean is very near to saturation temperature, CoolProp
+                # throws an exception to indicate that the full state cannot be
+                # determined.
+            except CoolPropError:
+                rfg_mean = self.rfg_sat_liq_in
+            air_mean = HumidAir(h=h_air_mean, W=self.air_in.W)
+            return rfg_mean, air_mean
 
     def solve(self, L2: Quantity, i_max: int = 100, tol: float = 0.01) -> None:
-        """Solves for the heat transfer performance of the
-        subcooling part of the condenser for a given flow length L2 of the
-        subcooling part.
+        """Solves for the heat transfer performance of the subcooling part of
+        the condenser for a given flow length L2 of the subcooling part.
 
         Parameters
         ----------
@@ -175,30 +183,20 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         C_rfg = cp_rfg * self.hex_core.m_dot_int
         C_min = min(C_air, C_rfg)
         # Guess initial value for the heat transfer effectiveness:
-        self.eps = 0.75
+        self.eps = 0.25
         # Calculate heat transfer rate:
         Q_max = C_min * (self.rfg_sat_liq_in.T - self.air_in.Tdb)
         self.Q_dot = self.eps * Q_max
         # Calculate state of leaving air and leaving refrigerant:
-        T_air_out = self.air_in.Tdb + self.Q_dot / C_air
-        T_rfg_out = self.rfg_sat_liq_in.T - self.Q_dot / C_rfg
-        if T_air_out > self.rfg_sat_liq_in.T:
-            T_air_out = self.rfg_sat_liq_in.T
-            self.Q_dot = C_air * (T_air_out - self.air_in.Tdb)
-            self.eps = self.Q_dot / Q_max
-            T_rfg_out = self.rfg_sat_liq_in.T - self.Q_dot / C_rfg
-        if T_rfg_out < self.air_in.Tdb:
-            T_rfg_out = self.air_in.Tdb
-            self.Q_dot = C_rfg * (self.rfg_sat_liq_in.T - T_rfg_out)
-            T_air_out = self.air_in.Tdb + self.Q_dot / C_air
-            self.eps = self.Q_dot / Q_max
-        self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
-        self.rfg_out = self.Rfg(T=T_rfg_out, P=self.P_rfg)
+        h_air_out = self.air_in.h + self.Q_dot / self.hex_core.ext.m_dot
+        h_rfg_out = self.rfg_sat_liq_in.h - self.Q_dot / self.hex_core.int.m_dot
+        self.air_out = HumidAir(h=h_air_out, W=self.air_in.W)
+        self.rfg_out = self.Rfg(h=h_rfg_out, P=self.P_rfg)
         for i in range(i_max):
             # Calculate mean state of air and refrigerant between inlet and
             # outlet of subcooling region:
             rfg_mean, air_mean = self._get_mean_fluid_states(
-                T_rfg_out, T_air_out,
+                self.rfg_out, self.air_out,
                 C_rfg, C_air
             )
             # Update heat exchanger core with mean states for calculating
@@ -213,18 +211,28 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
                 T_hot_in=self.rfg_sat_liq_in.T,
                 UA=self.hex_core.UA
             )
-            # Get new value for heat transfer effectiveness:
+            # Get new value of heat transfer effectiveness:
             eps_new = cof_hex.eps
-            # Get new value for heat transfer rate:
+            # Get new value of heat transfer rate:
             self.Q_dot = cof_hex.Q
             # Calculate state of leaving air and leaving refrigerant:
-            T_air_out = cof_hex.T_cold_out
-            T_rfg_out = cof_hex.T_hot_out
-            self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
-            self.rfg_out = self.Rfg(T=T_rfg_out, P=self.P_rfg)
+            self.air_out = HumidAir(
+                Tdb=cof_hex.T_cold_out,
+                W=self.air_in.W
+            )
+            self.rfg_out = self.Rfg(
+                T=cof_hex.T_hot_out,
+                P=self.P_rfg
+            )
             # Recalculate capacitance rates:
-            C_air = self.Q_dot / (T_air_out - self.air_in.Tdb)
-            C_rfg = self.Q_dot / (self.rfg_sat_liq_in.T - T_rfg_out)
+            dT_air = self.air_out.Tdb - self.air_in.Tdb
+            dh_air = self.air_out.h - self.air_in.h
+            cp_air_avg = dh_air / dT_air
+            dT_rfg = self.rfg_sat_liq_in.T - self.rfg_out.T
+            dh_rfg = self.rfg_sat_liq_in.h - self.rfg_out.h
+            cp_rfg_avg = dh_rfg / dT_rfg
+            C_air = self.hex_core.ext.m_dot * cp_air_avg
+            C_rfg = self.hex_core.int.m_dot * cp_rfg_avg
             # Check if deviation between new and previous value is small enough:
             if abs(eps_new - self.eps) <= tol:
                 return

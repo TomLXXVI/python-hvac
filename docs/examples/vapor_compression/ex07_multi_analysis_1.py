@@ -108,7 +108,7 @@ def analyze_performance(n_cmp: Quantity):
         logger.info(
             f"Rating @ n_cmp = {n_cmp.to('1 / min'):~P.0f}"
         )
-        machine.rate_root(
+        machine.rate_by_root_finding(
             T_evp_ini=Q_(5.0, 'degC'),  # initial guess evaporator temperature
             T_cnd_ini=Q_(50.0, 'degC')  # initial guess condenser temperature
         )

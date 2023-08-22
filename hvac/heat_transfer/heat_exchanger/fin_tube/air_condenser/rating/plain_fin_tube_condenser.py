@@ -105,6 +105,7 @@ class PlainFinTubeCounterFlowCondenser:
         self.L2_dsp: Quantity | None = None
         self.L2_cdp: Quantity | None = None
         self.L2_scp: Quantity | None = None
+        self._sub_cooling_flag: bool = True
 
     def set_operating_conditions(
         self,
@@ -137,6 +138,7 @@ class PlainFinTubeCounterFlowCondenser:
         self.L2_dsp = None
         self.L2_cdp = None
         self.L2_scp = None
+        self._sub_cooling_flag = True
         self.m_dot_air = m_dot_air.to('kg / s')
         self.m_dot_rfg = m_dot_rfg.to('kg / s')
         self.air_in = air_in
@@ -272,17 +274,22 @@ class PlainFinTubeCounterFlowCondenser:
         """
         try:
             # Try to find the subcooling flow length for which the calculated
-            # total condenser flow length equals the actual flow length of the
-            # condenser:
+            # total condenser flow length equals the actual total flow length of
+            # the condenser:
             optimize.root_scalar(
                 self._fun_find_subcooling_length,
-                method='secant',
-                x0=0.1 * self.L2.to('mm').m,  # initial guess for `L_scp`
+                # method='secant',
+                # x0=0.50 * self.L2.to('mm').m,  # initial guess for `L_scp`
+                bracket=(1e-9, self.L2.to('mm').m),
                 xtol=0.1,  # mm
                 maxiter=i_max
             )
-        except Exception:
-            warnings.warn("No subcooling of refrigerant in condenser.", category=CondenserWarning)
+        except Exception as err:
+            warnings.warn(
+                f"No subcooling of refrigerant in condenser: {err}",
+                category=CondenserWarning
+            )
+            self._sub_cooling_flag = False
             # If no subcooling is possible at current operating conditions, try
             # to find the condensing flow length for which the calculated total
             # condenser flow length equals the actual flow length of the
@@ -290,13 +297,16 @@ class PlainFinTubeCounterFlowCondenser:
             try:
                 optimize.root_scalar(
                     self._fun_find_condensing_length,
-                    method='secant',
-                    x0=0.2 * self.L2.to('mm').m,  # initial guess for `L_cdp`
+                    # method='secant',
+                    # x0=0.50 * self.L2.to('mm').m,  # initial guess for `L_cdp`
+                    bracket=(1e-9, self.L2.to('mm').m),
                     xtol=0.1,  # mm
                     maxiter=i_max
                 )
             except Exception as err:
-                raise ValueError(f'Rating of condenser failed with error: "{err}"') from None
+                raise ValueError(
+                    f'Rating of condenser failed with error: "{err}"'
+                ) from None
 
         return Result(
             rfg_out=self.rfg_out,
@@ -335,7 +345,10 @@ class PlainFinTubeCounterFlowCondenser:
     @property
     def dT_sc(self) -> Quantity:
         """Degree of subcooling of the refrigerant leaving the condenser."""
-        return self.subcooling_part.dT_sc
+        if self._sub_cooling_flag:
+            return self.subcooling_part.dT_sc
+        else:
+            return Q_(0.0, 'K')
 
     def __call__(
         self,

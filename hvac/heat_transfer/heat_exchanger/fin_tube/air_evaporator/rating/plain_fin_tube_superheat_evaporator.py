@@ -5,6 +5,9 @@ from hvac.fluids import HumidAir, FluidState, Fluid
 from hvac.heat_transfer.heat_exchanger.eps_ntu import CounterFlowHeatExchanger
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
 
+from hvac.logging import ModuleLogger
+logger = ModuleLogger.get_logger(__name__)
+
 Q_ = Quantity
 HexCore = core.plain_fin_tube.PlainFinTubeHeatExchangerCore
 
@@ -193,26 +196,27 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
             return air_mean, rfg_mean
         else:
+            DT = (
+                self.air_in.Tdb.to('K') - self.rfg_out.T.to('K'),
+                self.air_out.Tdb.to('K') - self.rfg_sat_in.T.to('K')
+            )
+            DT_max = max(DT)
+            DT_min = min(DT)
+            if DT_min < 0:
+                logger.debug('DT_min < 0 -> set to 1e-12 K')
+                DT_min = Q_(1e-12, 'K')
+            LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
             if C_max == C_rfg:
                 # Refrigerant has the smallest temperature change.
                 T_rfg_m = (self.rfg_sat_in.T.to('K') + self.rfg_out.T.to('K')) / 2
-                DT_max = self.air_in.Tdb.to('K') - T_rfg_m
-                DT_min = max(self.air_out.Tdb.to('K') - T_rfg_m, Q_(1.e-12, 'K'))
-                LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
                 T_air_m = T_rfg_m + LMTD
-                air_mean = HumidAir(Tdb=T_air_m, W=self.air_in.W)
-                rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
-                return air_mean, rfg_mean
             else:  # C_max == C_air
                 # Air has the smallest temperature change.
                 T_air_m = (self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2
-                DT_max = T_air_m - self.rfg_sat_in.T.to('K')
-                DT_min = max(T_air_m - self.rfg_out.T.to('K'), Q_(1.e-12, 'K'))
-                LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
                 T_rfg_m = T_air_m - LMTD
-                air_mean = HumidAir(Tdb=T_air_m, W=self.air_in.W)
-                rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
-                return air_mean, rfg_mean
+            air_mean = HumidAir(Tdb=T_air_m, W=self.air_in.W)
+            rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
+            return air_mean, rfg_mean
 
     @property
     def dP_air(self) -> Quantity:

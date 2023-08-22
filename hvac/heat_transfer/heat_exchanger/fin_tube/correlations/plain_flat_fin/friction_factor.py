@@ -26,10 +26,10 @@ def f_Wang_and_Chi(
     D_r:
         Collar diameter [m].
     S_t:
-        Lateral or transverse pitch, i.e. spacing between tubes of the
+        Lateral or transverse pitch, i.e., spacing between tubes of the
         same row [m].
     S_l:
-        Longitudinal pitch, i.e. spacing between tubes of two adjacent tube
+        Longitudinal pitch, i.e., spacing between tubes of two adjacent tube
         rows [m].
     N_f:
         The number of fins per unit length [1/m]
@@ -39,13 +39,13 @@ def f_Wang_and_Chi(
     Notes
     -----
     Valid ranges of parameters:
-    Re_D_r: 300 - 20_000
-    D_r: 6.9 - 13.6 mm
-    D_h: 1.30 - 9.37 mm
-    S_t: 20.4 - 31.8 mm
-    S_l: 12.7 - 32 mm
-    p_f: 1.0 - 8.7 mm
-    N_r: 1 - 6
+    Re_D_r: 300-20_000
+    D_r: 6.9-13.6 mm
+    D_h: 1.30-9.37 mm
+    S_t: 20.4-31.8 mm
+    S_l: 12.7-32 mm
+    p_f: 1.0-8.7 mm
+    N_r: 1-60
 
     Returns
     -------

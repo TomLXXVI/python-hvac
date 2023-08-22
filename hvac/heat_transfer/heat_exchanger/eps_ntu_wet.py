@@ -78,6 +78,13 @@ class AbstractHeatExchanger(ABC):
             Area of external heat transfer surface.
         Q: optional
             Heat transfer rate between humid air and refrigerant.
+        kwargs:
+            Additional parameters.
+            In case of a cross-flow heat exchanger: parameter `type_` indicates
+            the type of cross-flow arrangement, which must be one of the types
+            defined by `CrossFlowHeatExchanger.Type`.
+            In case of a shell-and-tube heat exchanger: parameter `N` indicates
+            the number of tube passes.
         """
         # properties of fluids
         self.m_dot_r = m_dot_r.to('kg / s')
@@ -228,8 +235,10 @@ class AbstractHeatExchanger(ABC):
 
     @property
     def Q(self) -> Quantity:
-        Q = self.eps * self.Q_max
-        return Q
+        if self._Q is None:
+            Q = self.eps * self.Q_max
+            return Q
+        return self._Q
 
     @property
     def BF(self) -> float:

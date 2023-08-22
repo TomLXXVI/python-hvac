@@ -4,6 +4,8 @@ from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid, FluidState, CP_HUMID_AIR
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
 
+from hvac.logging import ModuleLogger
+logger = ModuleLogger.get_logger(__name__)
 
 Q_ = Quantity
 HexCore = core.plain_fin_tube.PlainFinTubeHeatExchangerCore
@@ -129,30 +131,31 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
             air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
             return rfg_mean, air_mean
         else:
+            DT = (
+                self.rfg_in.T.to('K') - self.air_out.Tdb.to('K'),
+                self.rfg_sat_vap_out.T.to('K') - self.air_in.Tdb.to('K')
+            )
+            DT_max = max(DT)
+            DT_min = min(DT)
+            if DT_min < 0:
+                logger.debug('DT_min < 0 -> set to 1e-12 K')
+                DT_min = Q_(1e-12, 'K')
+            LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
             if C_max == C_rfg:
                 # Refrigerant has the smallest temperature change.
                 T_rfg_mean = (self.rfg_in.T.to('K') + self.rfg_sat_vap_out.T.to('K')) / 2
-                DT_max = T_rfg_mean - self.air_in.Tdb.to('K')
-                DT_min = max(T_rfg_mean - self.air_out.Tdb.to('K'), Q_(1.e-12, 'K'))
-                LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
                 T_air_mean = T_rfg_mean - LMTD
-                rfg_mean = self.Rfg(T=T_rfg_mean, P=self.P_rfg)
-                air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
-                return rfg_mean, air_mean
             else:  # C_max == C_ext
                 # Air has the smallest temperature change.
                 T_air_mean = (self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2
-                DT_max = self.rfg_in.T.to('K') - T_air_mean
-                DT_min = max(self.rfg_sat_vap_out.T.to('K') - T_air_mean, Q_(1.e-12, 'K'))
-                LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
                 T_rfg_mean = T_air_mean + LMTD
-                rfg_mean = self.Rfg(T=T_rfg_mean, P=self.P_rfg)
-                air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
-                return rfg_mean, air_mean
+            rfg_mean = self.Rfg(T=T_rfg_mean, P=self.P_rfg)
+            air_mean = HumidAir(Tdb=T_air_mean, W=self.air_in.W)
+            return rfg_mean, air_mean
 
     def determine_flow_length(self, L2_ini: Quantity) -> Quantity:
         """Finds the flow length needed to desuperheat the refrigerant from
-        the inlet state to the saturated vapor state.
+        the known  inlet state to the saturated vapor state.
         """
         def _get_new_flow_length(A_int: Quantity) -> Quantity:
             n = A_int / (np.pi * self.hex_core.int.geo.D_i * self.hex_core.int.geo.L1)
@@ -162,8 +165,8 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
             L2 = n / d
             return L2.to('mm')
 
-        def _eq(unknowns):
-            L2 = Q_(unknowns[0], 'mm')
+        def _eq(L2: float) -> float:
+            L2 = Q_(L2, 'mm')
             self.hex_core.L2 = L2
             h_int = self.hex_core.int.h
             T_wall = self.hex_core.T_wall
@@ -171,13 +174,17 @@ class PlainFinTubeCounterFlowDesuperheatCondenser:
             A_int = 1 / (R_int * h_int)
             L2_new = _get_new_flow_length(A_int.to('m ** 2'))
             dev = L2_new - L2
-            return np.array([dev.to('mm').m])
+            return dev.to('mm').m
 
         rfg_mean, air_mean = self._get_mean_fluid_states()
         self.hex_core.int.fluid_mean = rfg_mean
         self.hex_core.ext.fluid_mean = air_mean
-        roots = optimize.fsolve(_eq, np.array([L2_ini.to('mm').m]), xtol=0.001)
-        L2 = Q_(roots[0], 'mm')
+        sol = optimize.root_scalar(
+            _eq,
+            bracket=(1e-9, L2_ini.to('mm').m),
+            xtol=0.1  # mm
+        )
+        L2 = Q_(sol.root, 'mm')
         return L2
 
     @property

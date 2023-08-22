@@ -72,10 +72,10 @@ def total_number_of_tubes(
         Length of the tube bank perpendicular to the direction of external flow
         [m].
     S_t:
-        Lateral or transverse pitch, i.e. spacing between tubes of the same
+        Lateral or transverse pitch, i.e., spacing between tubes of the same
         row [m].
     S_l:
-        Longitudinal pitch, i.e. spacing between tubes of two adjacent tube
+        Longitudinal pitch, i.e., spacing between tubes of two adjacent tube
         rows [m].
     arrangement: {'inline', 'staggered' (default)}
         Indicates if the tube bank either has an inline or staggered arrangement
@@ -88,8 +88,8 @@ def total_number_of_tubes(
     if arrangement == 'inline':
         N_t = (L2 * L3) / (S_t * S_l)
     else:
-        N_t = (L3 / S_t) * (L2 / S_l + 1) * 0.5
-        N_t += (L3 / S_t - 1) * (L2 / S_l - 1) * 0.5
+        N_t = (L3 / S_t) * (L2 / S_l + 1) / 2
+        N_t += (L3 / S_t - 1) * (L2 / S_l - 1) / 2
     return N_t.to('m / m').m
 
 
@@ -667,7 +667,7 @@ class PlainFinInlineTBO(TubeBankOutside):
 
     @property
     def A_p(self) -> Quantity | None:
-        """Prime area, i.e. the tube surface area minus the area blocked by the
+        """Prime area, i.e., the tube surface area minus the area blocked by the
         fins [m ** 2].
         """
         if all([self.L1, self.N_t, self.L2, self.L3]):

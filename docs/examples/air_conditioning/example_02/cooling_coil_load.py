@@ -1,8 +1,7 @@
-"""
-Design of a single-zone air conditioning system for cooling.
+"""Cooling Coil Load Calculation
 
-Based on the design conditions that come from a cooling load calculation of the
-single zone, the following elements need to be determined:
+Based on the cooling load calculation of a single-zone building, the following
+elements need to be determined:
 - the required capacity of the cooling coil
 - the sensible heat ratio of the cooling coil
 - the state of air entering and leaving the cooling coil

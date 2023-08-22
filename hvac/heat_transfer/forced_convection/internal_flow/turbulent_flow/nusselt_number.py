@@ -33,6 +33,8 @@ def average_nusselt_number(
     Dh = Dh.to('m').m
     L = L.to('m').m
     C, m = 1.0, 0.7
-    Nu_avg = Nu_fd * (1 + C * (L / Dh) ** -m)
+    try:
+        Nu_avg = Nu_fd * (1 + C * (L / Dh) ** -m)
+    except Exception:
+        pass
     return Nu_avg
-

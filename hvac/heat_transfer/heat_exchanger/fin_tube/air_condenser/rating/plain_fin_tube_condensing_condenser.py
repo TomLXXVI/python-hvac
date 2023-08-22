@@ -5,6 +5,9 @@ from hvac.fluids import Fluid, FluidState, HumidAir, CP_HUMID_AIR, CoolPropError
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
 from hvac.heat_transfer.heat_exchanger.eps_ntu import CounterFlowHeatExchanger
 
+from hvac.logging import ModuleLogger
+logger = ModuleLogger.get_logger(__name__)
+
 Q_ = Quantity
 HexCore = core.plain_fin_tube.PlainFinTubeHeatExchangerCore
 
@@ -119,18 +122,27 @@ class PlainFinTubeCounterflowCondensingCondenser:
         the subcooling part first.
         """
         self.air_in = air_in
-        T_air_out = self.air_in.Tdb + self.dT_air
         # When entering air state is set, the state of air leaving the
         # condensing part can also be determined:
-        self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
+        self.air_out = HumidAir(
+            Tdb=self.air_in.Tdb + self.dT_air,
+            W=self.air_in.W
+        )
 
     def _get_mean_fluid_states(self) -> tuple[FluidState, HumidAir]:
         """Returns the mean states of refrigerant and air across the
         condensing region of the condenser.
         """
         T_rfg_mean = self.rfg_sat_vap_in.T.to('K')
-        DT_max = T_rfg_mean - self.air_in.Tdb.to('K')
-        DT_min = max(T_rfg_mean - self.air_out.Tdb.to('K'), Q_(1.e-12, 'K'))
+        DT = (
+            self.rfg_sat_vap_in.T.to('K') - self.air_out.Tdb.to('K'),
+            self.rfg_sat_liq_out.T.to('K') - self.air_in.Tdb.to('K')
+        )
+        DT_max = max(DT)
+        DT_min = min(DT)
+        if DT_min < 0:
+            logger.debug('DT_min < 0 -> set to 1e-12 K')
+            DT_min = Q_(1e-12, 'K')
         LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
         T_air_mean = T_rfg_mean - LMTD
         x_rfg = max(
@@ -175,8 +187,8 @@ class PlainFinTubeCounterflowCondensingCondenser:
             L2 = n / d
             return L2.to('mm')
 
-        def _eq(unknowns):
-            L2 = Q_(unknowns[0], 'mm')
+        def _eq(L2: float) -> float:
+            L2 = Q_(L2, 'mm')
             self.hex_core.L2 = L2
             h_int = self.hex_core.int.h
             T_wall = self.hex_core.T_wall
@@ -184,13 +196,17 @@ class PlainFinTubeCounterflowCondensingCondenser:
             A_int = 1 / (R_int * h_int)
             L2_new = _get_new_flow_length(A_int.to('m ** 2'))
             dev = L2_new - L2
-            return np.array([dev.to('mm').m])
+            return dev.to('mm').m
 
         rfg_mean, air_mean = self._get_mean_fluid_states()
         self.hex_core.int.fluid_mean = rfg_mean
         self.hex_core.ext.fluid_mean = air_mean
-        roots = optimize.fsolve(_eq, np.array([L2_ini.to('mm').m]), xtol=0.001)
-        L2 = Q_(roots[0], 'mm')
+        sol = optimize.root_scalar(
+            _eq,
+            bracket=(1e-9, L2_ini.to('mm').m),
+            xtol=0.1  # mm
+        )
+        L2 = Q_(sol.root, 'mm')
         return L2
 
     def solve(self, L2: Quantity, i_max: int = 100, tol: float = 0.01) -> None:

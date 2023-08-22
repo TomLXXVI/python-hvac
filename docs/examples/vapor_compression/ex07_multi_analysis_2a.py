@@ -133,7 +133,7 @@ def analyze_performance(inputs: tuple[Quantity, Quantity]) -> dict[str, float]:
             f"Rating @ n_cmp = {n_cmp.to('1 / min'):~P.0f} "
             f"and T_out = {T_outdoor.to('degC'):~P.2f}"
         )
-        machine.rate_min(
+        machine.rate_by_minimization(
             T_evp_ini=Q_(5, 'degC'),
             T_cnd_ini=Q_(50, 'degC')
         )

@@ -1,15 +1,19 @@
-"""
-In this example, an air conditioning system is designed for air cooling of a
-single zone based on the performance specifications of an air cooler with a
-given heat exchanger core geometry that was selected from a catalog.
+"""Air Cooler Selection
 
-The aim of the exercise is to determine the required supply air mass and volume
-flow rate to the zone and the required face area of the air cooler, such that
-the air face velocity remains equal to the air face velocity in the datasheet.
-Also, the conditions on the refrigerant side of the air cooler are maintained.
-In this way, it can be assumed that the heat and mass transfer effectiveness of
-the air cooler remain unchanged. Then, it is possible to determine the state
-of air leaving the air cooler for any state of mixed air entering the air cooler.
+In this example, an air conditioning system is designed for the cooling of a
+single zone using performance data of an air cooler that was selected from a
+catalog.
+
+The aim of the exercise is to determine:
+(1) the required supply air mass and volume flow rate to the zone, and
+(2) the required face area of the air cooler with known heat exchanger core
+geometry, such that the air face velocity remains equal to the air face velocity
+specified in the datasheet.
+Also, the same conditions on the refrigerant side of the air cooler are
+maintained. In this way, it can be assumed that the heat and mass transfer
+effectiveness of the air cooler remain unchanged. Then, it is possible to
+determine the state of air leaving the air cooler for any state of mixed air
+entering the air cooler.
 
 Knowing the state of air leaving the air cooler and being supplied to the zone,
 the required mass flow rate of supply air can be determined from a sensible

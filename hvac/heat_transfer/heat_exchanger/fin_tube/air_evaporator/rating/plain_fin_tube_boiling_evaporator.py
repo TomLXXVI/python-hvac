@@ -160,16 +160,16 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         dP_air:
             Pressure drop on the air-side of the evaporator.
         """
-        def _eq(m_dot_rfg: float) -> float:
-            m_dot_rfg = Q_(m_dot_rfg, 'kg / hr')
+        m_dot_rfg = m_dot_rfg_ini
+        Q = m_dot_rfg * (self.rfg_sat_vap_out.h - self.rfg_in.h)
+        h_air_out = self.air_in.h - Q / self.hex_core.m_dot_ext
+        RH_air_out = Q_(100, 'pct')  # initial guess
+        air_out = HumidAir(h=h_air_out, RH=RH_air_out)
+        i = 0
+        for i in range(i_max):
             # Set initial guess of refrigerant mass flow rate on the heat
             # exchanger core:
             self.hex_core.m_dot_int = m_dot_rfg
-            # Calculate heat transfer rate across boiling region:
-            Q = self.hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
-            # Calculate state of air leaving evaporator:
-            h_air_out = self.air_in.h - Q / self.hex_core.m_dot_ext
-            air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
             # Calculate mean states of air and refrigerant needed for calculating
             # the heat transfer parameters of the heat exchanger core:
             air_mean = self._get_mean_air(air_out)
@@ -191,8 +191,8 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
                 h_int=self.hex_core.int.h,
                 eta_surf_wet=self.hex_core.ext.eta,
                 A_ext_to_A_int=(
-                        self.hex_core.ext.geo.alpha /
-                        self.hex_core.int.geo.alpha
+                    self.hex_core.ext.geo.alpha /
+                    self.hex_core.int.geo.alpha
                 ).to('m / m').m,
                 A_ext=self.hex_core.ext.geo.A
             )
@@ -200,19 +200,18 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
             m_dot_rfg_new = cof_hex.Q / (self.rfg_sat_vap_out.h - self.rfg_in.h)
             # Determine deviation between new and previous value:
             dev_m_dot_rfg = m_dot_rfg_new - self.hex_core.m_dot_int
-            return dev_m_dot_rfg.to('kg / hr').m
-
-        sol = optimize.root_scalar(
-            _eq,
-            method='secant',
-            x0=m_dot_rfg_ini.to('kg / hr').m,
-            xtol=tol.to('kg / hr').m,
-            maxiter=i_max
-        )
-        self.hex_core.m_dot_int = Q_(sol.root, 'kg / hr')
-        self.Q_dot = self.hex_core.m_dot_int * (self.rfg_sat_vap_out.h - self.rfg_in.h)
-        h_air_out = self.air_in.h - self.Q_dot / self.hex_core.m_dot_ext
-        self.air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
+            if abs(dev_m_dot_rfg.to('kg / hr')) < tol:
+                break
+            m_dot_rfg = m_dot_rfg_new
+            air_out = cof_hex.air_out
+            Q = cof_hex.Q
+            i += 1
+        else:
+            raise ValueError(
+                f'No acceptable solution found after {i_max} iterations.'
+            )
+        self.Q_dot = cof_hex.Q
+        self.air_out = cof_hex.air_out
         self.dP_air = self.hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
         return (
             self.hex_core.m_dot_int,
