@@ -9,6 +9,9 @@ steady-state performance of the machine.
 
 Continues from `07_multi_analysis_3a.py`. The file with simulation results is
 saved at `analysis_results/07_multi_analysis_3.ods`.
+
+This module has a number of functions that can be used in a Jupyter Notebook to
+do the analysis.
 """
 import pandas as pd
 from hvac.charts import LineChart

@@ -1,6 +1,6 @@
 import numpy as np
 from hvac import Quantity
-from hvac.fluids import HumidAir, Fluid, FluidState, CP_HUMID_AIR, CoolPropError
+from hvac.fluids import HumidAir, Fluid, FluidState, CoolPropError
 from hvac.heat_transfer.heat_exchanger.eps_ntu import CounterFlowHeatExchanger
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
 
@@ -176,7 +176,7 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
         """
         self.hex_core.L2 = L2
         # Guess specific heats of air and refrigerant:
-        cp_air = CP_HUMID_AIR
+        cp_air = self.air_in.cp
         cp_rfg = self.rfg_sat_liq_in.cp
         # Calculate capacitance rates:
         C_air = cp_air * self.hex_core.m_dot_ext
@@ -220,17 +220,29 @@ class PlainFinTubeCounterFlowSubcoolingCondenser:
                 Tdb=cof_hex.T_cold_out,
                 W=self.air_in.W
             )
-            self.rfg_out = self.Rfg(
-                T=cof_hex.T_hot_out,
-                P=self.P_rfg
-            )
+            try:
+                self.rfg_out = self.Rfg(
+                    T=cof_hex.T_hot_out,
+                    P=self.P_rfg
+                )
+            except CoolPropError:
+                # if rfg_out is very near to saturation, CoolProp
+                # throws an exception to indicate that the full state cannot be
+                # determined.
+                self.rfg_out = self.rfg_sat_liq_in
             # Recalculate capacitance rates:
             dT_air = self.air_out.Tdb - self.air_in.Tdb
             dh_air = self.air_out.h - self.air_in.h
-            cp_air_avg = dh_air / dT_air
+            try:
+                cp_air_avg = dh_air / dT_air
+            except ZeroDivisionError:
+                cp_air_avg = self.air_in.cp
             dT_rfg = self.rfg_sat_liq_in.T - self.rfg_out.T
             dh_rfg = self.rfg_sat_liq_in.h - self.rfg_out.h
-            cp_rfg_avg = dh_rfg / dT_rfg
+            try:
+                cp_rfg_avg = dh_rfg / dT_rfg
+            except ZeroDivisionError:
+                cp_rfg_avg = self.rfg_sat_liq_in.cp
             C_air = self.hex_core.ext.m_dot * cp_air_avg
             C_rfg = self.hex_core.int.m_dot * cp_rfg_avg
             # Check if deviation between new and previous value is small enough:

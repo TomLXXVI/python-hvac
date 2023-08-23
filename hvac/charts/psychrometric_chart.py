@@ -66,11 +66,11 @@ class PsychrometricChart:
         self.chart.x1.axes.yaxis.set_minor_locator(MultipleLocator(0.001))
 
     def plot_process(
-            self,
-            name: str,
-            start_point: StatePoint,
-            end_point: StatePoint,
-            mix_point: Optional[StatePoint] = None,
+        self,
+        name: str,
+        start_point: StatePoint,
+        end_point: StatePoint,
+        mix_point: Optional[StatePoint] = None,
     ):
         if mix_point is not None:
             x_data = [start_point.T_db.to('degC').m, mix_point.T_db.to('degC').m, end_point.T_db.to('degC').m]
@@ -107,10 +107,10 @@ class PsychrometricChart:
         )
 
     def plot_line(
-            self,
-            name: str,
-            start_point: StatePoint,
-            end_point: StatePoint
+        self,
+        name: str,
+        start_point: StatePoint,
+        end_point: StatePoint
     ):
         x_data = [start_point.T_db.to('degC').m, end_point.T_db.to('degC').m]
         y_data = [start_point.W.to('kg/kg').m, end_point.W.to('kg/kg').m]
@@ -123,10 +123,10 @@ class PsychrometricChart:
         )
 
     def plot_space_condition_line(
-            self,
-            start_point: StatePoint,
-            end_point: StatePoint,
-            space_point: Optional[StatePoint] = None,
+        self,
+        start_point: StatePoint,
+        end_point: StatePoint,
+        space_point: Optional[StatePoint] = None,
     ):
         self.plot_line('space condition line', start_point, end_point)
         self.chart.add_xy_data(
