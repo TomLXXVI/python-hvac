@@ -59,6 +59,7 @@ class PlainFinTubeHeatExchangerCore:
         k_fin: Quantity = Q_(237, 'W / (m * K)'),
         condensing: bool = False,
         boiling: bool = False,
+        N_r: int | None = None,
         **kwargs
     ) -> None:
         """Creates an instance of `PlainFinTubeHeatExchangerCore`.
@@ -93,6 +94,8 @@ class PlainFinTubeHeatExchangerCore:
         boiling: optional
             If True, the internal fluid (refrigerant) inside the tubes is
             boiling, i.e. the case for the boiling part of air evaporator.
+        N_r: optional
+            Number of rows.
         """
         # Create the internal heat transfer surface.
         if condensing:
@@ -138,6 +141,9 @@ class PlainFinTubeHeatExchangerCore:
             ),
             k_f=k_fin
         )
+        # Set L2 if number of rows is specified:
+        if N_r is not None:
+            self.L2 = N_r * S_l
         # Initialize internal variables.
         self._T_wall: Quantity | None = None
 

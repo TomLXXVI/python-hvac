@@ -1,9 +1,11 @@
 import numpy as np
-from scipy import optimize
+# from scipy import optimize
 from hvac import Quantity
-from hvac.fluids import HumidAir, FluidState, Fluid, CoolPropError
+from hvac.fluids import HumidAir, FluidState, Fluid
+# from hvac.fluids import CoolPropError
 from hvac.heat_transfer.heat_exchanger.eps_ntu_wet import CounterFlowHeatExchanger
 from hvac.heat_transfer.heat_exchanger.fin_tube import core
+
 
 Q_ = Quantity
 HexCore = core.plain_fin_tube.PlainFinTubeHeatExchangerCore
@@ -116,8 +118,8 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         self.air_in = air_in
 
     def set_flow_length(self, L2: Quantity) -> None:
-        """Sets the provisional length of the tube bank parallel to the direction
-        of external flow where refrigerant is boiling.
+        """Sets the provisional flow length of the tube bank's boiling part
+        (i.e. in the direction parallel to the external air flow).
         """
         self.hex_core.L2 = L2
 
@@ -165,7 +167,6 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         h_air_out = self.air_in.h - Q / self.hex_core.m_dot_ext
         RH_air_out = Q_(100, 'pct')  # initial guess
         air_out = HumidAir(h=h_air_out, RH=RH_air_out)
-        i = 0
         for i in range(i_max):
             # Set initial guess of refrigerant mass flow rate on the heat
             # exchanger core:
@@ -178,7 +179,7 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
             self.hex_core.int.fluid_mean = rfg_mean
             self.hex_core.int.Q = Q  # this is needed for calculating h
             # Calculate new value for the heat transfer rate assuming a
-            # wet air-side surface in the boiling region:
+            # wet air-side surface along the boiling region:
             cof_hex = CounterFlowHeatExchanger(
                 m_dot_r=self.hex_core.m_dot_int,
                 m_dot_a=self.hex_core.m_dot_ext,
@@ -243,28 +244,33 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
 
     def _get_mean_refrigerant(self) -> FluidState:
         """Determine the mean or bulk refrigerant properties."""
-        x_rfg_avg = (self.rfg_in.x + self.rfg_sat_vap_out.x) / 2
-        try:
-            rfg_mean = self._Rfg(T=self.rfg_in.T, x=x_rfg_avg)
-        except CoolPropError:
-            # if `self._Rfg` is a pseudo-pure fluid, `x` cannot be an input
-            # variable
-            x_target = x_rfg_avg.to('frac').m
-
-            def _eq(h: float) -> float:
-                state = self._Rfg(
-                    P=self.rfg_sat_vap_out.P,
-                    h=Q_(h, 'kJ / kg')
-                )
-                x = state.x.to('frac').m
-                return x - x_target
-
-            h_ini = self.rfg_in.h.to('kJ / kg').m
-            h_fin = self.rfg_sat_vap_out.h.to('kJ / kg').m
-            sol = optimize.root_scalar(_eq, bracket=[h_ini, h_fin])
-            h = Q_(sol.root, 'kJ / kg')
-            rfg_mean = self._Rfg(
-                P=self.rfg_sat_vap_out.P,
-                h=h
-            )
+        # x_rfg_avg = (self.rfg_in.x + self.rfg_sat_vap_out.x) / 2
+        # try:
+        #     rfg_mean = self._Rfg(T=self.rfg_in.T, x=x_rfg_avg)
+        # except CoolPropError:
+        #     # if `self._Rfg` is a pseudo-pure fluid, `x` cannot be an input
+        #     # variable
+        #     x_target = x_rfg_avg.to('frac').m
+        #
+        #     def _eq(h: float) -> float:
+        #         state = self._Rfg(
+        #             P=self.rfg_sat_vap_out.P,
+        #             h=Q_(h, 'kJ / kg')
+        #         )
+        #         x = state.x.to('frac').m
+        #         return x - x_target
+        #
+        #     h_ini = self.rfg_in.h.to('kJ / kg').m
+        #     h_fin = self.rfg_sat_vap_out.h.to('kJ / kg').m
+        #     sol = optimize.root_scalar(_eq, bracket=[h_ini, h_fin])
+        #     h = Q_(sol.root, 'kJ / kg')
+        #     rfg_mean = self._Rfg(
+        #         P=self.rfg_sat_vap_out.P,
+        #         h=h
+        #     )
+        h_rfg_avg = (self.rfg_in.h + self.rfg_sat_vap_out.h) / 2
+        rfg_mean = self._Rfg(
+            P=self.rfg_sat_vap_out.P,
+            h=h_rfg_avg
+        )
         return rfg_mean

@@ -3,8 +3,9 @@ tube-fin heat exchangers.
 
 References
 ----------
-[1]     Shah, R. K., & Sekulic, D. P. (2003). Fundamentals of Heat Exchanger
-        Design. John Wiley & Sons. (§ 8.2)
+[1]
+Shah, R. K., & Sekulic, D.P. "Fundamentals of Heat Exchanger Design"
+(John Wiley & Sons, 2003), § 8.2
 """
 from typing import TypeVar
 import numpy as np

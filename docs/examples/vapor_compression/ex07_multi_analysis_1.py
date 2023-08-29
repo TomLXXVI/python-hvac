@@ -178,7 +178,7 @@ def _init_worker(log_file_path: Path):
 
 
 def main():
-    # Define path to log file:
+    # Set path to log file:
     log_file_path = Path(
         "C:/Users/Tom/PycharmProjects/python-hvac/"
         "docs/examples/vapor_compression/log_files/vcm_ex07_1.log"

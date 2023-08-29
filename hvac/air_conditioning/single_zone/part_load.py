@@ -21,6 +21,21 @@ class CAVSystem:
         reheat coil is necessary to control the supply air temperature in order
         to maintain the desired zone air temperature at zone loads which are
         smaller than the design load.
+
+    Attributes
+    ----------
+    supply_air:
+        State of supply air at part load.
+    zone_air:
+        State of zone air at part load.
+    mixed_air:
+        State of mixed air at part load.
+    Q_cc:
+        Cooling coil load at part load.
+    SHR_cc:
+        Cooling coil sensible heat ratio at part load.
+    Q_rh:
+        Reheat coil load at part load.
     """
     def __init__(
         self,
@@ -32,6 +47,24 @@ class CAVSystem:
         m_supply: Quantity,
         cooled_air: HumidAir
     ) -> None:
+        """
+        Parameters
+        ----------
+        T_zone:
+            Zone air temperature (fixed by zone thermostat)
+        outdoor_air:
+            State of outdoor air.
+        Q_zone:
+            Total cooling load of the zone.
+        SHR_zone:
+            Sensible heat ratio of the zone load.
+        V_vent:
+            Volume flow rate of ventilation air at outdoor conditions.
+        m_supply:
+            Mass flow rate of supply air (fixed)
+        cooled_air:
+            State of air at the cooling coil outlet (fixed by controller).
+        """
         self.T_zone = T_zone
         self.outdoor_air = outdoor_air
         self.Q_zone = Q_zone
@@ -80,7 +113,7 @@ class CAVSystem:
             air_out=self.supply_air,
             m_da=self.m_supply
         )
-        return reheat_coil.Q
+        return reheat_coil.Q_sen
 
 
 class VAVSystem:
@@ -93,6 +126,20 @@ class VAVSystem:
         air condition at the cooling coil outlet.
     2.  The space thermostat modulates the mass flow rate of supply air to
         maintain the desired zone air temperature (variable-speed fan).
+
+    Attributes
+    ----------
+    m_supply:
+        Required mass flow rate of supply air to offset the sensible load of
+        the zone.
+    zone_air:
+        State of zone air at part load.
+    mixed_air:
+        State of mixed air at part load.
+    Q_cc:
+        Cooling coil load at part load.
+    SHR_cc:
+        Cooling coil sensible heat ratio at part load.
     """
 
     def __init__(
@@ -104,6 +151,22 @@ class VAVSystem:
         V_vent: Quantity,
         cooled_air: HumidAir
     ) -> None:
+        """
+        Parameters
+        ----------
+        T_zone:
+            Zone air temperature (fixed by zone thermostat)
+        outdoor_air:
+            State of outdoor air.
+        Q_zone:
+            Total cooling load of the zone.
+        SHR_zone:
+            Sensible heat ratio of the zone load.
+        V_vent:
+            Volume flow rate of ventilation air at outdoor conditions.
+        cooled_air:
+            State of air at the cooling coil outlet (fixed by controller).
+        """
         self.T_zone = T_zone
         self.outdoor_air = outdoor_air
         self.Q_zone = Q_zone

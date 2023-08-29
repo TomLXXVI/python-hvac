@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 from enum import IntEnum
 import numpy as np
 from hvac import Quantity
-from hvac.fluids import Fluid, HumidAir, CP_HUMID_AIR
+from hvac.fluids import Fluid, HumidAir, CP_HUMID_AIR, CoolPropError
 
 
 Q_ = Quantity
@@ -127,15 +127,19 @@ class AbstractHeatExchanger(ABC):
 
     def _C_r(self, xi: Quantity, T_r_out: Quantity) -> float:
         T_r_avg = (self.T_r_in + T_r_out) / 2
-        cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp
-        C_r = (self.m_dot_a * xi) / (self.m_dot_r * cp_r)
-        return C_r
+        try:
+            cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp
+        except CoolPropError:
+            # Refrigerant is a 2-phase mixture (boiling or condensing)
+            return 0.0
+        else:
+            return (self.m_dot_a * xi) / (self.m_dot_r * cp_r)
 
     def _U_ext_wet(self, xi: Quantity) -> Quantity | None:
         if all([
             self._h_a_wet, self._eta_surf_wet,
-            self._A_ext_to_A_int, self._h_int]
-        ):
+            self._A_ext_to_A_int, self._h_int
+        ]):
             R_ext = 1 / (self._h_a_wet * self._eta_surf_wet)  # (m ** 2 * s) / kg
             R_int = xi * self._A_ext_to_A_int / self._h_int  # (m ** 2 * s) / kg
             R_tot = R_ext + R_int  # (m ** 2 * s) / kg
@@ -173,8 +177,13 @@ class AbstractHeatExchanger(ABC):
             C_r = self._C_r(xi, T_r_out)
             eps = self.__eps__(C_r, NTU)
             T_r_avg = (self.T_r_in + T_r_out) / 2
-            cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp
-            T_r_out_new = self.T_r_in + (eps * self.Q_max) / (self.m_dot_r * cp_r)
+            try:
+                cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp
+            except CoolPropError:
+                # Refrigerant is a 2-phase mixture (boiling or condensing)
+                T_r_out_new = self.T_r_in
+            else:
+                T_r_out_new = self.T_r_in + (eps * self.Q_max) / (self.m_dot_r * cp_r)
             dev_T_r_out = abs(T_r_out_new.to('K') - T_r_out)
             if dev_T_r_out <= tol_T_r_out:
                 self._T_r_out = T_r_out_new.to('K')
@@ -194,6 +203,7 @@ class AbstractHeatExchanger(ABC):
         i_a_T_r_out = HumidAir(Tdb=self.T_r_out, RH=Q_(100, 'pct')).h
         try:
             xi = (i_a_T_r_in - i_a_T_r_out) / (self.T_r_in - self.T_r_out)
+            if np.isnan(xi.m): raise ZeroDivisionError
             return xi.to('J / (kg * K)')
         except ZeroDivisionError:
             # in case of a boiling refrigerant: self.T_r_in == self.T_r_out
@@ -202,14 +212,16 @@ class AbstractHeatExchanger(ABC):
     @property
     def C_r(self) -> float:
         if not self.xi.m == 0.0:
-            # in case of a boiling refrigerant, the refrigerant temperature is
-            # constant and T_r_avg will be equal to the saturation temperature
-            # that corresponds with the pressure self._P_r; this means that the
+            # in case of a boiling refrigerant, the average refrigerant
+            # temperature `T_r_avg` is equal to the saturation temperature that
+            # corresponds with the pressure `self._P_r`; this means that the
             # state of the 2-phase refrigerant mixture cannot be determined (the
-            # quality x of the mixture?) and an error will be given. However, in
-            # that case, xi will also be zero, so C_r will be zero anyway.
+            # quality x of the mixture?) and a `CoolPropError` would be raised
+            # at (*).
+            # However, in that case, `xi` will also be zero, so `C_r` will be
+            # zero anyway.
             T_r_avg = (self.T_r_in + self.T_r_out) / 2
-            cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp
+            cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp  # (*)
             C_r = (self.m_dot_a * self.xi) / (self.m_dot_r * cp_r)
             return C_r.m
         else:

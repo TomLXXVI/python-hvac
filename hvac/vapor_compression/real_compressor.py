@@ -137,7 +137,7 @@ class FixedSpeedCompressor:
 
     def __init__(
         self,
-        coeff_file: Path,
+        coeff_file: Path | str,
         refrigerant_type: Fluid,
         dT_sh: Quantity = Q_(0, 'K'),
         dT_sc: Quantity = Q_(0, 'K'),
@@ -160,7 +160,7 @@ class FixedSpeedCompressor:
         refrigerant_type: Fluid
             Refrigerant for which the polynomial coefficients are valid.
         units: Dict[str, str], optional
-            The units used in the coefficients file.
+            The units used in the coefficient file.
         """
         self.dT_sh = dT_sh
         self.dT_sc = dT_sc
@@ -364,7 +364,7 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
 
     def __init__(
         self,
-        coeff_file: Path,
+        coeff_file: Path | str,
         refrigerant_type: Fluid,
         dT_sh: Quantity = Q_(0, 'K'),
         dT_sc: Quantity = Q_(0, 'K'),
@@ -451,9 +451,9 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
         _Qc_dot = Qc_dot.to(self.units['Qc_dot']).m
 
         def eq(unknowns: np.ndarray) -> np.ndarray:
-            speed = unknowns[0]
+            speed_ = unknowns[0]
             lhs = _Qc_dot
-            rhs = self.correlations['Qc_dot'](self._Te, self._Tc, speed)
+            rhs = self.correlations['Qc_dot'](self._Te, self._Tc, speed_)
             out = lhs - rhs
             return np.array([out])
 
