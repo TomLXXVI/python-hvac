@@ -1,4 +1,4 @@
-# Project python-hvac
+# python-hvac
 
 A Python package for HVAC engineering:
 - Cooling and heating load calculations
