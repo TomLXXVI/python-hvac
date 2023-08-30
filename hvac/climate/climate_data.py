@@ -32,17 +32,17 @@ class _DesignDayTemperatureProfile:
 
         Parameters
         ----------
-        location :
+        location:
             Geographic location for which the temperature profiles are to be
             calculated.
-        date :
+        date:
             Date of the design day.
-        Tdb_max :
+        Tdb_max:
             Design value of outdoor air dry-bulb temperature.
-        Tdb_range :
+        Tdb_range:
             Mean difference between daily maximum and minimum temperature.
-        Twb_mc :
-            Mean coincident wet-bulb temperature (i.e. the average value of the
+        Twb_mc:
+            Mean coincident wet-bulb temperature (i.e., the average value of the
             wet-bulb temperature at the design dry-bulb temperature).
         """
         W_des = HumidAir(Tdb=Tdb_max, Twb=Twb_mc).W
@@ -77,11 +77,11 @@ class _DesignDayTemperatureProfile:
     @property
     def Tdb_profile(self) -> Dict[str, List[Any]]:
         """
-        Get daily profile of dry-bulb temperature at design day.
+        Get a daily profile of dry-bulb temperature on the design day.
 
         Returns
         -------
-        Pandas DataFrame of time moments 't' (`datetime` objects) and
+        A Pandas-DataFrame of time moments 't' (`datetime` objects) and
         corresponding list of dry-bulb temperatures 'T' (`Quantity` objects).
         """
         d = {
@@ -93,11 +93,11 @@ class _DesignDayTemperatureProfile:
     @property
     def Twb_profile(self) -> Dict[str, List[Any]]:
         """
-        Get daily profile of wet-bulb temperature at design day.
+        Get a daily profile of wet-bulb temperature on the design day.
 
         Returns
         -------
-        Dictionary with list of time moments 't' (`datetime` objects) and
+        Dictionary with a list of time moments 't' (`datetime` objects) and
         corresponding list of wet-bulb temperatures 'T' (`Quantity` objects).
         """
         d = {
@@ -116,7 +116,7 @@ class _DesignDayTemperatureProfile:
     @property
     def Tdb(self) -> Callable[[float], float]:
         """
-        Get function object that accepts time of day *t* in seconds from
+        Get a function object that accepts time of day *t* in seconds from
         00:00:00 and returns the corresponding dry-bulb temperature at that
         moment in degC.
         """
@@ -125,7 +125,7 @@ class _DesignDayTemperatureProfile:
     @property
     def Twb(self) -> Callable[[float], float]:
         """
-        Get function object that accepts time of day in seconds from 00:00:00
+        Get a function object that accepts time of day in seconds from 00:00:00
         and returns the corresponding wet-bulb temperature at that moment in degC.
         """
         return self._interpolate_T_profile(self.Twb_profile)
@@ -173,7 +173,7 @@ class ClimateData:
         design_day:
             Date for which the heat transfer through the exterior building
             element is to be determined.
-        location :
+        location:
             The geographic location for which the climate data applies to.
         Tdb_avg:
             Outside air dry-bulb design temperature.
@@ -182,11 +182,11 @@ class ClimateData:
         Twb_mc:
             Outside air wet-bulb design temperature (mean coincident wet-bulb
             temperature).
-        tau_beam :
+        tau_beam:
             Clear-sky optical depth of the atmosphere at the given location for
             solar beam radiation on the given design day. Used to calculate
             clear-sky solar irradiance.
-        tau_dif :
+        tau_dif:
             Clear-sky optical depth of the atmosphere at the given location for
             solar diffuse radiation on the given design day. Used to calculate
             clear-sky solar irradiance.
@@ -246,11 +246,11 @@ class ClimateData:
     @property
     def Tdb_profile(self) -> Dict[str, List[Any]]:
         """
-        Get daily profile of dry-bulb temperature at design day.
+        Get a daily profile of dry-bulb temperature on the design day.
 
         Returns
         -------
-        Dictionary with list of time moments 't' (`datetime` objects) and
+        Dictionary with a list of time moments 't' (`datetime` objects) and
         corresponding list of dry-bulb temperatures 'T' (`Quantity` objects).
         """
         return self._design_day_temp_profile.Tdb_profile
@@ -258,11 +258,11 @@ class ClimateData:
     @property
     def Twb_profile(self) -> Dict[str, List[Any]]:
         """
-        Get daily profile of wet-bulb temperature at design day.
+        Get a daily profile of wet-bulb temperature on the design day.
 
         Returns
         -------
-        Dictionary with list of time moments 't' (`datetime` objects) and
+        Dictionary with a list of time moments 't' (`datetime` objects) and
         corresponding list of wet-bulb temperatures 'T' (`Quantity` objects).
         """
         return self._design_day_temp_profile.Twb_profile
@@ -271,7 +271,7 @@ class ClimateData:
     @property
     def irr_profile(self) -> Dict[str, List[Any]]:
         """
-        Get daily profile of solar irradiance based on ASHRAE's Clear-Sky Model.
+        Get a daily profile of solar irradiance based on ASHRAE's Clear-Sky Model.
 
         Returns
         -------
@@ -284,7 +284,7 @@ class ClimateData:
     @property
     def sun_position_profile(self) -> Dict[str, List[Any]]:
         """
-        Get daily profile of sun positions (for each hour of the day).
+        Get a daily profile of sun positions (for each hour of the day).
 
         Returns
         -------
