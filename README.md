@@ -5,7 +5,7 @@ A Python package for HVAC engineering:
 - Estimation of energy needs and energy consumption
 - Design and analysis of air and hydronic distribution circuits
 - Air conditioning process calculations
-- Simulation and analysis of vapor compression machines and VRF-systems
+- Simulation and analysis of vapor compression machines and VRF systems
 - Sizing of refrigerant piping
 
 Example scripts and notebooks can be found under `docs/examples`. More examples
@@ -16,7 +16,7 @@ will be added over time.
 > development and will be no longer maintained.
 
 ## Overview
-At this moment following sub-packages are part of `hvac`:
+At this moment the following sub-packages are part of `hvac`:
 
 **air_conditioning**<br>
 A package about air-conditioning processes and systems, including VAV-systems.
@@ -53,7 +53,7 @@ line) between an outdoor unit and indoor unit of an air conditioning system.
 This package implements a number of correlations for calculating convection
 heat transfer coefficients and friction factors for different geometries. Most 
 correlations were taken from the book "Introduction to Engineering Heat Transfer" 
-by G.F. Nellis and S.A. Klein (Cambridge University Press).
+by G. F. Nellis and S. A. Klein (Cambridge University Press).
 
 Also part of this package is the sub-package **heat_exchanger**. It implements
 the effectiveness-NTU method for both dry and wet external heat transfer 
@@ -82,7 +82,7 @@ in relation to the same building have been included in the folder `vrf_system`
 of `docs/examples`.
 
 Besides the aforementioned application-oriented packages, `hvac` also includes a 
-number of more basic sub-packages which are used throughout the modules of 
+number of more basic subpackages which are used throughout the modules of 
 `hvac`:
 
 First of all, `hvac` is heavily based on third-party library `pint` for

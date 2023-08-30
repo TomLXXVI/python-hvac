@@ -251,35 +251,34 @@ class DXAirCoolingCoil:
         BF = 1 - CF
         return ADP, CF, BF
 
+    def __W_air_out__(self, T_adp: float) -> float:
+        """Given `T_air_in` and `W_air_in` from `self.air_in`, and also
+        `self.T_air_out` and `T_adp`, returns the corresponding `W_air_out`
+        (following the definition of the contact factor of an air-cooling
+        coil).
+        """
+        T_adp = Q_(T_adp, 'degC').to('K')
+        W_adp = HumidAir(Tdb=T_adp, RH=Q_(100, 'pct')).W
+        k1 = (self.air_in.W - W_adp) / (self.air_in.Tdb - T_adp)
+        k2 = self.T_air_out - self.air_in.Tdb
+        W_air_out = self.air_in.W + k1 * k2
+        return W_air_out.to('g / kg').m
+
     def __W_air_out_min__(self) -> tuple[Quantity, Quantity]:
         """Returns the lowest absolute humidity ratio that is possible at
         the currently set dry-bulb temperature of the air leaving the DX-coil
         (`self.T_air_out`). Also returns the ADP temperature that corresponds
         with this minimum humidity ratio.
         """
-
-        def _W_air_out(T_adp: float) -> float:
-            """Given `T_air_in` and `W_air_in` from `self.air_in`, and also
-            `self.T_air_out` and `T_adp`, returns the corresponding `W_air_out`
-            (following the definition of the contact factor of an air-cooling
-            coil).
-            """
-            T_adp = Q_(T_adp, 'degC').to('K')
-            W_adp = HumidAir(Tdb=T_adp, RH=Q_(100, 'pct')).W
-            k1 = (self.air_in.W - W_adp) / (self.air_in.Tdb - T_adp)
-            k2 = self.T_air_out - self.air_in.Tdb
-            W_air_out = self.air_in.W + k1 * k2
-            return W_air_out.to('g / kg').m
-
         # Find the ADP temperature for which the humidity ratio at the
         # leaving air temperature `T_air_out` is minimal. The possible maximum
         # ADP temperature can certainly never be higher than the cooling coil
         # leaving air temperature.
         T_adp_min = -30.0
         T_adp_max = self.T_air_out.to('degC').m
-        r = optimize.minimize_scalar(_W_air_out, bracket=(T_adp_min, T_adp_max))
+        r = optimize.minimize_scalar(self.__W_air_out__, bounds=(T_adp_min, T_adp_max))
         T_adp_r = r.x
-        W_air_out_min = _W_air_out(T_adp_r)
+        W_air_out_min = self.__W_air_out__(T_adp_r)
         return Q_(W_air_out_min, 'g / kg'), Q_(T_adp_r, 'degC')
 
     def __calculate_operating_state__(

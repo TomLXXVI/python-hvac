@@ -25,17 +25,17 @@ class CAVSystem:
     Attributes
     ----------
     supply_air:
-        State of supply air at part load.
+        State of supply air at part-load.
     zone_air:
-        State of zone air at part load.
+        State of zone air at part-load.
     mixed_air:
-        State of mixed air at part load.
+        State of mixed air at part-load.
     Q_cc:
-        Cooling coil load at part load.
+        Cooling coil load at part-load.
     SHR_cc:
-        Cooling coil sensible heat ratio at part load.
+        Cooling coil sensible heat ratio at part-load.
     Q_rh:
-        Reheat coil load at part load.
+        Reheat-coil load at part-load.
     """
     def __init__(
         self,
@@ -59,7 +59,7 @@ class CAVSystem:
         SHR_zone:
             Sensible heat ratio of the zone load.
         V_vent:
-            Volume flow rate of ventilation air at outdoor conditions.
+            Volume flow rate of ventilation air at outdoor air state.
         m_supply:
             Mass flow rate of supply air (fixed)
         cooled_air:
@@ -133,13 +133,13 @@ class VAVSystem:
         Required mass flow rate of supply air to offset the sensible load of
         the zone.
     zone_air:
-        State of zone air at part load.
+        State of zone air at part-load.
     mixed_air:
-        State of mixed air at part load.
+        State of mixed air at part-load.
     Q_cc:
-        Cooling coil load at part load.
+        Cooling coil load at part-load.
     SHR_cc:
-        Cooling coil sensible heat ratio at part load.
+        Cooling coil sensible heat ratio at part-load.
     """
 
     def __init__(
@@ -163,7 +163,7 @@ class VAVSystem:
         SHR_zone:
             Sensible heat ratio of the zone load.
         V_vent:
-            Volume flow rate of ventilation air at outdoor conditions.
+            Volume flow rate of ventilation air at outdoor air state.
         cooled_air:
             State of air at the cooling coil outlet (fixed by controller).
         """
