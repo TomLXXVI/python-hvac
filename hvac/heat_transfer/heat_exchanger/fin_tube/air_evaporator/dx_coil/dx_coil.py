@@ -298,43 +298,47 @@ class DXAirCoolingCoil:
         - the state the refrigerant must have when leaving the cooling coil
         (saturated vapor)
 
-        To determine the resulting operating state, we use an iterative solving
-        technique:
-        1. We initially guess the state (humidity) of the air leaving the cooling
-        coil. This allows us to determine the heat transfer rate to the air
-        stream in the cooling coil. The theoretic maximum heat transfer rate is
-        known from the inputs to the cooling coil model. Now, an initial value
-        for the effectiveness of the cooling coil can be determined.
+        To determine the resulting operating state of the DX-coil, we can use an
+        iterative solving technique:
+        1. We initially guess the enthalpy-based heat transfer effectiveness of
+        the cooling coil.
+        The theoretic maximum heat transfer rate is known from the inputs to the
+        cooling coil model (state of entering air, state of entering refrigerant,
+        and mass flow rate of air).
+        This allows us to determine the heat transfer rate from the air stream
+        to the refrigerant in the cooling coil.
+        Now, an initial state of the air leaving the cooling coil can be
+        determined.
 
-        2. The effectiveness of the cooling coil is also determined by the heat
-        transfer characteristics of the cooling coil's heat exchanger core.
-        For this, we first need to calculate the mean states of air and
-        refrigerant and the refrigerant mass flow rate. The needed mass flow
-        rate of refrigerant can be determined since we have imposed that the
-        leaving refrigerant must be saturated vapor. Now, we can calculate the
-        air-side convection heat transfer coefficient, and with it, a new value
-        for the effectiveness can be determined.
+        2. The effectiveness of the cooling coil can also be determined from the
+        heat transfer characteristics of the cooling coil's heat exchanger core.
+        To do this, we first need to calculate the mean states of the air and
+        the refrigerant stream and the refrigerant mass flow rate (the needed
+        mass flow rate of refrigerant can be determined since we have imposed
+        that the leaving refrigerant must be saturated vapor).
+        Now, we can calculate the air-side convection heat transfer coefficient,
+        and with this the effectiveness can also be determined.
 
         3. Should we have guessed the leaving air state directly right, both
         effectiveness values would be the same. We check the deviation between
-        the two values. If the deviation is still too big, we re-calculate the
-        heat transfer rate and leaving air state, and then we go back to step 2.
+        the two values. If the deviation is too big, we re-calculate the heat
+        transfer rate and leaving air state, and then we go back to step 2.
         This procedure is repeated until the deviation has become small enough
         (i.e., smaller than the set tolerance).
-
         """
         # Before solving for the actual operating state of the cooling coil, get
         # the minimum absolute humidity ratio that the leaving air can attain
         # when its temperature is controlled to stay at `self.T_air_out`.
         W_air_out_min, _ = self.__W_air_out_min__()
-        # Initially assume that the air leaving the cooling coil is at its
-        # setpoint temperature and is fully saturated:
-        air_out = HumidAir(Tdb=self.T_air_out, RH=Q_(100, 'pct'))
-        # From this assumption, we can get an initial guess of the heat
-        # transfer rate from the air to the refrigerant and of the effectiveness
-        # `eps` of the cooling coil:
-        Q = self.m_dot_air * (self.air_in.h - air_out.h)
-        eps = Q.to('W').m / self.Q_max.to('W').m
+
+        # Initial guess of `eps`:
+        eps = 0.75
+        # Heat transfer rate from air to refrigerant:
+        Q = eps * self.Q_max
+        # Initial guess of the state of air leaving the cooling coil:
+        h_air_out = self.air_in.h - Q / self.m_dot_air
+        air_out = HumidAir(Tdb=self.T_air_out, h=h_air_out)
+
         for i in range(i_max):
             # Calculate the mean state of air and refrigerant along the heat
             # transfer surface:
@@ -351,10 +355,10 @@ class DXAirCoolingCoil:
             # Check convergence:
             dev = eps_new - eps
             if abs(dev) < eps_tol.to('frac').m:
-                # Absolute humidity of `air_out` cannot be lower than `W_air_out_min`.
-                # If that's the case, the controller will maintain the leaving air
-                # state at dry-bulb temperature `self.T_air_out` and absolute
-                # humidity ratio `W_air_out_min`.
+                # The absolute humidity of `air_out` cannot become lower than
+                # `W_air_out_min`. Should this become the case, the controller
+                # will maintain the leaving air state at dry-bulb temperature
+                # `self.T_air_out` and absolute humidity ratio `W_air_out_min`.
                 if air_out.W.to('g / kg') < W_air_out_min:
                     self.air_out = HumidAir(Tdb=self.T_air_out, W=W_air_out_min)
                     self.Q = self.m_dot_air * (self.air_in.h - self.air_out.h)
