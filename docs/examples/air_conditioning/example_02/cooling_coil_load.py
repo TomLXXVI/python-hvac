@@ -11,7 +11,7 @@ NTP conditions for selection of the air supply fan
 """
 from hvac import Quantity
 from hvac.fluids import HumidAir
-from hvac.air_conditioning.single_zone.design import AircoSystem
+from hvac.air_conditioning.single_zone.cooling_design import AircoSystem
 
 
 Q_ = Quantity
@@ -76,8 +76,8 @@ print(
     f"{airco_system.cooled_air.Tdb.to('degC'):~P.1f} DB, "
     f"{airco_system.cooled_air.W.to('g / kg'):~P.1f}",
     f"mass flow rate supply air @ design = "
-    f"{airco_system.m_supply.to('kg / hr'):~P.1f}",
+    f"{airco_system.m_dot_supply.to('kg / hr'):~P.1f}",
     f"volume flow rate supply air @ NTP = "
-    f"{airco_system.V_supply_ntp.to('m ** 3 / hr'):~P.1f}",
+    f"{airco_system.V_dot_supply_ntp.to('m ** 3 / hr'):~P.1f}",
     sep='\n'
 )

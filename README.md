@@ -19,7 +19,7 @@ will be added over time.
 At this moment the following sub-packages are part of `hvac`:
 
 **air_conditioning**<br>
-A package about air-conditioning processes and systems, including VAV-systems.
+A package about air-conditioning processes and systems.
 
 **cooling_load_calc**<br>
 A package for doing cooling load calculations of a building, based upon ASHRAE's

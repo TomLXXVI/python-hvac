@@ -28,11 +28,11 @@ class AircoSystem:
     supply_air: HumidAir
         Required state of the supply air to compensate for the zone cooling
         load.
-    m_supply: PlainQuantity
+    m_dot_supply: PlainQuantity
         Required mass flow rate of supply air to the zone.
     mixed_air: HumidAir
         State of air downstream of the mixing plenum, at the cooling coil inlet.
-    m_recir: PlainQuantity
+    m_dot_recir: PlainQuantity
         Mass flow rate of return air at design conditions.
     cooled_air: HumidAir
         Required state of air at the cooling coil outlet.
@@ -51,9 +51,9 @@ class AircoSystem:
         self,
         zone_air: HumidAir,
         outdoor_air: HumidAir,
-        Q_zone: Quantity,
+        Q_dot_zone: Quantity,
         SHR_zone: Quantity,
-        V_vent: Quantity,
+        V_dot_vent_ntp: Quantity,
         T_supply: Quantity,
         dP_fan: Quantity | None = None,
         eta_fan: Quantity | None = None,
@@ -72,18 +72,17 @@ class AircoSystem:
             State of outdoor air on which the design calculations will be
             based. Should be the same state that was used for the cooling load
             calculation of the building.
-        Q_zone:
+        Q_dot_zone:
             Total cooling load of the zone according to the cooling load
             calculation of the building.
         SHR_zone:
             Sensible heat ratio of the zone according to the cooling load
             calculation of the building.
-        V_vent:
-            Volume flow rate of outdoor air needed to ventilate the zone based
-            on the minimum ventilation requirement of the zone.
+        V_dot_vent_ntp:
+            Volume flow rate of outdoor air referred to the NTP air state that is
+            needed to fulfill the minimum ventilation requirement of the zone.
         T_supply:
-            Dry-bulb temperature of supply air to the zone selected for the
-            design.
+            Design value selected for the supply air dry-bulb temperature.
         dP_fan: optional
             Supply fan pressure. The fan pressure can be determined from a
             pressure drop calculation when sizing the duct system.
@@ -102,14 +101,16 @@ class AircoSystem:
         """
         self.zone_air = zone_air
         self.outdoor_air = outdoor_air
-        self.Q_zone = Q_zone
+        self.Q_dot_zone = Q_dot_zone
         self.SHR_zone = SHR_zone
-        self.V_vent = V_vent
+        self.V_dot_vent_ntp = V_dot_vent_ntp
         self.T_supply = T_supply
 
+        self.m_dot_vent = self.V_dot_vent_ntp * air_ntp.rho
+
         self.outdoor_air = self._determine_outdoor_air(eps_hr_h, eps_hr_W)
-        self.supply_air, self.m_supply = self._determine_supply_air()
-        self.mixed_air, self.m_recir = self._determine_mixed_air()
+        self.supply_air, self.m_dot_supply = self._determine_supply_air()
+        self.mixed_air, self.m_dot_recir = self._determine_mixed_air()
         self.cooled_air = self._determine_cooled_air(eta_fan, eta_motor, dP_fan)
         self.Q_cc, self.SHR_cc = self.determine_cooling_coil_load()
 
@@ -140,7 +141,7 @@ class AircoSystem:
         zone = AirConditioningProcess(
             T_ai=self.T_supply,
             air_out=self.zone_air,
-            Q=self.Q_zone,
+            Q=self.Q_dot_zone,
             SHR=self.SHR_zone
         )
         return zone.air_in, zone.m_da
@@ -152,14 +153,14 @@ class AircoSystem:
         # flow rate of return air, that follows from the difference between the
         # required mass flow rate of supply air and the required ventilation
         # air mass flow rate.
-        m_vent = self.outdoor_air.rho * self.V_vent
-        m_recir = self.m_supply - m_vent
+
+        m_dot_recir = self.m_dot_supply - self.m_dot_vent
         mixing_chamber = AdiabaticMixing(
-            in1=AirStream(self.zone_air, m_recir),
-            in2=AirStream(self.outdoor_air, m_vent),
-            out=AirStream(m_da=self.m_supply)
+            in1=AirStream(self.zone_air, m_dot_recir),
+            in2=AirStream(self.outdoor_air, self.m_dot_vent),
+            out=AirStream(m_da=self.m_dot_supply)
         )
-        return mixing_chamber.stream_out.state, m_recir
+        return mixing_chamber.stream_out.state, m_dot_recir
 
     def _determine_cooled_air(
         self,
@@ -188,17 +189,19 @@ class AircoSystem:
         cooling_coil = AirConditioningProcess(
             air_in=self.mixed_air,
             air_out=self.cooled_air,
-            m_da=self.m_supply,
+            m_da=self.m_dot_supply,
             h_w=Q_(0.0, 'J / kg')
         )
         return cooling_coil.Q, cooling_coil.SHR
 
     @property
-    def V_supply_ntp(self) -> Quantity:
+    def V_dot_supply_ntp(self) -> Quantity:
         """Get the volume flow rate of supply air referred to NTP."""
-        return self.m_supply / air_ntp.rho
+        return self.m_dot_supply / air_ntp.rho
 
     @property
-    def V_vent_ntp(self) -> Quantity:
-        """Get the volume flow rate of ventilation air referred to NTP."""
-        return self.outdoor_air.rho * self.V_vent / air_ntp.rho
+    def V_dot_vent(self) -> Quantity:
+        """Get the volume flow rate of ventilation air referred to the actual
+        state of outdoor air.
+        """
+        return self.m_dot_vent / self.outdoor_air.rho
