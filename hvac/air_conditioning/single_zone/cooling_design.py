@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid
 from hvac.air_conditioning import (
@@ -6,18 +7,92 @@ from hvac.air_conditioning import (
     AdiabaticMixing,
     Fan
 )
+from hvac.charts import PsychrometricChart, StatePoint
+
 
 Q_ = Quantity
 Air = Fluid('Air')
-air_ntp = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
+standard_air = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
+
+
+@dataclass
+class Output:
+    m_dot_supply: Quantity
+    m_dot_vent: Quantity
+    m_dot_recir: Quantity
+    mixed_air: HumidAir
+    cooled_air: HumidAir
+    supply_air: HumidAir
+    return_air: HumidAir
+    Q_dot_cc: Quantity
+    SHR_cc: Quantity
+    Q_dot_hc: Quantity | None = None
+    units: dict[str, tuple[str, int]] = field(default_factory=dict)
+
+    def __post_init__(self):
+        self.V_dot_vent_ntp = self.m_dot_vent / standard_air.rho
+        self.V_dot_supply_ntp = self.m_dot_supply / standard_air.rho
+        self.V_dot_recir_ntp = self.m_dot_recir / standard_air.rho
+        self.default_units = {
+            'm_dot': ('kg / hr', 3),
+            'V_dot': ('m ** 3 / hr', 3),
+            'T': ('degC', 3),
+            'W': ('g / kg', 3),
+            'RH': ('pct', 3),
+            'Q_dot': ('kW', 3),
+            'SHR': ('frac', 3)
+        }
+        self.default_units.update(self.units)
+        self.units = self.default_units
+
+    def __str__(self):
+        output = (
+            "supply air mass flow rate = "
+            f"{self.m_dot_supply.to(self.units['m_dot'][0]):~P.{self.units['m_dot'][1]}f}\n"
+            "ventilation air mass flow rate = "
+            f"{self.m_dot_vent.to(self.units['m_dot'][0]):~P.{self.units['m_dot'][1]}f}\n"
+            "recirculation air mass flow rate = "
+            f"{self.m_dot_recir.to(self.units['m_dot'][0]):~P.{self.units['m_dot'][1]}f}\n"
+            "supply air volume flow rate (NTP) = "
+            f"{self.V_dot_supply_ntp.to(self.units['V_dot'][0]):~P.{self.units['V_dot'][1]}f}\n"
+            "ventilation air volume flow rate (NTP) = "
+            f"{self.V_dot_vent_ntp.to(self.units['V_dot'][0]):~P.{self.units['V_dot'][1]}f}\n"
+            "recirculation air volume flow rate (NTP) = "
+            f"{self.V_dot_recir_ntp.to(self.units['V_dot'][0]):~P.{self.units['V_dot'][1]}f}\n"
+            "mixed air = "
+            f"{self.mixed_air.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
+            f"{self.mixed_air.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
+            f"({self.mixed_air.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
+            "cooled air = "
+            f"{self.cooled_air.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
+            f"{self.cooled_air.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
+            f"({self.cooled_air.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
+            "supply air = "
+            f"{self.supply_air.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
+            f"{self.supply_air.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
+            f"({self.supply_air.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
+            "return air = "
+            f"{self.return_air.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
+            f"{self.return_air.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
+            f"({self.return_air.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
+            "cooling coil load = "
+            f"{self.Q_dot_cc.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}\n"
+            "sensible heat ratio = "
+            f"{self.SHR_cc.to(self.units['SHR'][0]):~P.{self.units['SHR'][1]}f}"
+        )
+        if self.Q_dot_hc is not None:
+            output += '\n'
+            output += (
+                "heating coil load = "
+                f"{self.Q_dot_hc.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}"
+            )
+        return output
 
 
 class AircoSystem:
     """Class for determining the cooling coil load of a single-zone CAV or
-    VAV system at design conditions needed for sizing the cooling coil.
-
-    The design calculations are executed on instantiation of the class.
-    After instantiation, the following attributes are available:
+    VAV system at summer peak design conditions needed for sizing the cooling
+    coil.
 
     Attributes
     ----------
@@ -36,7 +111,7 @@ class AircoSystem:
         Mass flow rate of return air at design conditions.
     cooled_air: HumidAir
         Required state of air at the cooling coil outlet.
-    Q_cc: PlainQuantity
+    Q_dot_cc: PlainQuantity
         Required cooling coil capacity at design conditions.
     SHR_cc: PlainQuantity
         Sensible heat ratio of the cooling coil.
@@ -59,7 +134,8 @@ class AircoSystem:
         eta_fan: Quantity | None = None,
         eta_motor: Quantity | None = None,
         eps_hr_h: Quantity | None = None,
-        eps_hr_W: Quantity | None = None
+        eps_hr_W: Quantity | None = None,
+        units: dict[str, tuple[str, int]] | None = None
     ) -> None:
         """Creates an `AircoSystem` instance.
 
@@ -98,21 +174,77 @@ class AircoSystem:
             Enthalpy effectiveness of the heat recovery system.
         eps_hr_W: optional
             Humidity ratio effectiveness of the heat recovery system.
+        units: optional
+            Units to be used for displaying the results. Keys are:
+            'm_dot' for mass flow rate, 'V_dot' for volume flow rate, 'Q_dot'
+            for heat transfer rate, 'T' for temperature, 'W' for absolute
+            humidity, 'RH' for relative humidity, and 'SHR' for the sensible heat
+            ratio. Values are 2-tuples: the first element is the unit
+            (a string), the second element is the number of decimals to be
+            displayed (an int).
         """
-        self.zone_air = zone_air
+        self.zone_air = self.return_air = zone_air
         self.outdoor_air = outdoor_air
         self.Q_dot_zone = Q_dot_zone
         self.SHR_zone = SHR_zone
         self.V_dot_vent_ntp = V_dot_vent_ntp
         self.T_supply = T_supply
+        self.dP_fan = dP_fan
+        self.eta_fan = eta_fan
+        self.eta_motor = eta_motor
+        self.eps_hr_h = eps_hr_h
+        self.eps_hr_W = eps_hr_W
+        self.units = units or {}
 
-        self.m_dot_vent = self.V_dot_vent_ntp * air_ntp.rho
+        self.m_dot_vent: Quantity | None = None
+        self.supply_air: HumidAir | None = None
+        self.m_dot_supply: Quantity | None = None
+        self.mixed_air: Quantity | None = None
+        self.m_dot_recir: Quantity | None = None
+        self.cooled_air: HumidAir | None = None
+        self.Q_dot_cc: Quantity | None = None
+        self.SHR_cc: Quantity | None = None
+        self.V_dot_supply_ntp: Quantity | None = None
+        self.V_dot_vent: Quantity | None = None
 
-        self.outdoor_air = self._determine_outdoor_air(eps_hr_h, eps_hr_W)
+    def design(self) -> Output:
+        """Runs the design calculations and returns the results in an `Output`
+        instance that holds:
+        m_dot_supply:
+            The required mass flow rate of the supply air to the zone.
+        m_dot_vent:
+            The mass flow rate of outdoor ventilation air.
+        m_dot_recir:
+            The mass flow rate of recirculated air.
+        mixed_air:
+            The state of air downstream of the mixing plenum and at the cooling
+            coil inlet.
+        cooled_air:
+            The required state of air at the cooling coil outlet.
+        supply_air:
+            The required state of the supply air to compensate for the zone
+            cooling loads.
+        return_air:
+            The state of air returned to the air handler. This is also the state
+            of the zone air.
+        Q_dot_cc:
+            The required cooling coil capacity at design conditions.
+        SHR_cc:
+            The sensible heat ratio of the cooling coil.
+        """
+        self.m_dot_vent = self.V_dot_vent_ntp * standard_air.rho
+        self.outdoor_air = self._determine_outdoor_air(self.eps_hr_h, self.eps_hr_W)
         self.supply_air, self.m_dot_supply = self._determine_supply_air()
         self.mixed_air, self.m_dot_recir = self._determine_mixed_air()
-        self.cooled_air = self._determine_cooled_air(eta_fan, eta_motor, dP_fan)
-        self.Q_cc, self.SHR_cc = self.determine_cooling_coil_load()
+        self.cooled_air = self._determine_cooled_air(self.eta_fan, self.eta_motor, self.dP_fan)
+        self.Q_dot_cc, self.SHR_cc = self.determine_cooling_coil_load()
+        self.V_dot_supply_ntp = self.m_dot_supply / standard_air.rho
+        self.V_dot_vent = self.m_dot_vent / self.outdoor_air.rho
+        return Output(
+            self.m_dot_supply, self.m_dot_vent, self.m_dot_recir,
+            self.mixed_air, self.cooled_air, self.supply_air, self.return_air,
+            self.Q_dot_cc, self.SHR_cc, None, self.units
+        )
 
     def _determine_outdoor_air(
         self,
@@ -153,7 +285,6 @@ class AircoSystem:
         # flow rate of return air, that follows from the difference between the
         # required mass flow rate of supply air and the required ventilation
         # air mass flow rate.
-
         m_dot_recir = self.m_dot_supply - self.m_dot_vent
         mixing_chamber = AdiabaticMixing(
             in1=AirStream(self.zone_air, m_dot_recir),
@@ -195,13 +326,55 @@ class AircoSystem:
         return cooling_coil.Q, cooling_coil.SHR
 
     @property
-    def V_dot_supply_ntp(self) -> Quantity:
-        """Get the volume flow rate of supply air referred to NTP."""
-        return self.m_dot_supply / air_ntp.rho
-
-    @property
-    def V_dot_vent(self) -> Quantity:
-        """Get the volume flow rate of ventilation air referred to the actual
-        state of outdoor air.
-        """
-        return self.m_dot_vent / self.outdoor_air.rho
+    def psychrometric_chart(self) -> PsychrometricChart:
+        """Returns a psychrometric chart with the AC processes drawn on it."""
+        psy_chart = PsychrometricChart()
+        psy_chart.plot_process(
+            name='air mixing',
+            start_point=StatePoint(
+                self.outdoor_air.Tdb,
+                self.outdoor_air.W
+            ),
+            end_point=StatePoint(
+                self.return_air.Tdb,
+                self.return_air.W
+            ),
+            mix_point=StatePoint(
+                self.mixed_air.Tdb,
+                self.mixed_air.W
+            )
+        )
+        psy_chart.plot_process(
+            name='air cooling',
+            start_point=StatePoint(
+                self.mixed_air.Tdb,
+                self.mixed_air.W
+            ),
+            end_point=StatePoint(
+                self.cooled_air.Tdb,
+                self.cooled_air.W
+            )
+        )
+        psy_chart.plot_process(
+            name='fan heating',
+            start_point=StatePoint(
+                self.cooled_air.Tdb,
+                self.cooled_air.W
+            ),
+            end_point=StatePoint(
+                self.supply_air.Tdb,
+                self.supply_air.W
+            )
+        )
+        psy_chart.plot_process(
+            name='zone',
+            start_point=StatePoint(
+                self.supply_air.Tdb,
+                self.supply_air.W
+            ),
+            end_point=StatePoint(
+                self.return_air.Tdb,
+                self.return_air.W
+            )
+        )
+        return psy_chart

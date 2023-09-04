@@ -20,7 +20,7 @@ class EnergyEstimator:
 
         Parameters
         ----------
-        bin_table: pandas DataFrame
+        bin_table: Pandas-DataFrame
             Monthly bin table retrieved from a `BinTableCreator` object.
         loads: List[Load]
             A list of `Load` objects in the same order of the time segments
@@ -89,7 +89,7 @@ class EnergyEstimator:
         return df
 
     def estimate(self, T_unit: str = 'degC', E_unit: str = 'kWh') -> pd.DataFrame:
-        """Returns a Pandas DataFrame that is based on the given bin table with the
+        """Returns a Pandas-DataFrame that is based on the given bin table with the
         estimated required thermal energy for the building or with the consumed
         electric energy of the heat pump filled in."""
         if self.heat_pump is not None:

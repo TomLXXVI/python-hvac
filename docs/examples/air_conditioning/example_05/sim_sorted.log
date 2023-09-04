@@ -1,0 +1,57 @@
+[11252 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (25.89 °C DB, 51.17 % RH), sensible cooling load fraction = 22.93 %, latent cooling load fraction = 52.92 %
+[11252 | __mp_main__ | ERROR] No intersection with saturation line for entering refrigerant temperature 8.919106577106106 degree_Celsius. ADP temperature is set to dew point temperature of leaving air.
+[11252 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[11252 | __mp_main__ | INFO] Zone air state: 17.82 °C DB, 8.59 g/kg AH (67.30 % RH)
+[11252 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (27.71 °C DB, 45.98 % RH), sensible cooling load fraction = 33.05 %, latent cooling load fraction = 38.86 %
+[11252 | __mp_main__ | INFO] Zone air state: 19.51 °C DB, 7.86 g/kg AH (55.50 % RH)
+[11700 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (25.11 °C DB, 53.61 % RH), sensible cooling load fraction = 52.43 %, latent cooling load fraction = 108.62 %
+[11700 | __mp_main__ | INFO] Zone air state: 22.74 °C DB, 9.75 g/kg AH (56.28 % RH)
+[15112 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (31.19 °C DB, 37.61 % RH), sensible cooling load fraction = 100.00 %, latent cooling load fraction = 58.20 %
+[15112 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 8.39 g/kg AH (39.94 % RH)
+[15112 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (31.78 °C DB, 36.37 % RH), sensible cooling load fraction = 94.10 %, latent cooling load fraction = 52.48 %
+[15112 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 8.34 g/kg AH (39.69 % RH)
+[16140 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (30.55 °C DB, 39.02 % RH), sensible cooling load fraction = 98.63 %, latent cooling load fraction = 64.27 %
+[16140 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 8.46 g/kg AH (40.27 % RH)
+[16140 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (31.59 °C DB, 36.76 % RH), sensible cooling load fraction = 75.05 %, latent cooling load fraction = 4.32 %
+[16140 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 7.40 g/kg AH (35.29 % RH)
+[16188 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (24.68 °C DB, 54.99 % RH), sensible cooling load fraction = 40.35 %, latent cooling load fraction = 111.63 %
+[16188 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[16188 | __mp_main__ | ERROR] No intersection with saturation line for entering refrigerant temperature 8.919106577106106 degree_Celsius. ADP temperature is set to dew point temperature of leaving air.
+[16188 | __mp_main__ | INFO] Zone air state: 20.72 °C DB, 10.04 g/kg AH (65.54 % RH)
+[1764 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (26.00 °C DB, 50.84 % RH), sensible cooling load fraction = 64.72 %, latent cooling load fraction = 102.12 %
+[1764 | __mp_main__ | INFO] Zone air state: 24.79 °C DB, 9.32 g/kg AH (47.61 % RH)
+[1764 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (28.37 °C DB, 44.24 % RH), sensible cooling load fraction = 36.77 %, latent cooling load fraction = 33.40 %
+[1764 | __mp_main__ | INFO] Zone air state: 20.13 °C DB, 7.65 g/kg AH (51.98 % RH)
+[18108 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (24.90 °C DB, 54.28 % RH), sensible cooling load fraction = 19.19 %, latent cooling load fraction = 60.09 %
+[18108 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[18108 | __mp_main__ | INFO] Zone air state: 17.20 °C DB, 8.97 g/kg AH (73.10 % RH)
+[18364 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (27.22 °C DB, 47.32 % RH), sensible cooling load fraction = 76.38 %, latent cooling load fraction = 92.76 %
+[18364 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 8.98 g/kg AH (42.70 % RH)
+[18364 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (31.62 °C DB, 36.71 % RH), sensible cooling load fraction = 98.39 %, latent cooling load fraction = 54.08 %
+[18364 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 8.35 g/kg AH (39.73 % RH)
+[18964 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (26.29 °C DB, 49.98 % RH), sensible cooling load fraction = 24.86 %, latent cooling load fraction = 49.96 %
+[18964 | __mp_main__ | INFO] Zone air state: 18.14 °C DB, 8.43 g/kg AH (64.76 % RH)
+[24776 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (25.21 °C DB, 53.27 % RH), sensible cooling load fraction = 20.00 %, latent cooling load fraction = 57.86 %
+[24776 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[24776 | __mp_main__ | INFO] Zone air state: 17.33 °C DB, 8.85 g/kg AH (71.55 % RH)
+[29832 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (26.72 °C DB, 48.72 % RH), sensible cooling load fraction = 27.19 %, latent cooling load fraction = 46.65 %
+[29832 | __mp_main__ | INFO] Zone air state: 18.53 °C DB, 8.26 g/kg AH (61.92 % RH)
+[30584 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (25.54 °C DB, 52.25 % RH), sensible cooling load fraction = 21.35 %, latent cooling load fraction = 55.50 %
+[30584 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[30584 | __mp_main__ | INFO] Zone air state: 17.56 °C DB, 8.73 g/kg AH (69.53 % RH)
+[31068 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (28.52 °C DB, 43.87 % RH), sensible cooling load fraction = 86.47 %, latent cooling load fraction = 82.19 %
+[31068 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 8.74 g/kg AH (41.56 % RH)
+[31068 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (31.02 °C DB, 37.98 % RH), sensible cooling load fraction = 63.65 %, latent cooling load fraction = 9.83 %
+[31068 | __mp_main__ | INFO] Zone air state: 24.61 °C DB, 7.43 g/kg AH (38.48 % RH)
+[32112 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (29.66 °C DB, 41.06 % RH), sensible cooling load fraction = 94.08 %, latent cooling load fraction = 72.32 %
+[32112 | __mp_main__ | INFO] Zone air state: 26.00 °C DB, 8.57 g/kg AH (40.78 % RH)
+[32112 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (30.16 °C DB, 39.89 % RH), sensible cooling load fraction = 52.64 %, latent cooling load fraction = 17.82 %
+[32112 | __mp_main__ | INFO] Zone air state: 22.77 °C DB, 7.50 g/kg AH (43.35 % RH)
+[32580 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (27.18 °C DB, 47.42 % RH), sensible cooling load fraction = 29.91 %, latent cooling load fraction = 43.05 %
+[32580 | __mp_main__ | INFO] Zone air state: 18.99 °C DB, 8.07 g/kg AH (58.85 % RH)
+[32580 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (29.22 °C DB, 42.13 % RH), sensible cooling load fraction = 43.08 %, latent cooling load fraction = 26.22 %
+[32580 | __mp_main__ | INFO] Zone air state: 21.18 °C DB, 7.57 g/kg AH (48.26 % RH)
+[8664 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (24.67 °C DB, 55.03 % RH), sensible cooling load fraction = 21.53 %, latent cooling load fraction = 61.71 %
+[8664 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[8664 | __mp_main__ | ERROR] No intersection with saturation line for entering refrigerant temperature 8.919106577106106 degree_Celsius. ADP temperature is set to dew point temperature of leaving air.
+[8664 | __mp_main__ | INFO] Zone air state: 17.59 °C DB, 9.02 g/kg AH (71.67 % RH)

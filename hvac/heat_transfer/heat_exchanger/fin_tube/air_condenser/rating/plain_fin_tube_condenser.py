@@ -40,10 +40,15 @@ class PlainFinTubeCounterFlowCondenser:
     """
     def __init__(
         self,
-        L1: Quantity, L3: Quantity, N_r: int,
-        S_t: Quantity, S_l: Quantity,
-        D_i: Quantity, D_o: Quantity,
-        t_f: Quantity, N_f: Quantity,
+        L1: Quantity,
+        L3: Quantity,
+        N_r: int,
+        S_t: Quantity,
+        S_l: Quantity,
+        D_i: Quantity,
+        D_o: Quantity,
+        t_f: Quantity,
+        N_f: Quantity,
         k_f: Quantity = Q_(237, 'W / (m * K)')
     ) -> None:
         """Creates a `PlainFinTubeCounterFlowCondenser` instance by

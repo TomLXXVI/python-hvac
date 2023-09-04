@@ -1,4 +1,5 @@
 from typing import Dict, Tuple
+import warnings
 from CoolProp.HumidAirProp import HAPropsSI
 from .. import Quantity
 from .constants import STANDARD_PRESSURE
@@ -28,9 +29,31 @@ class HumidAir:
         if P is not None: self.P = P
         keys = list(input_qties.keys())
         qties = list(input_qties.values())
-        values = [qty.to(self._coolprop_qties[key][1]).m for qty, key in zip(qties, keys)]
+        values = [
+            qty.to(self._coolprop_qties[key][1]).m
+            for qty, key in zip(qties, keys)
+        ]
+        # Only the first 2 input quantities are considered,
+        # should there be more than 2 given:
         self._inputs = {keys[0]: values[0], keys[1]: values[1]}
-        # only the first 2 input quantities are considered, should there be more than 2 given
+        # Check the validity boundaries of input quantities:
+        self._validate_inputs()
+
+    def _validate_inputs(self):
+        RH = self._inputs.get('RH')
+        if RH is not None and RH < 0.0:
+            warnings.warn(
+                message="Negative value for RH detected. RH has been reset to 0 %.",
+                category=RuntimeWarning
+            )
+            self._inputs['RH'] = 0.0
+        W = self._inputs.get('W')
+        if W is not None and W < 0.0:
+            warnings.warn(
+                message="Negative value for W detected. W has been reset to 0 kg/kg.",
+                category=RuntimeWarning
+            )
+            self._inputs['W'] = 0.0
 
     @property
     def P(self) -> Quantity:

@@ -60,7 +60,7 @@ def solar_time(datetime: DateTime, lon: float) -> Time:
 
 
 def hour_angle(datetime: DateTime, lon: float) -> float:
-    """Get solar hour angle in degrees at given date and time at the given
+    """Get the solar hour angle in degrees at given date and time at the given
     longitude.
     """
     t_sol = time_to_decimal_hour(solar_time(datetime, lon))

@@ -83,7 +83,7 @@ class ModuleLogger:
     def sort_log_by_process_id(file_path: Path | str) -> list[str]:
         """Sorts the log entries in a log file at `file_path` by the process-ID
         mentioned in each log entry and saves the sorted file back to disk
-        with suffix '_sorted' added to the original filename.
+        with the suffix '_sorted' added to the original filename.
         """
         log_entries = []
         traceback_lines = []
@@ -102,9 +102,9 @@ class ModuleLogger:
                     log_entries.append(line)
                 else:
                     # Lines that don't start with '[' belong to a traceback.
-                    # We collect the traceback lines in a separate list, that
+                    # We collect the traceback lines in a separate list that
                     # we will add to the last log entry, when a new log entry is
-                    # met:
+                    # encountered:
                     traceback_lines.append(line)
 
         log_entries = [entry.strip() for entry in log_entries]
