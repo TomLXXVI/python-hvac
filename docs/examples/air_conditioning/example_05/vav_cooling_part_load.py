@@ -79,7 +79,8 @@ def task(args) -> Output:
         t_f=Q_(0.3302, 'mm'),
         N_f=1 / Q_(2.8, 'mm'),
         k_f=Q_(237, 'W / (m * K)'),
-        N_r=3
+        N_r=3,
+        boiling=True
     )
     # Configure the AC system:
     ac_system = VAVSingleZoneAirCoolingSystem(

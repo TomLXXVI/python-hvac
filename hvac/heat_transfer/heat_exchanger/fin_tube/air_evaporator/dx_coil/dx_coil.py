@@ -40,10 +40,10 @@ class DXAirCoolingCoil:
     always have an Apparatus Dew Point (ADP)).
 
     The DX air cooling coil model calculates:
-    - the heat transfer effectiveness of the DX coil.
-    - the heat transfer rate of the DX coil.
+    - the heat transfer effectiveness of the DX coil
+    - the heat transfer rate of the DX coil
     - the required mass flow rate of refrigerant so that refrigerant leaves the
-    cooling coil as saturated vapor.
+    cooling coil as saturated vapor
     - the full state of the air leaving the DX coil, i.e., also including its
     humidity level
 
@@ -65,6 +65,8 @@ class DXAirCoolingCoil:
         Sensible heat ratio of the DX coil.
     ADP: Quantity
         Apparatus Dew Point of the DX coil.
+    W_air_out_min:
+        Minimum absolute humidity possible of air leaving the DX coil.
     """
     def __init__(
         self,
@@ -106,6 +108,7 @@ class DXAirCoolingCoil:
         self.CF: Quantity | None = None
         self.SHR: Quantity | None = None
         self.ADP: HumidAir | None = None
+        self.W_air_out_min: Quantity | None = None
 
         self.__calculate_operating_state__()
 
@@ -184,7 +187,8 @@ class DXAirCoolingCoil:
         self,
         air_mean: HumidAir,
         rfg_mean: FluidState,
-        m_dot_rfg: Quantity
+        m_dot_rfg: Quantity,
+        Q_dot: Quantity
     ) -> Quantity:
         """Calculates the air-side convection heat transfer coefficient based on
         the mean states of air and refrigerant, and the mass flow rates of air
@@ -194,6 +198,7 @@ class DXAirCoolingCoil:
         self.hex_core.ext.fluid_mean = air_mean
         self.hex_core.m_dot_int = m_dot_rfg
         self.hex_core.int.fluid_mean = rfg_mean
+        self.hex_core.int.Q = Q_dot
         return self.hex_core.ext.h * self.hex_core.ext.eta
 
     def __UA_ext_wet__(self, h_ext: Quantity) -> Quantity:
@@ -328,7 +333,7 @@ class DXAirCoolingCoil:
         # Before solving for the actual operating state of the cooling coil, get
         # the minimum absolute humidity ratio that the leaving air can attain
         # when its temperature is controlled to stay at `self.T_air_out`.
-        W_air_out_min, _ = self.__W_air_out_min__()
+        self.W_air_out_min, _ = self.__W_air_out_min__()
 
         # Initial guess of `eps`:
         eps = 0.75
@@ -348,7 +353,7 @@ class DXAirCoolingCoil:
             # leaves the cooling coil as saturated vapor:
             m_dot_rfg = Q / (self.rfg_out.h - self.rfg_in.h)
             # Calculate the air-side convection heat transfer coefficient:
-            h_ext = self.__h_ext__(air_mean, rfg_mean, m_dot_rfg)
+            h_ext = self.__h_ext__(air_mean, rfg_mean, m_dot_rfg, Q)
             # Get a new value for `eps`:
             eps_new = self.__eps__(h_ext)
             # Check convergence:
@@ -358,8 +363,8 @@ class DXAirCoolingCoil:
                 # `W_air_out_min`. Should this become the case, the controller
                 # will maintain the leaving air state at dry-bulb temperature
                 # `self.T_air_out` and absolute humidity ratio `W_air_out_min`.
-                if air_out.W.to('g / kg') < W_air_out_min:
-                    self.air_out = HumidAir(Tdb=self.T_air_out, W=W_air_out_min)
+                if air_out.W.to('g / kg') < self.W_air_out_min:
+                    self.air_out = HumidAir(Tdb=self.T_air_out, W=self.W_air_out_min)
                     self.Q = self.m_dot_air * (self.air_in.h - self.air_out.h)
                     self.m_dot_rfg = self.Q / (self.rfg_out.h - self.rfg_in.h)
                     self.eps = self.Q / self.Q_max

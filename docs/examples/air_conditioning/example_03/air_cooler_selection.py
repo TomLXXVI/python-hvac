@@ -16,7 +16,7 @@ Then, it is possible to determine the state of air that leaves the air cooler
 for any state of mixed air that will enter the air cooler.
 
 Knowing the state of air leaving the air cooler and being supplied to the zone,
-the required mass (and volume) flow rate of supply air can then be determined
+the required mass (and volume) flow rate of this supply air can then be determined
 from a sensible heat-load balance of the zone, in order to maintain the desired
 zone air temperature. The resulting zone air humidity will, however, depend on
 the latent cooling load of the zone.
@@ -32,7 +32,7 @@ ventilation air mass flow rate needs to be specified as a fraction of the still
 unknown supply air mass flow rate. At the end of the calculations, the resulting
 ventilation flow rate can be determined, which can then be checked against the
 ventilation requirements of the zone. If the ventilation requirement is not
-fulfilled, we can try with another fraction.
+fulfilled, we can try with a higher fraction.
 """
 from hvac import Quantity
 from hvac.fluids import HumidAir
@@ -75,18 +75,16 @@ class Specs:
 # peak design conditions the sensible cooling load of the zone is 30.514 kW and
 # the latent cooling load is 12.967 kW.
 
-Q_sen_zone = Q_(30.514, 'kW')
-Q_lat_zone = Q_(12.967, 'kW')
+Q_sen_zone = Q_(31.126, 'kW')
+Q_lat_zone = Q_(17.936, 'kW')
 Q_zone = Q_sen_zone + Q_lat_zone
 SHR_zone = Q_sen_zone / Q_zone
 
-# The cooling load calculation was based on zone air with a dry-bulb temperature
-# of 26 °C and an absolute humidity of 8 g H2O per kg of dry air:
+# The cooling load calculation was based on this zone air state:
 zone_air = HumidAir(Tdb=Q_(26.0, 'degC'), RH=Q_(50.0, 'pct'))
 
-# At design conditions, the outdoor air has a dry-bulb temperature of 31 °C and
-# an absolute humidity of 10 g H2O per kg of dry air:
-outdoor_air = HumidAir(Tdb=Q_(32.0, 'degC'), Twb=Q_(21.0, 'degC'))
+# At summer peak design conditions, the outdoor air state is:
+outdoor_air = HumidAir(Tdb=Q_(26.7, 'degC'), Twb=Q_(19.2, 'degC'))
 
 
 # CONFIGURE THE AC SYSTEM
@@ -109,9 +107,10 @@ air_cooler = AircoSystem.WetDXAirCooler(
     dP_ntp=Specs.dP_ntp
 )
 
-# Assume that 36 % of the supply air mass flow rate is outdoor ventilation
+# Assume a fraction of the supply air mass flow rate that is outdoor ventilation
 # air:
-f_vent = Q_(36, 'pct')
+f_vent = Q_(40, 'pct')
+
 
 airco_system = AircoSystem(
     zone_air=zone_air,

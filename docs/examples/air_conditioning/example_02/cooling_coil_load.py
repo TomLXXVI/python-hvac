@@ -33,10 +33,10 @@ V_vent = n_p * V_p_vent
 
 # Cooling loads
 # -------------
-# Sensible cooling load of the zone at summer peak design conditions:
-Q_sen_zone = Q_(30.514, 'kW')
-# Latent cooling load of the zone:
-Q_lat_zone = Q_(12.967, 'kW')
+# Maximum sensible cooling load of the zone on the summer peak design day:
+Q_sen_zone = Q_(31.126, 'kW')
+# Maximum latent cooling load of the zone on the summer peak design day:
+Q_lat_zone = Q_(17.936, 'kW')
 # Total cooling load:
 Q_zone = Q_sen_zone + Q_lat_zone
 # Sensible heat ratio of the zone:
@@ -44,11 +44,11 @@ SHR_zone = Q_sen_zone / Q_zone
 
 # State of zone air at summer peak design conditions
 # --------------------------------------------------
-zone_air = HumidAir(Tdb=Q_(26, 'degC'), W=Q_(8.0, 'g / kg'))
+zone_air = HumidAir(Tdb=Q_(26, 'degC'), RH=Q_(50, 'pct'))
 
 # State of outdoor air under summer peak design conditions
 # --------------------------------------------------------
-outdoor_air = HumidAir(Tdb=Q_(31, 'degC'), W=Q_(10.0, 'g / kg'))
+outdoor_air = HumidAir(Tdb=Q_(26.7, 'degC'), Twb=Q_(19.2, 'degC'))
 
 
 # AIR-CONDITIONING SYSTEM SETUP
@@ -59,9 +59,9 @@ airco_system = AircoSystem(
     Q_dot_zone=Q_zone,
     SHR_zone=SHR_zone,
     V_dot_vent_ntp=V_vent,
-    T_supply=Q_(16, 'degC'),  # designer's choice
-    eps_hr_h=Q_(22, 'pct'),   # enthalpy-effectiveness of heat recovery wheel
-    eps_hr_W=Q_(11, 'pct')    # humidity-effectiveness of heat recovery wheel
+    T_supply=Q_(14, 'degC'),  # designer's choice
+    eps_hr_h=None,            # enthalpy-effectiveness of heat recovery wheel
+    eps_hr_W=None             # humidity-effectiveness of heat recovery wheel
 )
 
 output = airco_system.design()

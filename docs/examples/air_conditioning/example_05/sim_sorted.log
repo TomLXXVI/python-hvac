@@ -1,214 +1,6 @@
-[11012 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (19.63 °C DB, 68.65 % RH), sensible cooling load fraction = 37.44 %, latent cooling load fraction = 132.24 %
-[11012 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[11012 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 19.630 °C DB, 9.826 g/kg AH (68.650 % RH)
-cooled air = 14.000 °C DB, 8.087 g/kg AH (81.013 % RH)
-supply air = 19.760 °C DB, 8.087 g/kg AH (56.202 % RH)
-return air = 26.000 °C DB, 10.732 g/kg AH (50.880 % RH)
-cooling coil load = 21.868 kW
-sensible heat ratio = 0.565 frac
-heating coil load = 12.645 kW
-[11012 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.09 °C DB, 70.02 % RH), sensible cooling load fraction = 11.70 %, latent cooling load fraction = 87.76 %
-[11012 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[11012 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 21.090 °C DB, 10.989 g/kg AH (70.020 % RH)
-cooled air = 14.000 °C DB, 8.526 g/kg AH (85.346 % RH)
-supply air = 24.049 °C DB, 8.526 g/kg AH (45.564 % RH)
-return air = 26.000 °C DB, 10.281 g/kg AH (48.776 % RH)
-cooling coil load = 29.055 kW
-sensible heat ratio = 0.536 frac
-heating coil load = 22.064 kW
-[11104 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.43 °C DB, 72.60 % RH), sensible cooling load fraction = -4.39 %, latent cooling load fraction = 82.15 %
-[11104 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[11104 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 16.430 °C DB, 8.479 g/kg AH (72.600 % RH)
-cooled air = 14.000 °C DB, 7.783 g/kg AH (77.999 % RH)
-supply air = 26.731 °C DB, 7.783 g/kg AH (35.504 % RH)
-return air = 26.000 °C DB, 9.426 g/kg AH (44.779 % RH)
-cooling coil load = 9.128 kW
-sensible heat ratio = 0.584 frac
-heating coil load = 27.951 kW
-[12076 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (15.91 °C DB, 77.30 % RH), sensible cooling load fraction = -4.82 %, latent cooling load fraction = 87.61 %
-[12076 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[12076 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 15.910 °C DB, 8.736 g/kg AH (77.300 % RH)
-cooled air = 14.000 °C DB, 8.138 g/kg AH (81.518 % RH)
-supply air = 26.803 °C DB, 8.138 g/kg AH (36.947 % RH)
-return air = 26.000 °C DB, 9.891 g/kg AH (46.953 % RH)
-cooling coil load = 7.453 kW
-sensible heat ratio = 0.563 frac
-heating coil load = 28.110 kW
-[14380 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.59 °C DB, 71.90 % RH), sensible cooling load fraction = -3.43 %, latent cooling load fraction = 81.47 %
-[14380 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[14380 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 16.590 °C DB, 8.483 g/kg AH (71.900 % RH)
-cooled air = 14.000 °C DB, 7.747 g/kg AH (77.648 % RH)
-supply air = 26.571 °C DB, 7.747 g/kg AH (35.677 % RH)
-return air = 26.000 °C DB, 9.377 g/kg AH (44.548 % RH)
-cooling coil load = 9.696 kW
-sensible heat ratio = 0.586 frac
-heating coil load = 27.601 kW
-[14380 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.53 °C DB, 67.62 % RH), sensible cooling load fraction = 20.84 %, latent cooling load fraction = 84.12 %
-[14380 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[14380 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 21.530 °C DB, 10.901 g/kg AH (67.620 % RH)
-cooled air = 14.000 °C DB, 8.384 g/kg AH (83.946 % RH)
-supply air = 22.527 °C DB, 8.384 g/kg AH (49.136 % RH)
-return air = 26.000 °C DB, 10.067 g/kg AH (47.774 % RH)
-cooling coil load = 30.318 kW
-sensible heat ratio = 0.545 frac
-heating coil load = 18.720 kW
-[14988 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.03 °C DB, 77.15 % RH), sensible cooling load fraction = 0.51 %, latent cooling load fraction = 90.08 %
-[14988 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[14988 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 17.030 °C DB, 9.373 g/kg AH (77.150 % RH)
-cooled air = 14.000 °C DB, 8.366 g/kg AH (83.764 % RH)
-supply air = 25.916 °C DB, 8.366 g/kg AH (40.008 % RH)
-return air = 26.000 °C DB, 10.167 g/kg AH (48.245 % RH)
-cooling coil load = 12.154 kW
-sensible heat ratio = 0.547 frac
-heating coil load = 26.161 kW
-[16188 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.02 °C DB, 75.35 % RH), sensible cooling load fraction = -0.75 %, latent cooling load fraction = 87.40 %
-[16188 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[16188 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 17.020 °C DB, 9.146 g/kg AH (75.350 % RH)
-cooled air = 14.000 °C DB, 8.188 g/kg AH (82.006 % RH)
-supply air = 26.126 °C DB, 8.188 g/kg AH (38.685 % RH)
-return air = 26.000 °C DB, 9.936 g/kg AH (47.163 % RH)
-cooling coil load = 11.858 kW
-sensible heat ratio = 0.559 frac
-heating coil load = 26.622 kW
-[16188 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.31 °C DB, 68.82 % RH), sensible cooling load fraction = 14.99 %, latent cooling load fraction = 85.97 %
-[16188 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[16188 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 21.310 °C DB, 10.947 g/kg AH (68.820 % RH)
-cooled air = 14.000 °C DB, 8.456 g/kg AH (84.652 % RH)
-supply air = 23.502 °C DB, 8.456 g/kg AH (46.706 % RH)
-return air = 26.000 °C DB, 10.175 g/kg AH (48.280 % RH)
-cooling coil load = 29.693 kW
-sensible heat ratio = 0.541 frac
-heating coil load = 20.862 kW
-[16784 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.05 °C DB, 74.95 % RH), sensible cooling load fraction = -5.55 %, latent cooling load fraction = 84.67 %
-[16784 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[16784 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 16.050 °C DB, 8.544 g/kg AH (74.950 % RH)
-cooled air = 14.000 °C DB, 7.936 g/kg AH (79.518 % RH)
-supply air = 26.925 °C DB, 7.936 g/kg AH (35.784 % RH)
-return air = 26.000 °C DB, 9.630 g/kg AH (45.733 % RH)
-cooling coil load = 7.815 kW
-sensible heat ratio = 0.576 frac
-heating coil load = 28.378 kW
-[1708 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.84 °C DB, 73.00 % RH), sensible cooling load fraction = -2.13 %, latent cooling load fraction = 83.56 %
-[1708 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[1708 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 16.840 °C DB, 8.754 g/kg AH (73.000 % RH)
-cooled air = 14.000 °C DB, 7.916 g/kg AH (79.317 % RH)
-supply air = 26.355 °C DB, 7.916 g/kg AH (36.912 % RH)
-return air = 26.000 °C DB, 9.587 g/kg AH (45.533 % RH)
-cooling coil load = 10.808 kW
-sensible heat ratio = 0.577 frac
-heating coil load = 27.126 kW
-[18196 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.50 °C DB, 75.45 % RH), sensible cooling load fraction = 17.88 %, latent cooling load fraction = 138.66 %
-[18196 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[18196 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 17.500 °C DB, 9.445 g/kg AH (75.450 % RH)
-cooled air = 14.000 °C DB, 8.301 g/kg AH (83.123 % RH)
-supply air = 23.020 °C DB, 8.301 g/kg AH (47.219 % RH)
-return air = 26.000 °C DB, 11.074 g/kg AH (52.472 % RH)
-cooling coil load = 13.931 kW
-sensible heat ratio = 0.552 frac
-heating coil load = 19.803 kW
-[18196 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.75 °C DB, 66.42 % RH), sensible cooling load fraction = 28.97 %, latent cooling load fraction = 82.21 %
-[18196 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[18196 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 21.750 °C DB, 10.852 g/kg AH (66.420 % RH)
-cooled air = 14.000 °C DB, 8.311 g/kg AH (83.228 % RH)
-supply air = 21.172 °C DB, 8.311 g/kg AH (52.917 % RH)
-return air = 26.000 °C DB, 9.956 g/kg AH (47.257 % RH)
-cooling coil load = 30.931 kW
-sensible heat ratio = 0.550 frac
-heating coil load = 15.747 kW
-[18516 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.40 °C DB, 76.90 % RH), sensible cooling load fraction = 9.50 %, latent cooling load fraction = 138.20 %
-[18516 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[18516 | __mp_main__ | INFO] 
+[11108 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.40 °C DB, 76.90 % RH), sensible cooling load fraction = 9.50 %, latent cooling load fraction = 138.20 %
+[11108 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[11108 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
@@ -222,26 +14,25 @@ return air = 26.000 °C DB, 10.970 g/kg AH (51.987 % RH)
 cooling coil load = 9.441 kW
 sensible heat ratio = 0.558 frac
 heating coil load = 22.869 kW
-[19304 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (20.84 °C DB, 64.00 % RH), sensible cooling load fraction = 43.28 %, latent cooling load fraction = 126.02 %
-[19304 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[19304 | __mp_main__ | ERROR] No intersection with saturation line for entering refrigerant temperature 8.919106577106106 degree_Celsius. ADP temperature is set to dew point temperature of leaving air.
-[19304 | __mp_main__ | INFO] 
+[14556 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.02 °C DB, 75.35 % RH), sensible cooling load fraction = -0.75 %, latent cooling load fraction = 87.40 %
+[14556 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[14556 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
 supply air volume flow rate (NTP) = 6432.886 m³/h
 ventilation air volume flow rate (NTP) = 6432.886 m³/h
 recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 20.840 °C DB, 9.873 g/kg AH (64.000 % RH)
-cooled air = 14.000 °C DB, 7.873 g/kg AH (78.897 % RH)
-supply air = 18.786 °C DB, 7.873 g/kg AH (58.158 % RH)
-return air = 26.000 °C DB, 10.394 g/kg AH (49.302 % RH)
-cooling coil load = 25.956 kW
-sensible heat ratio = 0.579 frac
-heating coil load = 10.508 kW
-[19304 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (20.87 °C DB, 71.22 % RH), sensible cooling load fraction = 9.58 %, latent cooling load fraction = 89.51 %
-[19304 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[19304 | __mp_main__ | INFO] 
+mixed air = 17.020 °C DB, 9.146 g/kg AH (75.350 % RH)
+cooled air = 14.000 °C DB, 8.188 g/kg AH (82.006 % RH)
+supply air = 26.126 °C DB, 8.188 g/kg AH (38.685 % RH)
+return air = 26.000 °C DB, 9.936 g/kg AH (47.163 % RH)
+cooling coil load = 11.858 kW
+sensible heat ratio = 0.559 frac
+heating coil load = 26.622 kW
+[14556 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (20.87 °C DB, 71.22 % RH), sensible cooling load fraction = 9.58 %, latent cooling load fraction = 89.51 %
+[14556 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[14556 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
@@ -255,57 +46,58 @@ return air = 26.000 °C DB, 10.385 g/kg AH (49.262 % RH)
 cooling coil load = 28.405 kW
 sensible heat ratio = 0.531 frac
 heating coil load = 22.839 kW
-[19560 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (23.96 °C DB, 49.75 % RH), sensible cooling load fraction = 66.25 %, latent cooling load fraction = 99.44 %
-[19560 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[19560 | __mp_main__ | INFO] 
+[15644 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (20.84 °C DB, 64.00 % RH), sensible cooling load fraction = 43.28 %, latent cooling load fraction = 126.02 %
+[15644 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[15644 | __mp_main__ | ERROR] No intersection with saturation line for entering refrigerant temperature 8.919106577106106 degree_Celsius. ADP temperature is set to dew point temperature of leaving air.
+[15644 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
 supply air volume flow rate (NTP) = 6432.886 m³/h
 ventilation air volume flow rate (NTP) = 6432.886 m³/h
 recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 23.960 °C DB, 9.270 g/kg AH (49.750 % RH)
-cooled air = 14.000 °C DB, 6.933 g/kg AH (69.573 % RH)
-supply air = 14.959 °C DB, 6.933 g/kg AH (65.390 % RH)
-return air = 26.000 °C DB, 8.922 g/kg AH (42.417 % RH)
-cooling coil load = 34.650 kW
-sensible heat ratio = 0.631 frac
-heating coil load = 2.105 kW
-[19560 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (24.44 °C DB, 49.15 % RH), sensible cooling load fraction = 56.35 %, latent cooling load fraction = 98.05 %
-[19560 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[19560 | __mp_main__ | INFO] 
+mixed air = 20.840 °C DB, 9.873 g/kg AH (64.000 % RH)
+cooled air = 14.000 °C DB, 7.873 g/kg AH (78.897 % RH)
+supply air = 18.786 °C DB, 7.873 g/kg AH (58.158 % RH)
+return air = 26.000 °C DB, 10.394 g/kg AH (49.302 % RH)
+cooling coil load = 25.956 kW
+sensible heat ratio = 0.579 frac
+heating coil load = 10.508 kW
+[15644 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.31 °C DB, 68.82 % RH), sensible cooling load fraction = 14.99 %, latent cooling load fraction = 85.97 %
+[15644 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[15644 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
 supply air volume flow rate (NTP) = 6432.886 m³/h
 ventilation air volume flow rate (NTP) = 6432.886 m³/h
 recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 24.440 °C DB, 9.428 g/kg AH (49.150 % RH)
-cooled air = 14.000 °C DB, 6.961 g/kg AH (69.857 % RH)
-supply air = 16.608 °C DB, 6.961 g/kg AH (59.078 % RH)
-return air = 26.000 °C DB, 8.922 g/kg AH (42.420 % RH)
-cooling coil load = 36.418 kW
-sensible heat ratio = 0.629 frac
-heating coil load = 5.726 kW
-[3128 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (18.29 °C DB, 73.50 % RH), sensible cooling load fraction = 34.16 %, latent cooling load fraction = 137.46 %
-[3128 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[3128 | __mp_main__ | INFO] 
+mixed air = 21.310 °C DB, 10.947 g/kg AH (68.820 % RH)
+cooled air = 14.000 °C DB, 8.456 g/kg AH (84.652 % RH)
+supply air = 23.502 °C DB, 8.456 g/kg AH (46.706 % RH)
+return air = 26.000 °C DB, 10.175 g/kg AH (48.280 % RH)
+cooling coil load = 29.693 kW
+sensible heat ratio = 0.541 frac
+heating coil load = 20.862 kW
+[16536 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (19.63 °C DB, 68.65 % RH), sensible cooling load fraction = 37.44 %, latent cooling load fraction = 132.24 %
+[16536 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[16536 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
 supply air volume flow rate (NTP) = 6432.886 m³/h
 ventilation air volume flow rate (NTP) = 6432.886 m³/h
 recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 18.290 °C DB, 9.674 g/kg AH (73.500 % RH)
-cooled air = 14.000 °C DB, 8.279 g/kg AH (82.911 % RH)
-supply air = 20.307 °C DB, 8.279 g/kg AH (55.601 % RH)
-return air = 26.000 °C DB, 11.029 g/kg AH (52.261 % RH)
-cooling coil load = 17.035 kW
-sensible heat ratio = 0.553 frac
-heating coil load = 13.848 kW
-[5036 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (22.12 °C DB, 58.30 % RH), sensible cooling load fraction = 40.68 %, latent cooling load fraction = 116.64 %
-[5036 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[5036 | __mp_main__ | INFO] 
+mixed air = 19.630 °C DB, 9.826 g/kg AH (68.650 % RH)
+cooled air = 14.000 °C DB, 8.087 g/kg AH (81.013 % RH)
+supply air = 19.760 °C DB, 8.087 g/kg AH (56.202 % RH)
+return air = 26.000 °C DB, 10.732 g/kg AH (50.880 % RH)
+cooling coil load = 21.868 kW
+sensible heat ratio = 0.565 frac
+heating coil load = 12.645 kW
+[18724 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (22.12 °C DB, 58.30 % RH), sensible cooling load fraction = 40.68 %, latent cooling load fraction = 116.64 %
+[18724 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[18724 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
@@ -319,44 +111,28 @@ return air = 26.000 °C DB, 9.864 g/kg AH (46.828 % RH)
 cooling coil load = 29.831 kW
 sensible heat ratio = 0.598 frac
 heating coil load = 11.461 kW
-[5036 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.97 °C DB, 65.22 % RH), sensible cooling load fraction = 34.24 %, latent cooling load fraction = 80.25 %
-[5036 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[5036 | __mp_main__ | INFO]
-[6040 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (23.06 °C DB, 53.10 % RH), sensible cooling load fraction = 58.35 %, latent cooling load fraction = 106.57 %
-[6040 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[6040 | __mp_main__ | INFO] 
+[18724 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.97 °C DB, 65.22 % RH), sensible cooling load fraction = 34.24 %, latent cooling load fraction = 80.25 %
+[18724 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[18724 | __mp_main__ | INFO]
+[1968 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.03 °C DB, 77.15 % RH), sensible cooling load fraction = 0.51 %, latent cooling load fraction = 90.08 %
+[1968 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[1968 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
 supply air volume flow rate (NTP) = 6432.886 m³/h
 ventilation air volume flow rate (NTP) = 6432.886 m³/h
 recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 23.060 °C DB, 9.373 g/kg AH (53.100 % RH)
-cooled air = 14.000 °C DB, 7.139 g/kg AH (71.625 % RH)
-supply air = 16.275 °C DB, 7.139 g/kg AH (61.872 % RH)
-return air = 26.000 °C DB, 9.271 g/kg AH (44.054 % RH)
-cooling coil load = 32.106 kW
-sensible heat ratio = 0.620 frac
-heating coil load = 4.994 kW
-[6040 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (24.29 °C DB, 51.00 % RH), sensible cooling load fraction = 54.99 %, latent cooling load fraction = 102.28 %
-[6040 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[6040 | __mp_main__ | INFO] 
-supply air mass flow rate = 7748.894 kg/h
-ventilation air mass flow rate = 7748.894 kg/h
-recirculation air mass flow rate = 0.000 kg/h
-supply air volume flow rate (NTP) = 6432.886 m³/h
-ventilation air volume flow rate (NTP) = 6432.886 m³/h
-recirculation air volume flow rate (NTP) = 0.000 m³/h
-mixed air = 24.290 °C DB, 9.700 g/kg AH (51.000 % RH)
-cooled air = 14.000 °C DB, 7.154 g/kg AH (71.770 % RH)
-supply air = 16.835 °C DB, 7.154 g/kg AH (59.828 % RH)
-return air = 26.000 °C DB, 9.200 g/kg AH (43.720 % RH)
-cooling coil load = 36.526 kW
-sensible heat ratio = 0.619 frac
-heating coil load = 6.224 kW
-[6712 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.19 °C DB, 76.85 % RH), sensible cooling load fraction = 2.14 %, latent cooling load fraction = 90.02 %
-[6712 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
-[6712 | __mp_main__ | INFO] 
+mixed air = 17.030 °C DB, 9.373 g/kg AH (77.150 % RH)
+cooled air = 14.000 °C DB, 8.366 g/kg AH (83.764 % RH)
+supply air = 25.916 °C DB, 8.366 g/kg AH (40.008 % RH)
+return air = 26.000 °C DB, 10.167 g/kg AH (48.245 % RH)
+cooling coil load = 12.154 kW
+sensible heat ratio = 0.547 frac
+heating coil load = 26.161 kW
+[2020 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.19 °C DB, 76.85 % RH), sensible cooling load fraction = 2.14 %, latent cooling load fraction = 90.02 %
+[2020 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[2020 | __mp_main__ | INFO] 
 supply air mass flow rate = 7748.894 kg/h
 ventilation air mass flow rate = 7748.894 kg/h
 recirculation air mass flow rate = 0.000 kg/h
@@ -370,3 +146,227 @@ return air = 26.000 °C DB, 10.171 g/kg AH (48.263 % RH)
 cooling coil load = 12.804 kW
 sensible heat ratio = 0.547 frac
 heating coil load = 25.564 kW
+[20552 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.43 °C DB, 72.60 % RH), sensible cooling load fraction = -4.39 %, latent cooling load fraction = 82.15 %
+[20552 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[20552 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 16.430 °C DB, 8.479 g/kg AH (72.600 % RH)
+cooled air = 14.000 °C DB, 7.783 g/kg AH (77.999 % RH)
+supply air = 26.731 °C DB, 7.783 g/kg AH (35.504 % RH)
+return air = 26.000 °C DB, 9.426 g/kg AH (44.779 % RH)
+cooling coil load = 9.128 kW
+sensible heat ratio = 0.584 frac
+heating coil load = 27.951 kW
+[20632 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (23.06 °C DB, 53.10 % RH), sensible cooling load fraction = 58.35 %, latent cooling load fraction = 106.57 %
+[20632 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[20632 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 23.060 °C DB, 9.373 g/kg AH (53.100 % RH)
+cooled air = 14.000 °C DB, 7.139 g/kg AH (71.625 % RH)
+supply air = 16.275 °C DB, 7.139 g/kg AH (61.872 % RH)
+return air = 26.000 °C DB, 9.271 g/kg AH (44.054 % RH)
+cooling coil load = 32.106 kW
+sensible heat ratio = 0.620 frac
+heating coil load = 4.994 kW
+[20632 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (24.29 °C DB, 51.00 % RH), sensible cooling load fraction = 54.99 %, latent cooling load fraction = 102.28 %
+[20632 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[20632 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 24.290 °C DB, 9.700 g/kg AH (51.000 % RH)
+cooled air = 14.000 °C DB, 7.154 g/kg AH (71.770 % RH)
+supply air = 16.835 °C DB, 7.154 g/kg AH (59.828 % RH)
+return air = 26.000 °C DB, 9.200 g/kg AH (43.720 % RH)
+cooling coil load = 36.526 kW
+sensible heat ratio = 0.619 frac
+heating coil load = 6.224 kW
+[20992 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (18.29 °C DB, 73.50 % RH), sensible cooling load fraction = 34.16 %, latent cooling load fraction = 137.46 %
+[20992 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[20992 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 18.290 °C DB, 9.674 g/kg AH (73.500 % RH)
+cooled air = 14.000 °C DB, 8.279 g/kg AH (82.911 % RH)
+supply air = 20.307 °C DB, 8.279 g/kg AH (55.601 % RH)
+return air = 26.000 °C DB, 11.029 g/kg AH (52.261 % RH)
+cooling coil load = 17.035 kW
+sensible heat ratio = 0.553 frac
+heating coil load = 13.848 kW
+[22332 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (15.91 °C DB, 77.30 % RH), sensible cooling load fraction = -4.82 %, latent cooling load fraction = 87.61 %
+[22332 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[22332 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 15.910 °C DB, 8.736 g/kg AH (77.300 % RH)
+cooled air = 14.000 °C DB, 8.138 g/kg AH (81.518 % RH)
+supply air = 26.803 °C DB, 8.138 g/kg AH (36.947 % RH)
+return air = 26.000 °C DB, 9.891 g/kg AH (46.953 % RH)
+cooling coil load = 7.453 kW
+sensible heat ratio = 0.563 frac
+heating coil load = 28.110 kW
+[22364 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (23.96 °C DB, 49.75 % RH), sensible cooling load fraction = 66.25 %, latent cooling load fraction = 99.44 %
+[22364 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[22364 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 23.960 °C DB, 9.270 g/kg AH (49.750 % RH)
+cooled air = 14.000 °C DB, 6.933 g/kg AH (69.573 % RH)
+supply air = 14.959 °C DB, 6.933 g/kg AH (65.390 % RH)
+return air = 26.000 °C DB, 8.922 g/kg AH (42.417 % RH)
+cooling coil load = 34.650 kW
+sensible heat ratio = 0.631 frac
+heating coil load = 2.105 kW
+[22364 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (24.44 °C DB, 49.15 % RH), sensible cooling load fraction = 56.35 %, latent cooling load fraction = 98.05 %
+[22364 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[22364 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 24.440 °C DB, 9.428 g/kg AH (49.150 % RH)
+cooled air = 14.000 °C DB, 6.961 g/kg AH (69.857 % RH)
+supply air = 16.608 °C DB, 6.961 g/kg AH (59.078 % RH)
+return air = 26.000 °C DB, 8.922 g/kg AH (42.420 % RH)
+cooling coil load = 36.418 kW
+sensible heat ratio = 0.629 frac
+heating coil load = 5.726 kW
+[4600 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.59 °C DB, 71.90 % RH), sensible cooling load fraction = -3.43 %, latent cooling load fraction = 81.47 %
+[4600 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[4600 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 16.590 °C DB, 8.483 g/kg AH (71.900 % RH)
+cooled air = 14.000 °C DB, 7.747 g/kg AH (77.648 % RH)
+supply air = 26.571 °C DB, 7.747 g/kg AH (35.677 % RH)
+return air = 26.000 °C DB, 9.377 g/kg AH (44.548 % RH)
+cooling coil load = 9.696 kW
+sensible heat ratio = 0.586 frac
+heating coil load = 27.601 kW
+[4600 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.09 °C DB, 70.02 % RH), sensible cooling load fraction = 11.70 %, latent cooling load fraction = 87.76 %
+[4600 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[4600 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 21.090 °C DB, 10.989 g/kg AH (70.020 % RH)
+cooled air = 14.000 °C DB, 8.526 g/kg AH (85.346 % RH)
+supply air = 24.049 °C DB, 8.526 g/kg AH (45.564 % RH)
+return air = 26.000 °C DB, 10.281 g/kg AH (48.776 % RH)
+cooling coil load = 29.055 kW
+sensible heat ratio = 0.536 frac
+heating coil load = 22.064 kW
+[5000 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.05 °C DB, 74.95 % RH), sensible cooling load fraction = -5.55 %, latent cooling load fraction = 84.67 %
+[5000 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[5000 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 16.050 °C DB, 8.544 g/kg AH (74.950 % RH)
+cooled air = 14.000 °C DB, 7.936 g/kg AH (79.518 % RH)
+supply air = 26.925 °C DB, 7.936 g/kg AH (35.784 % RH)
+return air = 26.000 °C DB, 9.630 g/kg AH (45.733 % RH)
+cooling coil load = 7.815 kW
+sensible heat ratio = 0.576 frac
+heating coil load = 28.378 kW
+[5648 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (17.50 °C DB, 75.45 % RH), sensible cooling load fraction = 17.88 %, latent cooling load fraction = 138.66 %
+[5648 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[5648 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 17.500 °C DB, 9.445 g/kg AH (75.450 % RH)
+cooled air = 14.000 °C DB, 8.301 g/kg AH (83.123 % RH)
+supply air = 23.020 °C DB, 8.301 g/kg AH (47.219 % RH)
+return air = 26.000 °C DB, 11.074 g/kg AH (52.472 % RH)
+cooling coil load = 13.931 kW
+sensible heat ratio = 0.552 frac
+heating coil load = 19.803 kW
+[5648 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.53 °C DB, 67.62 % RH), sensible cooling load fraction = 20.84 %, latent cooling load fraction = 84.12 %
+[5648 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[5648 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 21.530 °C DB, 10.901 g/kg AH (67.620 % RH)
+cooled air = 14.000 °C DB, 8.384 g/kg AH (83.946 % RH)
+supply air = 22.527 °C DB, 8.384 g/kg AH (49.136 % RH)
+return air = 26.000 °C DB, 10.067 g/kg AH (47.774 % RH)
+cooling coil load = 30.318 kW
+sensible heat ratio = 0.545 frac
+heating coil load = 18.720 kW
+[8240 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (16.84 °C DB, 73.00 % RH), sensible cooling load fraction = -2.13 %, latent cooling load fraction = 83.56 %
+[8240 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[8240 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 16.840 °C DB, 8.754 g/kg AH (73.000 % RH)
+cooled air = 14.000 °C DB, 7.916 g/kg AH (79.317 % RH)
+supply air = 26.355 °C DB, 7.916 g/kg AH (36.912 % RH)
+return air = 26.000 °C DB, 9.587 g/kg AH (45.533 % RH)
+cooling coil load = 10.808 kW
+sensible heat ratio = 0.577 frac
+heating coil load = 27.126 kW
+[8240 | __mp_main__ | INFO] Analyze AC system with outdoor_air = (21.75 °C DB, 66.42 % RH), sensible cooling load fraction = 28.97 %, latent cooling load fraction = 82.21 %
+[8240 | __mp_main__ | ERROR] Negative value for W detected. W has been reset to 0 kg/kg.
+[8240 | __mp_main__ | INFO] 
+supply air mass flow rate = 7748.894 kg/h
+ventilation air mass flow rate = 7748.894 kg/h
+recirculation air mass flow rate = 0.000 kg/h
+supply air volume flow rate (NTP) = 6432.886 m³/h
+ventilation air volume flow rate (NTP) = 6432.886 m³/h
+recirculation air volume flow rate (NTP) = 0.000 m³/h
+mixed air = 21.750 °C DB, 10.852 g/kg AH (66.420 % RH)
+cooled air = 14.000 °C DB, 8.311 g/kg AH (83.228 % RH)
+supply air = 21.172 °C DB, 8.311 g/kg AH (52.917 % RH)
+return air = 26.000 °C DB, 9.956 g/kg AH (47.257 % RH)
+cooling coil load = 30.931 kW
+sensible heat ratio = 0.550 frac
+heating coil load = 15.747 kW
