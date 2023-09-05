@@ -237,7 +237,7 @@ class Space:
             Length of the space (2nd horizontal dimension).
         climate_data:
             Instance of `ClimateData`, containing the relevant climatic data
-            for the "design day".
+            for the summer peak design day.
         T_int_fun:
             Function that takes time t in seconds from 00:00:00 and returns
             the setpoint space air temperature at that time. It can also be
@@ -403,9 +403,8 @@ class Space:
         """
         self.int_thermal_mass = InternalThermalMass(A, R, C)
 
-    def add_ventilation(
+    def configure_ventilation(
         self,
-        ventilation_zone: VentilationZone,
         n_min: Quantity = Q_(0.5, '1 / hr'),
         V_open: Quantity = Q_(0.0, 'm ** 3 / hr'),
         V_ATD_d: Quantity = Q_(0.0, 'm ** 3 / hr'),
@@ -417,12 +416,10 @@ class Space:
         T_trf: TemperatureSchedule | None = None
     ) -> None:
         """
-        Add ventilation to the space.
+        Configure the ventilation parameters of the space.
 
         Parameters
         ----------
-        ventilation_zone:
-            The ventilation zone the space belongs to.
         n_min:
             Minimum air change rate required for the space for reasons of air
             quality/hygiene and comfort (NBN EN 12831-1, B.2.10 - Table B.7).
@@ -462,7 +459,7 @@ class Space:
         """
         self.ventilation = Ventilation.create(
             space=self,
-            ventilation_zone=ventilation_zone,
+            ventilation_zone=self.ventilation_zone,
             n_min=n_min,
             V_open=V_open,
             V_ATD_d=V_ATD_d,

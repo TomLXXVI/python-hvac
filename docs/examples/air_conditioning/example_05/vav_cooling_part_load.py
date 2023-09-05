@@ -1,6 +1,6 @@
 """
-Steady-state analysis of a single-zone VAV air cooling system hour by hour
-during the summer peak design day.
+Steady-state hour-by-hour simulation of a single-zone VAV air cooling system
+during the selected day based on TMY data.
 """
 import warnings
 import pathlib
@@ -9,10 +9,9 @@ warnings.filterwarnings('ignore', category=CoolPropWarning)
 
 from datetime import date
 from concurrent.futures import ProcessPoolExecutor
-import pandas as pd
 from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid
-from hvac.climate import ClimateData, Location
+from hvac.climate import TMY, ClimateData, Location
 from hvac.heat_transfer.heat_exchanger.fin_tube.core.plain_fin_tube import PlainFinTubeHeatExchangerCore
 from hvac.air_conditioning.single_zone.vav_cooling_sim import (
     DesignData, VAVSingleZoneAirCoolingSystem,
@@ -20,7 +19,7 @@ from hvac.air_conditioning.single_zone.vav_cooling_sim import (
 )
 from hvac.charts import LineChart, PsychrometricChart, StatePoint
 from hvac.logging import ModuleLogger, Logger
-
+from exposition_hall import ExpositionHall
 
 Q_ = Quantity
 
@@ -90,7 +89,7 @@ def task(args) -> Output:
         dx_coil_T_evp=Q_(9, 'degC'),
         T_zone=Q_(26, 'degC'),    # setpoint zone air temperature
         T_cool=Q_(14, 'degC'),    # setpoint cooled air temperature
-        heating_coil_present=False
+        heating_coil_present=True
     )
     with warnings.catch_warnings(category=RuntimeWarning):
         warnings.showwarning = _warn_handler
@@ -101,13 +100,7 @@ def task(args) -> Output:
             rel_Q_zone_lat=rel_Q_zone_lat
         )
 
-    logger.info(
-        "Zone air state: "
-        f"{output.return_air.Tdb.to('degC'):~P.2f} DB, "
-        f"{output.return_air.W.to('g / kg'):~P.2f} AH "
-        f"({output.return_air.RH.to('pct'):~P.2f} RH)"
-    )
-
+    logger.info('\n' + str(output))
     return output
 
 
@@ -123,9 +116,9 @@ def main():
     if file_path.exists():
         file_path.unlink()
 
-    # Get hourly dry-bulb and wet-bulb temperature profile on summer peak design
-    # day:
-    climate = ClimateData.create(
+    # Create `ClimateData` object for selected day:
+    climate = ClimateData.create_from_TMY_data(
+        day=date(2022, 7, 31),
         location=Location(
             name='Ghent',
             lat=Q_(51.183, 'deg'),
@@ -133,25 +126,17 @@ def main():
             alt=Q_(8.0, 'm'),
             tz='Europe/Brussels'
         ),
-        design_day=date(2022, 7, 21),
-        Tdb_avg=Q_(31.6, 'degC'),
-        Tdb_range=Q_(7.3, 'K'),
-        Twb_mc=Q_(20.6, 'degC'),
-        tau_beam=0.426,
-        tau_dif=2.247
+        tmy=TMY('tmy_gent_2005_2020.csv')
     )
-    T_outdoor_db_rng = climate.Tdb_profile['T'][:-1]
-    T_outdoor_wb_rng = climate.Twb_profile['T'][:-1]
-    outdoor_air_rng = [
-        HumidAir(Tdb=Tdb, Twb=Twb)
-        for Tdb, Twb in zip(T_outdoor_db_rng, T_outdoor_wb_rng)
-    ]
+
+    # Create the building model:
+    hall = ExpositionHall.create(climate)
 
     # Prepare simulation data:
     sim_data = CoolingSimData(
-        T_outdoor_db_rng=[oa.Tdb for oa in outdoor_air_rng],
-        T_outdoor_wb_rng=[oa.Twb for oa in outdoor_air_rng],
-        df_Q_zone=pd.read_excel("cooling_load.ods"),
+        T_outdoor_db_rng=climate.Tdb_profile['T'],
+        T_outdoor_wb_rng=climate.Twb_profile['T'],
+        df_Q_zone=hall.get_heat_gains(unit='kW'),
         design_data=design_data
     )
 
@@ -161,12 +146,12 @@ def main():
     chart_00.add_xy_data(
         label='outdoor air dry-bulb temperature',
         x1_values=[h for h in range(24)],
-        y1_values=[oa.Tdb.to('degC').m for oa in outdoor_air_rng]
+        y1_values=[Tdb.to('degC').m for Tdb in climate.Tdb_profile['T']]
     )
     chart_00.add_xy_data(
         label='outdoor air wet-bulb temperature',
         x1_values=[h for h in range(24)],
-        y1_values=[oa.Twb.to('degC').m for oa in outdoor_air_rng]
+        y1_values=[Twb.to('degC').m for Twb in climate.Twb_profile['T']]
     )
     chart_00.x1.add_title('hour of the day')
     chart_00.x1.scale(0, 24, 1)
@@ -201,7 +186,7 @@ def main():
     chart_01.x1.add_title('hour of the day')
     chart_01.x1.scale(0, 24, 1)
     chart_01.y1.add_title('relative zone load, %')
-    chart_01.y1.scale(0, 160, 10)
+    chart_01.y1.scale(-20, 220, 20)
     chart_01.add_legend()
     chart_01.show()
     
@@ -227,7 +212,7 @@ def main():
     chart_02.add_xy_data(
         label='dry-bulb outdoor air temperature',
         x1_values=[h for h in range(24)],
-        y1_values=[oa.Tdb.to('degC').m for oa in outdoor_air_rng],
+        y1_values=[Tdb.to('degC').m for Tdb in climate.Tdb_profile['T']],
         style_props={'color': 'tab:red'}
     )
     chart_02.x1.add_title('hour of the day')
@@ -258,8 +243,8 @@ def main():
     )
     chart_03.add_xy_data(
         label='outdoor air humidity',
-        x1_values=[i for i in range(len(outdoor_air_rng))],
-        y1_values=[oa.W.to('g / kg').m for oa in outdoor_air_rng],
+        x1_values=[i for i in range(len(climate.outdoor_air_rng))],
+        y1_values=[oa.W.to('g / kg').m for oa in climate.outdoor_air_rng],
         style_props={'color': 'tab:red'}
     )
     chart_03.x1.add_title('hour of the day')

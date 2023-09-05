@@ -87,7 +87,7 @@ def main():
     # Get the simulation data for the selected day of the year (hourly dry-bulb
     # temperature and relative humidity) from a TMY-datafile:
     tmy = TMY(file_path='tmy_gent_2005_2020.csv')
-    selected_day = tmy.get_day(month=4, day=21)
+    selected_day = tmy.get_day(month=12, day=31)
 
     T_outdoor_rng = Q_(selected_day['T2m'].values, 'degC')
     RH_outdoor_rng = Q_(selected_day['RH'].values, 'pct')
@@ -165,7 +165,7 @@ def main():
     chart_03.x1.add_title('hour of the day')
     chart_03.x1.scale(0, 24, 1)
     chart_03.y1.add_title('supply air temperature, °C')
-    chart_03.y1.scale(30, 52, 2)
+    chart_03.y1.scale(0, 55, 5)
     chart_03.show()
 
     chart_04 = LineChart()

@@ -85,7 +85,7 @@ class ThermalNetworkBuilder:
 
     @staticmethod
     def _transform(reduced_thermal_network: list[Quantity]) -> list[AbstractNode] | None:
-        # create list of nodes, starting at the exterior surface towards the interior surface
+        # create a list of nodes, starting at the exterior surface towards the interior surface
         if len(reduced_thermal_network) >= 5:
             i = 1
             node_index = 1
@@ -317,12 +317,12 @@ class ExteriorBuildingElement:
             transferred by radiation to the interior thermal mass of the space.
             (see ASHRAE Fundamentals 2017, chapter 18, table 14).
         ext_shading_dev: default None
-            See class `ExternalShadingDevice`. E.g. overhang or recessed window.
+            See class `ExternalShadingDevice`. E.g., overhang or recessed window.
             In case a window is equipped with an external shading device, or in
             case of a recessed window, part of the window may be shaded depending
-            on the position of the sun during the course of day.
+            on the position of the sun during the course of the day.
         int_shading_dev: default None
-            See class `InteriorShadingDevice`. E.g. louvered shades, roller
+            See class `InteriorShadingDevice`. E.g., louvered shades, roller
             shades, draperies, insect screens.
         """
         window = Window.create(
@@ -350,7 +350,7 @@ class ExteriorBuildingElement:
         surface_color: str = 'dark-colored'
     ) -> None:
         """
-        Add door to exterior building element. An exterior door is also
+        Add a door to the exterior building element. An exterior door is also
         regarded as an exterior building element. See class method `create(...)`
         for more explanation about the parameters.
         """

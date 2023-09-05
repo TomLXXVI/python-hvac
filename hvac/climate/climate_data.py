@@ -8,6 +8,8 @@ from hvac import Quantity
 from hvac.fluids import HumidAir
 from .sun import Location, ClearSkyModel, SunPath
 from .sun.solar_time import time_to_decimal_hour
+from .tmy import TMY
+
 
 Q_ = Quantity
 
@@ -153,9 +155,15 @@ class ClimateData:
         self.cp: Optional[Quantity] = None
         self._design_day_temp_profile: Optional[_DesignDayTemperatureProfile] = None
         self._clear_sky_model: Optional[ClearSkyModel] = None
+        self._irr_profile: Optional[Dict[str, List[Any]]] = None
+        self._T_db_profile: Optional[Dict[str, List[Any]]] = None
+        self._T_wb_profile: Optional[Dict[str, List[Any]]] = None
+        self._interp_Tdb: Optional[Callable[[float], float]] = None
+        self._interp_Twb: Optional[Callable[[float], float]] = None
+        self.outdoor_air_rng: Optional[List[HumidAir]] = None
 
     @classmethod
-    def create(
+    def create_from_ASHRAE_weather_data(
         cls,
         design_day: Date,
         location: Location,
@@ -166,7 +174,8 @@ class ClimateData:
         tau_dif: float
     ) -> 'ClimateData':
         """
-        Create `ClimateData` object.
+        Create `ClimateData` object with ASHRAE weather data for use with
+        ASHRAE's Clear Sky Model.
 
         Parameters
         ----------
@@ -216,6 +225,62 @@ class ClimateData:
             tau_beam=obj.tau_beam,
             tau_dif=obj.tau_dif
         )
+        obj._irr_profile = obj._clear_sky_model.get_daily_profile(obj.design_day)
+        obj._T_db_profile = obj._design_day_temp_profile.Tdb_profile
+        obj._T_wb_profile = obj._design_day_temp_profile.Twb_profile
+        return obj
+
+    # noinspection PyProtectedMember
+    @classmethod
+    def create_from_TMY_data(
+        cls,
+        day: Date,
+        location: Location,
+        tmy: TMY
+    ) -> 'ClimateData':
+        """Create `ClimateData` object from TMY-dataset.
+
+        Parameters
+        ----------
+        day:
+            Date for which the cooling loads need to be calculated.
+        location:
+            The geographic location for which the climate data applies to.
+        tmy:
+            `TMY` object (see module `tmy` in subpackage `climate`).
+        """
+        obj = cls()
+        obj.design_day = day
+        obj.location = location
+        tmy.convert_to_timezone(location.tz)
+        df_day = tmy.get_day(month=day.month, day=day.day)
+        irr_profile = {
+            't': [dt for dt in df_day.index],
+            'beam': [Q_(G_beam, 'W / m ** 2') for G_beam in df_day['Gb(n)'].values],
+            'dif': [Q_(G_dif, 'W / m ** 2') for G_dif in df_day['Gd(h)'].values],
+            'glo_hor': [Q_(G_glo_hor, 'W / m ** 2') for G_glo_hor in df_day['G(h)'].values]
+        }
+        Tdb_profile = {
+            't': [dt for dt in df_day.index],
+            'T': [Q_(Tdb, 'degC').to('K') for Tdb in df_day['T2m'].values]
+        }
+        obj.outdoor_air_rng = [
+            HumidAir(Tdb=Q_(Tdb, 'degC'), RH=Q_(RH, 'pct'))
+            for Tdb, RH in zip(df_day['T2m'].values, df_day['RH'].values)
+        ]
+        Twb_profile = {
+            't': [dt for dt in df_day.index],
+            'T': [oa.Twb for oa in obj.outdoor_air_rng]
+        }
+        obj.Tdb_profile = {
+            't': Tdb_profile['t'],
+            'T': [Tdb.to('K') for Tdb in Tdb_profile['T']]
+        }
+        obj.Twb_profile = Twb_profile
+        obj.irr_profile = irr_profile
+        obj.Tdb_avg = sum(obj.Tdb_profile['T']) / len(obj.Tdb_profile['T'])
+        obj._interp_Tdb = _DesignDayTemperatureProfile._interpolate_T_profile(obj.Tdb_profile)
+        obj._interp_Twb = _DesignDayTemperatureProfile._interpolate_T_profile(obj.Twb_profile)
         return obj
 
     def get_data_members(self) -> Dict[str, Any]:
@@ -234,26 +299,46 @@ class ClimateData:
         Get outdoor air dry-bulb temperature in degC at time *t* in seconds
         from 00:00:00.
         """
-        return float(self._design_day_temp_profile.Tdb(t))
+        if self._design_day_temp_profile is not None:
+            return float(self._design_day_temp_profile.Tdb(t))
+        return self._interp_Tdb(t)
 
     def Twb_ext(self, t: float) -> float:
         """
         Get the outdoor air wet-bulb temperature in degC at time *t* in seconds
         from 00:00:00.
         """
-        return float(self._design_day_temp_profile.Twb(t))
+        if self._design_day_temp_profile is not None:
+            return float(self._design_day_temp_profile.Twb(t))
+        return self._interp_Twb(t)
 
     @property
     def Tdb_profile(self) -> Dict[str, List[Any]]:
         """
-        Get a daily profile of dry-bulb temperature on the design day.
+        Get a daily profile of the dry-bulb temperature on the design day.
 
         Returns
         -------
         Dictionary with a list of time moments 't' (`datetime` objects) and
         corresponding list of dry-bulb temperatures 'T' (`Quantity` objects).
         """
-        return self._design_day_temp_profile.Tdb_profile
+        return self._T_db_profile
+
+    @Tdb_profile.setter
+    def Tdb_profile(self, value: Dict[str, List[Any]]) -> None:
+        """
+        Set a daily profile of the dry-bulb temperature on the design day.
+
+        Parameters
+        ----------
+        value:
+            A dictionary with the following keys and values:
+            't': a list of `datetime` objects, representing each hour of the
+            day;
+            'T': a list of the dry-bulb temperature values (`Quantity` objects)
+            for each `datetime` value.
+        """
+        self._T_db_profile = value
 
     @property
     def Twb_profile(self) -> Dict[str, List[Any]]:
@@ -265,7 +350,23 @@ class ClimateData:
         Dictionary with a list of time moments 't' (`datetime` objects) and
         corresponding list of wet-bulb temperatures 'T' (`Quantity` objects).
         """
-        return self._design_day_temp_profile.Twb_profile
+        return self._T_wb_profile
+
+    @Twb_profile.setter
+    def Twb_profile(self, value: Dict[str, List[Any]]) -> None:
+        """
+        Set a daily profile of the wet-bulb temperature on the design day.
+
+        Parameters
+        ----------
+        value:
+            A dictionary with the following keys and values:
+            't': a list of `datetime` objects, representing each hour of the
+            day;
+            'T': a list of the wet-bulb temperature values (`Quantity` objects)
+            for each `datetime` value.
+        """
+        self._T_wb_profile = value
 
     # noinspection PyTypeChecker
     @property
@@ -279,7 +380,36 @@ class ClimateData:
         corresponding lists of irradiance components: 'beam', 'dir_hor',
         'dif', and 'glo_hor' (`Quantity` objects).
         """
-        return self._clear_sky_model.get_daily_profile(self.design_day)
+        return self._irr_profile
+
+    @irr_profile.setter
+    def irr_profile(self, value: Dict[str, List[Any]]) -> None:
+        """
+        Set the daily profile of solar irradiance.
+
+        Parameters
+        ----------
+        value:
+            A dictionary with the following keys and values:
+            't': a list of `datetime` objects;
+            'beam': a list of the beam irradiance values (`Quantity` objects) at
+            each `datetime` value;
+            'dif': a list of the diffuse irradiance values (`Quantity` objects)
+            at each `datetime` value;
+            'glo_hor': a list of the values (`Quantity` objects) of the global
+            irradiance on the horizontal surface at each `datetime` value.
+        """
+        sun_positions = [self.location.sun_position(dt) for dt in value['t']]
+        self._irr_profile = {
+            't': value['t'],
+            'beam': value['beam'],
+            'dif': value['dif'],
+            'glo_hor': value['glo_hor'],
+            'dir': [
+                I_beam * math.cos(sp.zenith.to('rad').m)
+                for sp, I_beam in zip(sun_positions, value['beam'])
+            ]
+        }
 
     @property
     def sun_position_profile(self) -> Dict[str, List[Any]]:

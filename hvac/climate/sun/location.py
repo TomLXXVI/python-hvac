@@ -89,7 +89,7 @@ class Location:
             return datetime
 
     def sun_position(self, datetime: DateTime, tz_aware: bool = True) -> SunPosition:
-        """Get position of the sun at the given datetime.
+        """Get the position of the sun at the given datetime.
 
         Parameters
         ----------
@@ -99,7 +99,7 @@ class Location:
         tz_aware: bool, optional
             Flag to indicate if the datetime should be considered as a local
             standard time using the time zone of the location (`True`) or in
-            UTC (`False`). Default value is `True`.
+            UTC (`False`). The default value is `True`.
 
         Returns
         -------
@@ -119,7 +119,7 @@ class Location:
         )
 
     def sunrise(self, date: Date, tz_aware: bool = True) -> DateTime:
-        """Get sunrise time at given date.
+        """Get sunrise time at the given date.
 
         If `tz_aware` is `True`, time will be returned in local standard time
         of the location, otherwise in UTC.
@@ -128,7 +128,7 @@ class Location:
         return astral.sun.sunrise(self._observer, date, tzinfo=tzinfo)
 
     def noon(self, date: Date, tz_aware: bool = True) -> DateTime:
-        """Get time of solar noon at given date.
+        """Get the time of solar noon at the given date.
 
         If `tz_aware` is `True`, time will be returned in local standard time
         of the location, otherwise in UTC.
@@ -151,22 +151,22 @@ class Location:
         return sunset - sunrise
 
     def solar_time(self, datetime: DateTime) -> Time:
-        """Get solar time at given date and local standard time
+        """Get solar time at the given date and local standard time
         at the location.
         """
         datetime = self._localize(datetime)
         return solar_time(datetime, self.lon.to('deg').m)
 
     def hour_angle(self, datetime: DateTime) -> Quantity:
-        """Get solar hour angle at given date and local standard time at the
-        location.
+        """Get the solar hour angle at the given date and local standard time
+        at the location.
         """
         datetime = self._localize(datetime)
         hra = hour_angle(datetime, self.lon.to('deg').m)
         return Q_(hra, 'deg')
 
     def sunset_hour_angle(self, date: Date) -> Quantity:
-        """Get solar hour angle at sunset on the given date."""
+        """Get the solar hour angle at sunset on the given date."""
         sunset = self.sunset(date)
         hra_sunset = hour_angle(sunset, self.lon.to('deg').m)
         return Q_(hra_sunset, 'deg')

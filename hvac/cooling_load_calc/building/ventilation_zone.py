@@ -38,16 +38,16 @@ class VentilationZone:
         f_iz: float = 0.5
     ) -> 'VentilationZone':
         """
-        Create ventilation zone.
+        Create a ventilation zone.
 
         Parameters
         ----------
         ID:
             Name of the ventilation zone.
         q_env_50:
-            Air permeability of building envelope at a pressure difference of 50
-            Pa between interior and exterior with any ATDs closed or sealed
-            (NBN EN 12831-1, B.2.10).
+            Air permeability of the building envelope at a pressure difference
+            of 50 Pa between the interior and exterior with any ATDs closed or
+            sealed (NBN EN 12831-1, B.2.10).
         dP_ATD_d:
             Design pressure difference of the ATDs in the zone
             (NBN EN 12831-1, B.2.12).
@@ -55,12 +55,12 @@ class VentilationZone:
             Pressure exponent for air leakages (NBN EN 12831-1, B.2.13).
         f_fac: float
             Adjustment factor for the number of wind exposed facades of the zone
-            (NBN EN 12831-1, B.2.15). Default value applies to more than 1
+            (NBN EN 12831-1, B.2.15). The default value applies to more than 1
             exposed facade.
         f_V: float
             Coefficient for the volume flow ratio of the zone (NBN EN 12831-1,
-            B.2.11 - Table B.8). Default value applies to more than 1 exposed
-            facade, height of the zone above ground level between 0 and 50
+            B.2.11 - Table B.8). The default value applies to more than 1 exposed
+            facade, the height of the zone above ground level between 0 and 50
             m, normal shielding, and a zone height between 5 and 10 m.
         f_dir: float
             Factor for the orientation of the zone (NBN EN 12831-1, B.2.14).
@@ -68,8 +68,8 @@ class VentilationZone:
         f_iz: Quantity
             Ratio between the minimum air volume flow rates of single heated
             spaces and the air volume flow of the entire zone (NBN EN 12831-1,
-            B.2.9 - Table B.5). Default value applies to a zone with 2 or more
-            spaces.
+            B.2.9 - Table B.5). The default value applies to a zone with 2 or
+            more spaces.
 
         Returns
         -------
@@ -90,6 +90,7 @@ class VentilationZone:
         self.spaces[space.ID] = space
         space.ventilation_zone = self
 
+    # noinspection PyTypeChecker
     def get_heat_gains(self, unit: str = 'W') -> pd.DataFrame:
         self.heat_gains = sum(
             space.get_heat_gains(unit)
@@ -222,13 +223,15 @@ class VentilationZone:
     @property
     def a_ATD(self) -> float:
         """
-        Authority of the ATDs in the zone (i.e. the ratio of airflow rate
-        through ATDs at 50 Pa on the sum of airflow rate through ATDs at 50 Pa
-        and leakage airflow rate at 50 Pa, which is equal to `q_env_50 * A_env`).
+        Authority of the ATDs in the zone (i.e., the ratio of airflow rate
+        through ATDs only to the sum of the airflow rates through ATDs
+        and through envelope air infiltration, both at a pressure difference of
+        50 Pa).
         (EN 12831-1 eq. 22)
         """
+        V_leakage_50 = self.q_env_50 * self.A_env
         try:
-            return self.V_ATD_50 / (self.V_ATD_50 + self.q_env_50 * self.A_env)
+            return self.V_ATD_50 / (self.V_ATD_50 + V_leakage_50)
         except ZeroDivisionError:
             return 0.0
 

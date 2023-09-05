@@ -344,7 +344,7 @@ class VAVSingleZoneAirCoolingSystem:
                     self.Q_dot_cc = cooling_coil.Q
                     Q_dot_cc_sen = (
                         self.m_dot_supply * CP_HUMID_AIR
-                        * (self.cooled_air.Tdb - self.mixed_air.Tdb)
+                        * (self.mixed_air.Tdb - self.cooled_air.Tdb)
                     )
                     self.SHR_cc = Q_dot_cc_sen.to('W') / self.Q_dot_cc.to('W')
                 if heating_coil is None:
@@ -414,7 +414,9 @@ class VAVSingleZoneAirCoolingSystem:
 
 
 class CoolingSimData:
-
+    """Helper class to prepare the simulation data needed to analyze the
+    `VAVSingleZoneAirCoolingSystem` model on a daily basis.
+    """
     def __init__(
         self,
         T_outdoor_db_rng: list[Quantity],
@@ -432,7 +434,7 @@ class CoolingSimData:
             List of hourly wet-bulb outdoor air temperatures ordered from 0 to 23 h.
         df_Q_zone:
             Pandas-DataFrame object retrieved from a `Building`, a `BuildingEntity`,
-            a `VentilationZone`, or a `Space` object in package
+            a `VentilationZone`, or a `Space` object in subpackage
             `hvac.cooling_load_calc` that contains the hourly sensible and latent
             cooling loads.
         design_data:

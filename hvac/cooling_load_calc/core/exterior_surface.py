@@ -68,7 +68,7 @@ class ExteriorSurface(Surface):
         #   'azimuth': List[Quantity],
         #   'elevation': List[Quantity]
         # }
-        self.sun_pos_profile = self.climate_data.sun_position_profile
+        self.sun_pos_profile = climate_data.sun_position_profile
 
         # Create a function that takes the hour of the day in decimal hours
         # (float) and returns the elevation angle of the sun in degrees (float)
@@ -259,32 +259,32 @@ class ExteriorSurface(Surface):
         return self._T_sol_fun(t)
 
     def theta_i(self, t: float) -> float:
-        """Get incidence angle of sun rays on surface in radians at time t in
-        seconds from 00:00:00.
+        """Get the incidence angle of sun rays on the surface in radians at time
+        t in seconds from 00:00:00.
         """
         return self._theta_i_fun(t)
 
     def I_dir(self, t: float) -> float:
-        """Get solar direct irradiance on surface in W/m² at time t in seconds
+        """Get solar direct irradiance on the surface in W/m² at time t in seconds
         from 00:00:00.
         """
         return float(self._I_dir_fun(t))
 
     def I_dif(self, t: float) -> float:
-        """Get solar diffuse irradiance on surface in W/m² at time t in seconds
+        """Get solar diffuse irradiance on the surface in W/m² at time t in seconds
         from 00:00:00.
         """
         return float(self._I_dif_fun(t))
 
     def I_glo(self, t: float) -> float:
-        """Get solar global irradiance on surface in W/m² at time t in seconds
+        """Get solar global irradiance on the surface in W/m² at time t in seconds
         from 00:00:00.
         """
         return float(self._I_glo_fun(t))
 
     def sun_altitude(self, t: float) -> float:
-        """Get sun altitude angle in radians at time t in seconds
-        from 00:00:00.
+        """Get the sun altitude angle in radians at time t in seconds from
+        00:00:00.
         """
         return self._sun_alt_fun(t)
 
