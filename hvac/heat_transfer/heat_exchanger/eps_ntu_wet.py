@@ -80,11 +80,11 @@ class AbstractHeatExchanger(ABC):
             Heat transfer rate between humid air and refrigerant.
         kwargs:
             Additional parameters.
-            In case of a cross-flow heat exchanger: parameter `type_` indicates
-            the type of cross-flow arrangement, which must be one of the types
-            defined by `CrossFlowHeatExchanger.Type`.
-            In case of a shell-and-tube heat exchanger: parameter `N` indicates
-            the number of tube passes.
+            In the case of a cross-flow heat exchanger: parameter `type_`
+            indicates the type of cross-flow arrangement, which must be one of
+            the types defined by `CrossFlowHeatExchanger.Type`.
+            In the case of a shell-and-tube heat exchanger: parameter `N`
+            indicates the number of tube passes.
         """
         # properties of fluids
         self.m_dot_r = m_dot_r.to('kg / s')
@@ -107,11 +107,11 @@ class AbstractHeatExchanger(ABC):
         self._A_ext = A_ext.to('m ** 2') if A_ext is not None else None
         self._Q = Q.to('W') if Q is not None else None
         # other parameters
-        self._type = kwargs.get('type_')  # in case of a cross-flow heat exchanger
-        self._N = kwargs.get('N')  # in case of a shell-tube heat exchanger
+        self._type = kwargs.get('type_')  # cross-flow heat exchanger
+        self._N = kwargs.get('N')  # shell-tube heat exchanger
         # internal variables
         if self._T_r_out_ini == self.T_r_in:
-            # in case of a boiling refrigerant, the refrigerant temperature
+            # in the case of a boiling refrigerant, the refrigerant temperature
             # will be constant; so refrigerant outlet temperature must be
             # equal to refrigerant inlet temperature and is therefore already
             # known.

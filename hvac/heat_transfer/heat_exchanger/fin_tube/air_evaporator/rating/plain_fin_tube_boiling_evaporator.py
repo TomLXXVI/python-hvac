@@ -12,10 +12,11 @@ HexCore = core.plain_fin_tube.PlainFinTubeHeatExchangerCore
 
 
 class PlainFinTubeCounterFlowBoilingEvaporator:
-    """Model of a single-pass, plain fin tube, counterflow heat exchanger with
+    """
+    Model of a single-pass, plain fin tube, counterflow heat exchanger with
     humid air flowing on the external side and with boiling refrigerant on the
     internal side. The state of refrigerant at the evaporator's exit is fixed to
-    being saturated vapor (i.e. no superheat and the vapor quality is 100 %).
+    being saturated vapor (i.e., no superheat and the vapor quality is 100 %).
     """
     def __init__(
         self,
@@ -36,17 +37,17 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         Parameters
         ----------
         L1:
-            Tube length in the direction of inside flow, i.e. the length of the
+            Tube length in the direction of inside flow, i.e., the length of the
             tube available for heat transfer with the outside flow.
         L3:
             Length of the tube bank perpendicular to the direction of external
             flow.
         S_t:
-            Lateral or transverse pitch, i.e. distance between tubes of the
+            Lateral or transverse pitch, i.e., the distance between tubes of the
             same row.
         S_l:
-            Longitudinal pitch, i.e. distance between tubes of two adjacent tube
-            rows.
+            Longitudinal pitch, i.e., the distance between tubes of two adjacent
+            tube rows.
         D_i:
             Inside diameter of the tubes.
         D_o:
@@ -93,9 +94,10 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         Notes
         -----
         The state of the refrigerant at the outlet is fixed: it must be
-        saturated vapor (in the boiling evaporator the refrigerant's temperature
-        and pressure are constant and its vapor quality grows from the initial
-        vapor quality at the inlet to 100 % at the outlet).
+        a saturated vapor (in the boiling region of the evaporator, the
+        refrigerant's temperature and pressure are constant and its vapor
+        quality grows from the initial vapor quality at the inlet to 100 % at
+        the outlet).
         """
         self.air_in = None
         self.Q_dot = None
@@ -119,14 +121,14 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
 
     def set_flow_length(self, L2: Quantity) -> None:
         """Sets the provisional flow length of the tube bank's boiling part
-        (i.e. in the direction parallel to the external air flow).
+        (i.e., in the direction parallel to the external air flow).
         """
         self.hex_core.L2 = L2
 
     def rate(
         self,
         m_dot_rfg_ini: Quantity,
-        i_max: int = 100,
+        i_max: int = 20,
         tol: Quantity = Q_(0.1, 'kg / hr'),
     ) -> tuple[Quantity, HumidAir, Quantity, Quantity]:
         """Determines by iteration the mass flow rate of refrigerant needed to
@@ -230,16 +232,20 @@ class PlainFinTubeCounterFlowBoilingEvaporator:
         dh_max = max(dh_in, dh_out)
         dh_min = min(dh_in, dh_out)
         LMED = (dh_max - dh_min) / np.log(dh_max / dh_min)
+
         h_a_sat_rfg_avg = (air_sat_rfg_out.h + air_sat_rfg_in.h) / 2
         h_air_m = h_a_sat_rfg_avg + LMED
+
         dT_in = self.air_in.Tdb - self.rfg_sat_vap_out.T
         dT_out = max(air_out.Tdb - self.rfg_in.T, Q_(1e-12, 'K'))
         dT_max = max(dT_in, dT_out)
         dT_min = min(dT_in, dT_out)
         LMTD = (dT_max - dT_min) / np.log(dT_max / dT_min)
+
         T_rfg_avg = (self.rfg_in.T + self.rfg_sat_vap_out.T) / 2
         T_air_m = T_rfg_avg + LMTD
         air_mean = HumidAir(Tdb=T_air_m, h=h_air_m)
+
         return air_mean
 
     def _get_mean_refrigerant(self) -> FluidState:

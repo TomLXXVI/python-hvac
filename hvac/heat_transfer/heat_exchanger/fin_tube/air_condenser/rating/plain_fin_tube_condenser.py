@@ -34,7 +34,7 @@ class CondenserWarning(Warning):
 class PlainFinTubeCounterFlowCondenser:
     """Model of a single-pass, counterflow air condenser with an equilateral
     triangular staggered tube array and plain flat fins.
-    Aim of this model is to find the heat transfer performance when the state
+    The aim of this model is to find the heat transfer performance when the state
     and mass flow rate of refrigerant and of air at both entries of the
     condenser are known.
     """
@@ -66,10 +66,10 @@ class PlainFinTubeCounterFlowCondenser:
         N_r:
             Number of rows.
         S_t:
-            Lateral or transverse pitch, i.e. distance between tubes of the
+            Lateral or transverse pitch, i.e., distance between tubes of the
             same row.
         S_l:
-            Longitudinal pitch, i.e. distance between tubes of two adjacent tube
+            Longitudinal pitch, i.e., distance between tubes of two adjacent tube
             rows.
         D_i:
             Inside diameter of the tubes.
@@ -243,7 +243,7 @@ class PlainFinTubeCounterFlowCondenser:
     def rate(
         self,
         i_max: int = 100,
-        tol: float = 0.01
+        tol: Quantity = Q_(0.1, 'mm')
     ) -> Result | None:
         """Determines the heat transfer performance of the condenser.
 
@@ -252,8 +252,7 @@ class PlainFinTubeCounterFlowCondenser:
         i_max:
             Maximum number of iterations.
         tol:
-            Tolerance for the effectiveness of the subcooling part of the
-            condenser.
+            Tolerance in mm
 
         Returns
         -------
@@ -267,7 +266,7 @@ class PlainFinTubeCounterFlowCondenser:
             eps: Quantity
                 Heat transfer effectiveness of the condenser.
             dP_air: Quantity
-                Air-side pressure drop across condenser.
+                Air-side pressure loss across condenser.
             dT_sc: Quantity
                 Degree of subcooling.
             L2_desuperheating: Quantity
@@ -285,8 +284,8 @@ class PlainFinTubeCounterFlowCondenser:
                 self._fun_find_subcooling_length,
                 # method='secant',
                 # x0=0.50 * self.L2.to('mm').m,  # initial guess for `L_scp`
-                bracket=(1e-9, self.L2.to('mm').m),
-                xtol=0.1,  # mm
+                bracket=(1e-3, self.L2.to('mm').m),
+                xtol=tol.to('mm').m,  # mm
                 maxiter=i_max
             )
         except Exception as err:
@@ -304,8 +303,8 @@ class PlainFinTubeCounterFlowCondenser:
                     self._fun_find_condensing_length,
                     # method='secant',
                     # x0=0.50 * self.L2.to('mm').m,  # initial guess for `L_cdp`
-                    bracket=(1e-9, self.L2.to('mm').m),
-                    xtol=0.1,  # mm
+                    bracket=(1e-3, self.L2.to('mm').m),
+                    xtol=tol.to('mm').m,  # mm
                     maxiter=i_max
                 )
             except Exception as err:
@@ -327,7 +326,9 @@ class PlainFinTubeCounterFlowCondenser:
 
     @property
     def eps(self) -> Quantity:
-        """Heat transfer effectiveness of the condenser."""
+        """Heat transfer effectiveness of the condenser (referred to the
+        condensation temperature of the refrigerant).
+        """
         T_cnd = self.condensing_part.rfg_sat_liq_out.T
         eps = self.Q_dot / (self.m_dot_air * CP_HUMID_AIR * (T_cnd - self.air_in.Tdb))
         return eps.to('frac')
@@ -362,7 +363,7 @@ class PlainFinTubeCounterFlowCondenser:
         air_in: HumidAir,
         rfg_in: FluidState,
         i_max: int = 100,
-        tol_eps: float = 0.01
+        tol: Quantity = Q_(0.1, 'mm')
     ) -> Result:
         """Combines the methods `set_operating_conditions` and `rate` in a
         single method.
@@ -371,5 +372,5 @@ class PlainFinTubeCounterFlowCondenser:
             air_in, m_dot_air,
             rfg_in, m_dot_rfg
         )
-        res = self.rate(i_max, tol_eps)
+        res = self.rate(i_max, tol)
         return res

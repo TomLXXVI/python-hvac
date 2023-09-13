@@ -119,7 +119,7 @@ def frequency_table(
         increasing array of bin edges, including the rightmost
         edge, allowing for non-uniform bin widths. If bins is a string, it
         defines the method used to calculate the optimal bin width, as defined
-        by `histogram_bin_edges`. By default, bins is set to 'auto', which
+        by `histogram_bin_edges`. By default, `bins` is set to 'auto', which
         means that Numpy will determine the optimal bin width and consequently
         the number of bins.
     """

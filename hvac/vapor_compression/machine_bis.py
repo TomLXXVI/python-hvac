@@ -82,6 +82,7 @@ class SingleStageVaporCompressionMachine:
                 case logging.ERROR:
                     self._logger.error(msg)
 
+    # noinspection PyUnusedLocal
     def _warn_handler(self, message, category, filename, lineno, file=None, line=None):
         self._log(message, logging.WARNING)
 
@@ -138,7 +139,7 @@ class SingleStageVaporCompressionMachine:
             State of air entering condenser.
         dT_sh:
             Degree of superheat of refrigerant leaving evaporator, set on
-            expansion device of vapor compression machine.
+            the expansion device of vapor compression machine.
         n_cmp: optional
             Current compressor speed (only for variable speed compressors).
 
@@ -198,7 +199,7 @@ class SingleStageVaporCompressionMachine:
                 f"T_cnd = {T_cnd:~P.3f}"
                 ), logging.INFO
             )
-            # Check if condenser temperature is below critical temperature of
+            # Check if condenser temperature is below the critical temperature of
             # refrigerant:
             T_crit = self.Refrigerant.critical_point.T
             if T_cnd >= T_crit:
@@ -209,7 +210,7 @@ class SingleStageVaporCompressionMachine:
                 )
                 self._log(err_message, logging.ERROR)
                 raise ValueError(err_message)
-            # Check if condenser temperature is above temperature of air
+            # Check if condenser temperature is above the temperature of air
             # entering the condenser:
             if T_cnd <= self.cnd_air_in.Tdb:
                 err_message = (
@@ -220,7 +221,7 @@ class SingleStageVaporCompressionMachine:
                 )
                 self._log(err_message, logging.ERROR)
                 raise ValueError(err_message)
-            # Check if evaporation temperature is lower than temperature of
+            # Check if evaporation temperature is lower than the temperature of
             # air entering evaporator:
             if T_evp >= self.evp_air_in.Tdb:
                 err_message = (
@@ -231,7 +232,7 @@ class SingleStageVaporCompressionMachine:
                 )
                 self._log(err_message, logging.ERROR)
                 raise ValueError(err_message)
-            # Set compressor parameters and get mass flow rate of compressor:
+            # Set compressor parameters and get the mass flow rate of compressor:
             self.compressor.Te = T_evp
             self.compressor.Tc = T_cnd
             cmp_m_dot_rfg = self.compressor.m_dot.to('kg / hr')
@@ -249,7 +250,7 @@ class SingleStageVaporCompressionMachine:
                 f"{cnd_rfg_in.P.to('bar'):~P.3f}"
                 ), logging.DEBUG
             )
-            # Determine performance of condenser with mass flow rate of
+            # Determine the performance of condenser with mass flow rate of
             # compressor:
             with warnings.catch_warnings(category=CondenserWarning):
                 warnings.showwarning = self._warn_handler
@@ -341,7 +342,7 @@ class SingleStageVaporCompressionMachine:
             # mass flow rate let through by the expansion device) and compressor
             # power:
             Q_cnd = self.evaporator.Q_dot + self.compressor.Wc_dot
-            # From the heat transfer equation of the condenser the condensation
+            # From the heat transfer equation of the condenser, the condensation
             # temperature can be deduced using the heat transfer effectiveness
             # of the condenser:
             T_cnd_new = (
@@ -352,7 +353,7 @@ class SingleStageVaporCompressionMachine:
             # steady-state the sum of heat absorption rate at the evaporator and
             # compressor power equals the heat rejection rate at the condenser.
             # Determine deviation between mass flow rate let through by
-            # expansion device (to maintain set degree of superheat) and mass
+            # expansion device (to maintain the set degree of superheat) and mass
             # flow rate displaced by the compressor; the law of continuity
             # requires that both mass flow rates are equal at steady-state
             # operation:
@@ -408,7 +409,7 @@ class SingleStageVaporCompressionMachine:
             )
             self._log(err_message, logging.ERROR)
             raise ValueError(err_message)
-        # Check if condenser temperature is above temperature of air
+        # Check if condenser temperature is above the temperature of air
         # entering the condenser:
         if T_cnd <= self.cnd_air_in.Tdb:
             err_message = (
@@ -419,7 +420,7 @@ class SingleStageVaporCompressionMachine:
             )
             self._log(err_message, logging.ERROR)
             raise ValueError(err_message)
-        # Check if evaporation temperature is lower than temperature of
+        # Check if evaporation temperature is lower than the temperature of
         # air entering evaporator:
         if T_evp >= self.evp_air_in.Tdb:
             err_message = (
@@ -724,7 +725,7 @@ class SingleStageVaporCompressionMachine:
         i = [0]
         # Set physical bounds on the values for evaporation and condensation
         # temperature:
-        T_crit = self.Refrigerant.critical_point.T
+        T_crit = self.Refrigerant.critical_point.T - Q_(1, 'K')
         bounds = (
             (-np.inf, self.evp_air_in.Tdb.to('degC').m),  # T_evp
             (self.cnd_air_in.Tdb.to('degC').m, T_crit.to('degC').m)  # T_cnd
@@ -860,8 +861,8 @@ class SingleStageVaporCompressionMachine:
 
     @property
     def Qc_dot(self) -> Quantity:
-        """Get cooling capacity of vapor compression system under the conditions
-        set at instantiation of the `VaporCompressionSystem`-object.
+        """Get the cooling capacity of the vapor compression system under the
+        conditions set at instantiation of the `VaporCompressionSystem`-object.
         """
         return self.evaporator.Q_dot
 
@@ -888,22 +889,24 @@ class SingleStageVaporCompressionMachine:
 
     @property
     def COP(self) -> Quantity:
-        """Get COP of vapor compression system under the conditions
+        """Get COP of the vapor compression system under the conditions
         set at instantiation of the `VaporCompressionSystem`-object.
         """
         return self.compressor.COP
 
     @property
     def Te(self) -> Quantity:
-        """Get evaporator temperature of vapor compression system under the
-        conditions set at instantiation of the `VaporCompressionSystem`-object.
+        """Get the evaporator temperature of the vapor compression system under
+        the conditions set at instantiation of the `VaporCompressionSystem`
+        object.
         """
         return self.evaporator.boiling_part.rfg_sat_vap_out.T
 
     @property
     def Tc(self) -> Quantity:
-        """Get condenser temperature of vapor compression system under the
-        conditions set at instantiation of the `VaporCompressionSystem`-object.
+        """Get the condenser temperature of the vapor compression system under
+        the conditions set at instantiation of the `VaporCompressionSystem`
+        object.
         """
         return self.condenser.condensing_part.rfg_sat_liq_out.T
 
@@ -923,14 +926,14 @@ class SingleStageVaporCompressionMachine:
 
     @property
     def liquid(self) -> FluidState:
-        """Get state of liquid under the conditions set at instantiation
+        """Get the state of liquid under the conditions set at instantiation
         of the `VaporCompressionSystem`-object.
         """
         return self.condenser.rfg_out
 
     @property
     def mixture(self) -> FluidState:
-        """Get state of mixture under the conditions set at instantiation
+        """Get the state of mixture under the conditions set at instantiation
         of the `VaporCompressionSystem`-object.
         """
         return self.evaporator.rfg_in

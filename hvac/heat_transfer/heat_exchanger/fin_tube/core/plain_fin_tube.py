@@ -72,10 +72,10 @@ class PlainFinTubeHeatExchangerCore:
         L3:
             Height of heat exchanger core; second dimension of frontal area.
         S_t:
-            Lateral or transverse pitch, i.e. the spacing between tubes of the
+            Lateral or transverse pitch, i.e., the spacing between tubes of the
             same row.
         S_l:
-            Longitudinal pitch, i.e. the spacing between tubes of two adjacent
+            Longitudinal pitch, i.e., the spacing between tubes of two adjacent
             tube rows.
         D_i:
             Inner diameter of tubes.
@@ -84,16 +84,16 @@ class PlainFinTubeHeatExchangerCore:
         t_f:
             Thickness of plain fins.
         N_f:
-            Fin density, i.e. number of fins per unit length of tube.
+            Fin density, i.e., number of fins per unit length of tube.
         k_fin: optional
-            Thermal conductivity of fin material; default value is for aluminium.
+            Thermal conductivity of fin material; default value is for aluminum.
         condensing: optional
             If True, the internal fluid (refrigerant) inside the tubes is
-            condensing, i.e. the case for the condensing part of an air
+            condensing, i.e., the case for the condensing part of an air
             condenser.
         boiling: optional
             If True, the internal fluid (refrigerant) inside the tubes is
-            boiling, i.e. the case for the boiling part of air evaporator.
+            boiling, i.e., the case for the boiling part of air evaporator.
         N_r: optional
             Number of rows.
         """
@@ -141,7 +141,7 @@ class PlainFinTubeHeatExchangerCore:
             ),
             k_f=k_fin
         )
-        # Set L2 if number of rows is specified:
+        # Set L2 if the number of rows is specified:
         if N_r is not None:
             self.L2 = N_r * S_l
         # Initialize internal variables.
@@ -183,10 +183,10 @@ class PlainFinTubeHeatExchangerCore:
     def UA(self) -> Quantity:
         """Gets overall heat transfer conductance of heat exchanger."""
         R_int = self.internal_surface.R
-        R_foul_int = Q_(0.0, 'K / W')  # we ignore fouling on internal side
+        R_foul_int = Q_(0.0, 'K / W')  # we ignore fouling on the internal side
         R_cond = Q_(0.0, 'K / W')  # we ignore resistance to conduction
         R_ext = self.external_surface.R
-        R_foul_ext = Q_(0.0, 'K / W')  # we ignore fouling on external side
+        R_foul_ext = Q_(0.0, 'K / W')  # we ignore fouling on the external side
         R_tot = R_int + R_foul_int + R_cond + R_ext + R_foul_ext
         UA = 1 / R_tot
         return UA
@@ -420,8 +420,8 @@ class _InternalSinglePhaseHeatTransferSurface(_InternalHeatTransferSurface):
             Geometry of the internal heat transfer surface (instance of
             `TubeBankInside`).
         tube_length: optional
-            The length of a single tube circuit, i.e. the flow length of
-            internal fluid (if not specified it is assumed that it equals the
+            The length of a single tube circuit, i.e., the flow length of
+            internal fluid (if not specified, it is assumed that it equals the
             external flow length).
         """
         super().__init__(parent)

@@ -279,7 +279,7 @@ class FixedSpeedCompressor:
     @property
     def discharge_gas(self) -> FluidState:
         """Get state of discharge gas at condenser entrance."""
-        P_con = self.refrigerant_type(T=self.Tc, x=Q_(0, 'pct')).P
+        P_con = self.refrigerant_type(T=self.Tc, x=Q_(100, 'pct')).P
         wc = self.Wc_dot / self.m_dot
         h_dis = self.suction_gas.h + wc
         try:

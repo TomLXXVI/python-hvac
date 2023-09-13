@@ -16,7 +16,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
     """Model of a single-pass plain fin tube counterflow heat exchanger with
     humid air flowing on the external side and with superheated refrigerant on the
     internal side. The states of the refrigerant at the evaporator's inlet and
-    exit are fixed: at the inlet the refrigerant is saturated vapor and at the
+    exit are fixed: at the inlet the refrigerant is a saturated vapor, and at the
     outlet it is superheated to the degree of superheat set on the expansion
     device.
     """
@@ -42,16 +42,16 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         Parameters
         ----------
         L1:
-            Tube length in the direction of inside flow, i.e. the length of the
+            Tube length in the direction of inside flow, i.e., the length of the
             tube available for heat transfer with the outside flow.
         L3:
             Length of the tube bank perpendicular to the direction of external
             flow.
         S_t:
-            Lateral or transverse pitch, i.e. distance between tubes of the
+            Lateral or transverse pitch, i.e., distance between tubes of the
             same row.
         S_l:
-            Longitudinal pitch, i.e. distance between tubes of two adjacent tube
+            Longitudinal pitch, i.e., distance between tubes of two adjacent tube
             rows.
         D_i:
             Inside diameter of the tubes.
@@ -100,14 +100,14 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         P_rfg_sat:
             Refrigerant saturation pressure (= evaporation pressure).
         dT_rfg_sh:
-            Degree of superheat (set on expansion device).
+            Degree of superheat (setting of the expansion device).
 
         Notes
         -----
         The states of refrigerant at the inlet and outlet are known. At the
-        inlet it is saturated vapor. Only the saturation temperature must be
+        inlet it's a saturated vapor. Only the saturation temperature must be
         specified to fix the state of saturated vapor (vapor quality = 100 %).
-        At the outlet the state of the refrigerant is fixed by the given degree
+        At the outlet, the state of the refrigerant is fixed by the given degree
         of superheat, assuming that the evaporation pressure remains constant
         throughout the evaporator.
         """
@@ -122,7 +122,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         # Determine refrigerant outlet state with known degree of superheat:
         self.rfg_out = self.Rfg(
             T=self.rfg_sat_in.T.to('K') + self._dT_rfg_sh,
-            P=self.rfg_sat_in.P  # ignore any pressure drop on refrigerant side
+            P=self.rfg_sat_in.P  # ignore any pressure drop on the refrigerant side
         )
 
     def set_mass_flow_rate_refrigerant(self, m_dot_rfg: Quantity) -> None:
@@ -130,11 +130,11 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         superheated region of the evaporator.
         """
         self.hex_core.m_dot_int = m_dot_rfg.to('kg / s')
-        # Determine heat transfer rate in superheated region of evaporator:
+        # Determine heat transfer rate in the superheated region of evaporator:
         self.Q_dot = self.hex_core.m_dot_int * (self.rfg_out.h - self.rfg_sat_in.h)
         # Determine air outlet state:
         h_a_out = self.air_in.h - self.Q_dot / self.hex_core.m_dot_ext
-        W_a_out = self.air_in.W  # assume heat transfer is only sensible: humidity ratio = constant
+        W_a_out = self.air_in.W  # assume heat transfer is only sensible: W = constant
         self.air_out = HumidAir(h=h_a_out, W=W_a_out)
 
     def determine_flow_length(self, L2_ini: Quantity) -> Quantity:
@@ -165,7 +165,8 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             L2 = root_scalar(eq, bracket=[1.e-6, L2_ini.to('m').m]).root
         except ValueError:
             raise ValueError(
-                "Unable to reach set degree of superheat."
+                "Impossible to reach the set degree of "
+                "refrigerant superheating."
             )
         return Q_(L2, 'm')
 
@@ -190,11 +191,7 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
         C_r = C_min / C_max
         # Determine mean air and mean refrigerant states:
         if C_r >= 0.5:
-            T_air_m = (self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2
-            T_rfg_m = (self.rfg_sat_in.T.to('K') + self.rfg_out.T.to('K')) / 2
-            air_mean = HumidAir(Tdb=T_air_m, W=self.air_in.W)
-            rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
-            return air_mean, rfg_mean
+            return air_avg, rfg_avg
         else:
             DT = (
                 self.air_in.Tdb.to('K') - self.rfg_out.T.to('K'),
@@ -202,26 +199,30 @@ class PlainFinTubeCounterFlowSuperheatEvaporator:
             )
             DT_max = max(DT)
             DT_min = min(DT)
-            if DT_min < 0:
-                logger.debug('DT_min < 0 -> set to 1e-12 K')
+            if DT_min <= 0:
+                logger.debug('DT_min <= 0 -> set to 1e-12 K')
                 DT_min = Q_(1e-12, 'K')
             LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
             if C_max == C_rfg:
                 # Refrigerant has the smallest temperature change.
-                T_rfg_m = (self.rfg_sat_in.T.to('K') + self.rfg_out.T.to('K')) / 2
-                T_air_m = T_rfg_m + LMTD
+                rfg_mean = rfg_avg
+                air_mean = HumidAir(
+                    Tdb=rfg_mean.T + LMTD,
+                    W=self.air_in.W
+                )
             else:  # C_max == C_air
                 # Air has the smallest temperature change.
-                T_air_m = (self.air_in.Tdb.to('K') + self.air_out.Tdb.to('K')) / 2
-                T_rfg_m = T_air_m - LMTD
-            air_mean = HumidAir(Tdb=T_air_m, W=self.air_in.W)
-            rfg_mean = self.Rfg(T=T_rfg_m, P=self.rfg_sat_in.P)
+                air_mean = air_avg
+                rfg_mean = self.Rfg(
+                    T=air_mean.Tdb - LMTD,
+                    P=self.rfg_sat_in.P
+                )
             return air_mean, rfg_mean
 
     @property
     def dP_air(self) -> Quantity:
-        """Returns air-side pressure drop across superheating region of
-        evaporator.
+        """Returns the air-side pressure drop across the superheating region of
+        the evaporator.
         """
         dP_air = self.hex_core.ext.get_pressure_drop(self.air_in, self.air_out)
         return dP_air

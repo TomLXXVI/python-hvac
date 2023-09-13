@@ -140,7 +140,7 @@ class PlainFinTubeCounterflowCondensingCondenser:
         )
         DT_max = max(DT)
         DT_min = min(DT)
-        if DT_min < 0:
+        if DT_min <= 0:
             logger.debug('DT_min < 0 -> set to 1e-12 K')
             DT_min = Q_(1e-12, 'K')
         LMTD = (DT_max - DT_min) / np.log(DT_max / DT_min)
