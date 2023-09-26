@@ -1,4 +1,5 @@
-"""Rating of a circular finned tube cross flow heat exchanger for single-phase
+"""
+Rating of a circular finned tube crossflow heat exchanger for single-phase
 fluids.
 
 References

@@ -1,3 +1,2 @@
-from .machine import SimpleSingleStageVCM
-from .machine_bis import SingleStageVaporCompressionMachine
 from .real_compressor import FixedSpeedCompressor, VariableSpeedCompressor
+from .machine import SingleStageVaporCompressionMachine

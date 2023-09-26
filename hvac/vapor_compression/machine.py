@@ -1,264 +1,944 @@
-from typing import Union, Optional
+"""
+Module for analyzing the steady-state operation of a single-stage vapor
+compression machine.
+"""
+from dataclasses import dataclass
+import functools
+import time
+
 import numpy as np
-from scipy.optimize import fsolve
-from .. import Quantity
-from ..fluids import HumidAir, CP_HUMID_AIR, FluidState
-from .real_compressor import FixedSpeedCompressor, VariableSpeedCompressor
+from scipy import optimize
+
+from hvac import Quantity
+from hvac.fluids import HumidAir, Fluid, FluidState
+from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
+from hvac.logging import ModuleLogger
+
+from hvac.heat_transfer.heat_exchanger.fin_tube.air_evaporator import (
+    PlainFinTubeCounterFlowAirEvaporator,
+    EvaporatorError
+)
+from hvac.heat_transfer.heat_exchanger.fin_tube.air_condenser import (
+    PlainFinTubeCounterFlowAirCondenser,
+    CondenserError
+)
+
 
 Q_ = Quantity
+logger = ModuleLogger.get_logger(__name__)
 
-Compressor = Union[FixedSpeedCompressor, VariableSpeedCompressor]
+
+Evaporator = PlainFinTubeCounterFlowAirEvaporator
+Condenser = PlainFinTubeCounterFlowAirCondenser
+Compressor = VariableSpeedCompressor | FixedSpeedCompressor
 
 
-class CondensingUnit:
+@dataclass
+class Output:
+    """
+    Dataclass for grouping the simulation results to be returned when
+    a simulation is finished.
+    """
+    evp_air_m_dot: Quantity
+    cnd_air_m_dot: Quantity
+    evp_air_in: HumidAir
+    cnd_air_in: HumidAir
+    n_cmp: Quantity
+    dT_sh: Quantity
+    evp_air_out: HumidAir | None = None
+    cnd_air_out: HumidAir | None = None
+    evp_Q_dot: Quantity | None = None
+    cnd_Q_dot: Quantity | None = None
+    cmp_W_dot: Quantity | None = None
+    rfg_m_dot: Quantity | None = None
+    T_evp: Quantity | None = None
+    P_evp: Quantity | None = None
+    T_cnd: Quantity | None = None
+    P_cnd: Quantity | None = None
+    dT_sc: Quantity | None = None
+    suction_gas: FluidState | None = None
+    discharge_gas: FluidState | None = None
+    liquid: FluidState | None = None
+    mixture: FluidState | None = None
+    evp_eps: Quantity | None = None
+    cnd_eps: Quantity | None = None
+    COP: Quantity | None = None
+    EER: Quantity | None = None
+    
+    def __post_init__(self):
+        self.units: dict[str, tuple[str, int]] = {
+            'm_dot': ('kg / hr', 3),
+            'T': ('degC', 3),
+            'W': ('g / kg', 3),
+            'n': ('1 / min', 3),
+            'dT': ('K', 3),
+            'Q_dot': ('kW', 3),
+            'W_dot': ('kW', 3),
+            'P': ('bar', 3),
+            'h': ('kJ / kg', 3)
+        }
+        self.success: bool = False
+
+    @classmethod
+    def create_from_dict(cls, d: dict) -> 'Output':
+        obj = cls(**d)
+        return obj
+
+    def to_dict(self) -> dict[str, float]:
+        u_m_dot, d_m_dot = self.units['m_dot']
+        u_T, d_T = self.units['T']
+        u_W, d_W = self.units['W']
+        u_n, d_n = self.units['n']
+        u_dT, d_dT = self.units['dT']
+        u_Q_dot, d_Q_dot = self.units['Q_dot']
+        u_W_dot, d_W_dot = self.units['W_dot']
+        u_P, d_P = self.units['P']
+        u_h, d_h = self.units['h']
+
+        if self.success:
+            d = {
+                'evp_air_m_dot': self.evp_air_m_dot.to(u_m_dot).m,
+                'cnd_air_m_dot': self.cnd_air_m_dot.to(u_m_dot).m,
+                'T_evp_air_in': self.evp_air_in.Tdb.to(u_T).m,
+                'W_evp_air_in': self.evp_air_in.W.to(u_W).m,
+                'RH_evp_air_in': self.evp_air_in.RH.to('pct').m,
+                'T_cnd_air_in': self.cnd_air_in.Tdb.to(u_T).m,
+                'W_cnd_air_in': self.cnd_air_in.W.to(u_W).m,
+                'RH_cnd_air_in': self.cnd_air_in.RH.to('pct').m,
+                'n_cmp': self.n_cmp.to(u_n).m,
+                'dT_sh': self.dT_sh.to(u_dT).m,
+                'T_evp_air_out': self.evp_air_out.Tdb.to(u_T).m,
+                'W_evp_air_out': self.evp_air_out.W.to(u_W).m,
+                'RH_evp_air_out': self.evp_air_out.RH.to('pct').m,
+                'T_cnd_air_out': self.cnd_air_out.Tdb.to(u_T).m,
+                'W_cnd_air_out': self.cnd_air_out.W.to(u_W).m,
+                'RH_cnd_air_out': self.cnd_air_out.RH.to('pct').m,
+                'evp_Q_dot': self.evp_Q_dot.to(u_Q_dot).m,
+                'cnd_Q_dot': self.cnd_Q_dot.to(u_Q_dot).m,
+                'cmp_W_dot': self.cmp_W_dot.to(u_W_dot).m,
+                'rfg_m_dot': self.rfg_m_dot.to(u_m_dot).m,
+                'COP': self.COP.to('frac').m,
+                'EER': self.EER.to('frac').m,
+                'evp_eps': self.evp_eps.to('frac').m,
+                'cnd_eps': self.cnd_eps.to('frac').m,
+                'T_evp': self.T_evp.to(u_T).m,
+                'P_evp': self.P_evp.to(u_P).m,
+                'T_cnd': self.T_cnd.to(u_T).m,
+                'P_cnd': self.P_cnd.to(u_P).m,
+                'dT_sc': self.dT_sc.to(u_dT).m,
+                'T_suction_gas': self.suction_gas.T.to(u_T).m,
+                'P_suction_gas': self.suction_gas.P.to(u_P).m,
+                'h_suction_gas': self.suction_gas.h.to(u_h).m,
+                'T_discharge_gas': self.discharge_gas.T.to(u_T).m,
+                'P_discharge_gas': self.discharge_gas.P.to(u_P).m,
+                'h_discharge_gas': self.discharge_gas.h.to(u_h).m,
+                'T_liquid': self.liquid.T.to(u_T).m,
+                'P_liquid': self.liquid.P.to(u_P).m,
+                'h_liquid': self.liquid.h.to(u_h).m,
+                'T_mixture': self.mixture.T.to(u_T).m,
+                'P_mixture': self.mixture.P.to(u_P).m,
+                'h_mixture': self.mixture.h.to(u_h).m,
+                'x_mixture': self.mixture.x.to('pct').m
+            }
+        else:
+            d = {
+                'evp_air_m_dot': self.evp_air_m_dot.to(u_m_dot).m,
+                'cnd_air_m_dot': self.cnd_air_m_dot.to(u_m_dot).m,
+                'T_evp_air_in': self.evp_air_in.Tdb.to(u_T).m,
+                'W_evp_air_in': self.evp_air_in.W.to(u_W).m,
+                'RH_evp_air_in': self.evp_air_in.RH.to('pct').m,
+                'T_cnd_air_in': self.cnd_air_in.Tdb.to(u_T).m,
+                'W_cnd_air_in': self.cnd_air_in.W.to(u_W).m,
+                'RH_cnd_air_in': self.cnd_air_in.RH.to('pct').m,
+                'n_cmp': self.n_cmp.to(u_n).m,
+                'dT_sh': self.dT_sh.to(u_dT).m,
+                'T_evp_air_out': float('nan'),
+                'W_evp_air_out': float('nan'),
+                'RH_evp_air_out': float('nan'),
+                'T_cnd_air_out': float('nan'),
+                'W_cnd_air_out': float('nan'),
+                'RH_cnd_air_out': float('nan'),
+                'evp_Q_dot': float('nan'),
+                'cnd_Q_dot': float('nan'),
+                'cmp_W_dot': float('nan'),
+                'rfg_m_dot': float('nan'),
+                'COP': float('nan'),
+                'EER': float('nan'),
+                'evp_eps': float('nan'),
+                'cnd_eps': float('nan'),
+                'T_evp': float('nan'),
+                'P_evp': float('nan'),
+                'T_cnd': float('nan'),
+                'P_cnd': float('nan'),
+                'dT_sc': float('nan'),
+                'T_suction_gas': float('nan'),
+                'P_suction_gas': float('nan'),
+                'h_suction_gas': float('nan'),
+                'T_discharge_gas': float('nan'),
+                'P_discharge_gas': float('nan'),
+                'h_discharge_gas': float('nan'),
+                'T_liquid': float('nan'),
+                'P_liquid': float('nan'),
+                'h_liquid': float('nan'),
+                'T_mixture': float('nan'),
+                'P_mixture': float('nan'),
+                'h_mixture': float('nan'),
+                'x_mixture': float('nan')
+            }
+        return d
+
+    def to_text(self) -> str:
+        if self.success:
+            u_m_dot, d_m_dot = self.units['m_dot']
+            u_T, d_T = self.units['T']
+            u_W, d_W = self.units['W']
+            u_n, d_n = self.units['n']
+            u_dT, d_dT = self.units['dT']
+            u_Q_dot, d_Q_dot = self.units['Q_dot']
+            u_W_dot, d_W_dot = self.units['W_dot']
+            u_P, d_P = self.units['P']
+            u_h, d_h = self.units['h']
+
+            output = (
+                f"evp_air_m_dot = {self.evp_air_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
+                f"cnd_air_m_dot = {self.cnd_air_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
+                "evp_air_in = "
+                f"{self.evp_air_in.Tdb.to(u_T):~P.{d_T}f} DB, "
+                f"{self.evp_air_in.W.to(u_W):~P.{d_W}f} AH "
+                f"({self.evp_air_in.RH.to('pct'):~P.0f} RH)\n"
+                "cnd_air_in = "
+                f"{self.cnd_air_in.Tdb.to(u_T):~P.{d_T}f} DB, "
+                f"{self.cnd_air_in.W.to(u_W):~P.{d_W}f} AH "
+                f"({self.cnd_air_in.RH.to('pct'):~P.0f} RH)\n"
+                f"n_cmp = {self.n_cmp.to(u_n):~P.{d_n}f}\n"
+                f"dT_sh = {self.dT_sh.to(u_dT):~P.{d_dT}f}\n"
+                "evp_air_out = "
+                f"{self.evp_air_out.Tdb.to(u_T):~P.{d_T}f} DB, "
+                f"{self.evp_air_out.W.to(u_W):~P.{d_W}f} AH "
+                f"({self.evp_air_out.RH.to('pct'):~P.0f} RH)\n"
+                "cnd_air_out = "
+                f"{self.cnd_air_out.Tdb.to(u_T):~P.{d_T}f} DB, "
+                f"{self.cnd_air_out.W.to(u_W):~P.{d_W}f} AH "
+                f"({self.cnd_air_out.RH.to('pct'):~P.0f} RH)\n"
+                f"evp_Q_dot = {self.evp_Q_dot.to(u_Q_dot):~P.{d_Q_dot}f}\n"
+                f"cnd_Q_dot = {self.cnd_Q_dot.to(u_Q_dot):~P.{d_Q_dot}f}\n"
+                f"cmp_W_dot = {self.cmp_W_dot.to(u_W_dot):~P.{d_W_dot}f}\n"
+                f"rfg_m_dot = {self.rfg_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
+                f"COP = {self.COP.to('frac'):~P.3f}\n"
+                f"EER = {self.EER.to('frac'):~P.3f}\n"
+                f"evp_eps = {self.evp_eps.to('frac'):~P.4f}\n"
+                f"cnd_eps = {self.cnd_eps.to('frac'):~P.4f}\n"
+                f"T_evp = {self.T_evp.to(u_T):~P.{d_T}f}\n"
+                f"P_evp = {self.P_evp.to(u_P):~P.{d_P}f}\n"
+                f"T_cnd = {self.T_cnd.to(u_T):~P.{d_T}f}\n"
+                f"P_cnd = {self.P_cnd.to(u_P):~P.{d_P}f}\n"
+                f"dT_sc = {self.dT_sc.to(u_dT):~P.{d_dT}f}\n"
+                "suction_gas = "
+                f"{self.suction_gas.T.to(u_T):~P.{d_T}f}, "
+                f"{self.suction_gas.h.to(u_h):~P.{d_h}f}, "
+                f"{self.suction_gas.P.to(u_P):~P.{d_P}f}\n"
+                "discharge_gas = "
+                f"{self.discharge_gas.T.to(u_T):~P.{d_T}f}, "
+                f"{self.discharge_gas.h.to(u_h):~P.{d_h}f}, "
+                f"{self.discharge_gas.P.to(u_P):~P.{d_P}f}\n"
+                "liquid = "
+                f"{self.liquid.T.to(u_T):~P.{d_T}f}, "
+                f"{self.liquid.h.to(u_h):~P.{d_h}f}, "
+                f"{self.liquid.P.to(u_P):~P.{d_P}f}\n"
+                "mixture = "
+                f"{self.mixture.T.to(u_T):~P.{d_T}f}, "
+                f"{self.mixture.h.to(u_h):~P.{d_h}f}, "
+                f"{self.mixture.P.to(u_P):~P.{d_P}f}, "
+                f"{self.mixture.x.to('pct'):~P.0f}\n"
+            )
+            return output
+        else:
+            return 'None'
+
+
+class SingleStageVaporCompressionMachine:
+    """
+    Model class for a single-stage vapor compression machine.
+
+    Method `rate` can be used to retrieve the steady-state machine operation
+    at a given compressor speed and at given operating conditions on the air-side
+    of the evaporator and condenser. The method searches for the evaporation
+    and condensation temperature for which the mass flow rate let through by the
+    expansion device (to maintain the set degree of refrigerant superheating
+    at the evaporator outlet) balances with the mass flow rate of refrigerant
+    displaced by the compressor.
+
+    Method `balance_by_speed` can be used to retrieve the steady-state machine
+    operation at a given evaporation temperature and condensation temperature
+    and at given operating conditions on the air-side of the evaporator and
+    condenser. The method searches for the compressor speed for which the mass
+    flow rate let through by the expansion device (to maintain the set degree
+    of refrigerant superheating at the evaporator outlet) balances with the mass
+    flow rate of refrigerant displaced by the compressor. This method can only
+    be used if the compressor has a variable speed drive.
+    """
 
     def __init__(
         self,
+        evaporator: Evaporator,
+        condenser: Condenser,
         compressor: Compressor,
-        eps_con: Quantity,
-        air_in: HumidAir,
-        ma: Quantity
+        refrigerant: Fluid,
+        dT_sh: Quantity,
+        n_cmp_min: Quantity | None = None,
+        n_cmp_max: Quantity | None = None
     ) -> None:
         """
+        Creates a `SingleStageVaporCompressionMachine` object.
+
         Parameters
         ----------
-        compressor: Compressor
-            Model of the compressor.
-        eps_con: Quantity
-            Heat exchanger effectiveness of condenser.
-        air_in: HumidAir
-            State of air at condenser entrance.
-        ma: Quantity
+        evaporator:
+            A model instance of the evaporator.
+        condenser:
+            A model instance of the condenser.
+        compressor:
+            A model instance of the compressor.
+        refrigerant:
+            The type of refrigerant in the machine.
+        dT_sh:
+            The setting on the expansion device of the degree of refrigerant
+            superheating.
+        """
+        self.evaporator = evaporator
+        self.condenser = condenser
+        self.compressor = compressor
+        self.refrigerant = refrigerant
+        self.dT_sh = dT_sh
+        self.n_cmp_min = n_cmp_min
+        self.n_cmp_max = n_cmp_max
+
+        self.evp_air_in: HumidAir | None = None
+        self.evp_air_m_dot: Quantity | None = None
+        self.cnd_air_in: HumidAir | None = None
+        self.cnd_air_m_dot: Quantity | None = None
+        self.n_cmp: Quantity | None = None
+
+        self.output: Output | None = None
+
+    @staticmethod
+    def time_it(fun):
+        @functools.wraps(fun)
+        def wrapper(self, *args, **kwargs):
+            t_start = time.perf_counter()
+
+            output = fun(self, *args, **kwargs)
+
+            t_finish = time.perf_counter()
+            dt_exec = t_finish - t_start
+
+            logger.info(
+                f"Execution time: {dt_exec} seconds"
+            )
+
+            if output.success:
+                mb_err = self._check_mass_balance()
+                eb_err = self._check_energy_balance()
+                logger.info(
+                    "Error mass balance: "
+                    f"absolute error = {mb_err[0].to('kg / hr'):~P.3f}, "
+                    f"relative error = {mb_err[1].to('pct'):~P.2f}"
+                )
+                logger.info(
+                    "Error energy balance: "
+                    f"absolute error = {eb_err[0].to('kW'):~P.3f}, "
+                    f"relative error = {eb_err[1].to('pct'):~P.2f}"
+                )
+            return output
+        return wrapper
+
+    @time_it
+    def rate(
+        self,
+        evp_air_in: HumidAir,
+        evp_air_m_dot: Quantity,
+        cnd_air_in: HumidAir,
+        cnd_air_m_dot: Quantity,
+        n_cmp: Quantity | None = None,
+        T_evp_ini: Quantity | None = None,
+        T_cnd_ini: Quantity | None = None,
+        xa_tol: float | None = 1.0,
+        fa_tol: float | None = 0.5,
+        i_max: int = 50,
+    ) -> Output:
+        """
+        Determines the steady-state performance of the single-stage vapor
+        compression machine for the given operating conditions.
+
+        Parameters
+        ----------
+        evp_air_in:
+            State of air entering evaporator.
+        evp_air_m_dot:
+            Mass flow rate of air through evaporator.
+        cnd_air_in:
+            State of air entering condenser.
+        cnd_air_m_dot:
             Mass flow rate of air through condenser.
+        n_cmp: optional
+            Current compressor speed (only to be used with a variable speed
+            compressor).
+        T_evp_ini:
+            Optional, initial guess for the evaporation temperature.
+        T_cnd_ini:
+            Optional, initial guess for the condensation temperature.
+        xa_tol:
+            Absolute tolerance for the change in evaporation and condensation
+            temperature used in the minimization algorithm (see parameter
+            `xatol` in `scipy.optimize.minimize` with Nelder-Mead method).
+        fa_tol:
+            Absolute tolerance for the change in the function value used in the
+            minimization algorithm (see parameter `fatol` in
+            `scipy.optimize.minimize` with Nelder-Mead method).
+        i_max:
+            Maximum number of iterations and function evaluations used in the
+            minimization algorithm.
+
+        Returns
+        -------
+        Object of class `Output`.
+
+        Notes
+        -----
+        This method uses a minimization algorithm to determine the evaporation
+        and condensation temperature at steady-state machine operation under the
+        given operating conditions.
+        The algorithm tries to find an evaporation and condensation temperature
+        for which the difference becomes minimal between the mass flow rate of
+        refrigerant according to the compressor model and the mass flow rate
+        of refrigerant according to the evaporator model (where the expansion
+        device regulates the mass flow rate of refrigerant in order to maintain
+        the set degree of refrigerant superheating at the evaporator outlet).
         """
-        self.compressor = compressor
-        self.eps_con = eps_con
-        self.air_in = air_in
-        self.ma = ma
+        self._init(
+            evp_air_in, evp_air_m_dot,
+            cnd_air_in, cnd_air_m_dot,
+            n_cmp
+        )
 
-    def find_Tc(self, Te: Quantity, Tc_ini: Quantity) -> Quantity:
+        T_evp_ini = self._guess_initial_T_evp(T_evp_ini)
+        T_cnd_ini = self._guess_initial_T_cnd(T_cnd_ini)
+        bounds = self._get_physical_bounds()
+        counter = [0]
 
-        self.compressor.Te = Te
+        logger.info(
+            "Starting machine operation analysis..."
+        )
 
-        def eq(unknowns: np.ndarray) -> np.ndarray:
-            Tc = Q_(unknowns[0], 'K')
-            self.compressor.Tc = Tc
-            Qh_dot = self.compressor.Qh_dot
-            Tc_new = self.air_in.Tdb + Qh_dot / (self.ma * CP_HUMID_AIR * self.eps_con)
-            out = Tc_new.to('K') - Tc
-            return np.array([out.m])
+        try:
+            res = optimize.minimize(
+                self.__fun_rate__,
+                args=(counter,),
+                x0=np.array([T_evp_ini, T_cnd_ini]),
+                method='Nelder-Mead',
+                bounds=bounds,
+                options=dict(
+                    maxiter=i_max,
+                    maxfev=i_max,
+                    xatol=xa_tol,
+                    fatol=fa_tol
+                )
+            )
+        except Exception as err:
+            if isinstance(err, (CondenserError, EvaporatorError)):
+                logger.error("Operating state could not be determined.")
+            else:
+                logger.error(
+                    f'Analysis failed due to "{type(err).__name__}: {err}".'
+                )
+            self.output = Output(
+                evp_air_m_dot=self.evp_air_m_dot,
+                cnd_air_m_dot=self.cnd_air_m_dot,
+                evp_air_in=self.evp_air_in,
+                cnd_air_in=self.cnd_air_in,
+                n_cmp=self.n_cmp,
+                dT_sh=self.dT_sh
+            )
+            self.output.success = False
+            return self.output
+        else:
+            logger.info(
+                f"Analysis finished after {counter[0]} iterations with "
+                f"message: {res.message}"
+            )
+            logger.info(
+                f"T_evp = {res.x[0]}, T_cnd = {res.x[1]}"
+            )
+            self.output = Output(
+                evp_air_m_dot=self.evp_air_m_dot,
+                cnd_air_m_dot=self.cnd_air_m_dot,
+                evp_air_in=self.evp_air_in,
+                cnd_air_in=self.cnd_air_in,
+                n_cmp=self.n_cmp,
+                dT_sh=self.dT_sh,
+                evp_air_out=self.evaporator.air_out,
+                cnd_air_out=self.condenser.air_out,
+                evp_Q_dot=self.evaporator.Q_dot,
+                cnd_Q_dot=self.condenser.Q_dot,
+                cmp_W_dot=self.compressor.Wc_dot,
+                rfg_m_dot=self.compressor.m_dot,
+                T_evp=self.evaporator.T_evp,
+                P_evp=self.evaporator.P_evp,
+                T_cnd=self.condenser.T_cnd,
+                P_cnd=self.condenser.P_cnd,
+                dT_sc=self.condenser.dT_sc,
+                suction_gas=self.evaporator.rfg_out,
+                discharge_gas=self.condenser.rfg_in,
+                liquid=self.condenser.rfg_out,
+                mixture=self.evaporator.rfg_in,
+                COP=self.condenser.Q_dot / self.compressor.Wc_dot,
+                EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
+                evp_eps=self.evaporator.eps,
+                cnd_eps=self.condenser.eps
+            )
+            self.output.success = True
+            return self.output
 
-        roots = fsolve(eq, np.array([Tc_ini.to('K').m]))
-        Tc = Q_(roots[0], 'K')
-        return Tc
-
-
-class SimpleSingleStageVCM:
-
-    def __init__(
+    @time_it
+    def balance_by_speed(
         self,
-        compressor: Compressor,
-        eps_con: Quantity,
-        eps_eva: Quantity,
-        lt_ma: Quantity,
-        ht_ma: Quantity,
-        lt_air_in: Optional[HumidAir] = None,
-        ht_air_in: Optional[HumidAir] = None,
-    ) -> None:
+        evp_air_in: HumidAir,
+        evp_air_m_dot: Quantity,
+        cnd_air_in: HumidAir,
+        cnd_air_m_dot: Quantity,
+        T_evp: Quantity,
+        T_cnd: Quantity,
+        x_tol: float | None = 0.1,
+        r_tol: float | None = None,
+        i_max: int = 20
+    ) -> Output:
         """
+        Finds the compressor speed for which the mass flow rate of refrigerant
+        displaced by the compressor balances the mass flow rate of refrigerant
+        let through by the expansion device, while maintaining the set degree of
+        refrigerant superheating at the given evaporation and condensing
+        temperature.
+
         Parameters
         ----------
-        compressor: Compressor
-            Model of the compressor. Can be an instance of `FixSpeedCompressor`-
-            or `VariableSpeedCompressor`-class.
-        eps_con: Quantity
-            Heat exchanger effectiveness of condenser.
-        eps_eva: Quantity
-            Heat exchanger effectiveness of evaporator.
-        lt_ma: Quantity
-            Mass flow rate of low temperature air through evaporator.
-        ht_ma: Quantity
-            Mass flow rate of high temperature air through condenser.
-        lt_air_in: HumidAir, optional
-            State of low temperature inlet air at evaporator entrance.
-        ht_air_in: HumidAir, optional
-            State of high temperature inlet air at condenser entrance.
+        evp_air_in:
+            State of air entering evaporator.
+        evp_air_m_dot:
+            Mass flow rate of air through evaporator.
+        cnd_air_in:
+            State of air entering condenser.
+        cnd_air_m_dot:
+            Mass flow rate of air through condenser.
+        T_evp:
+            Evaporation temperature at which the mass flow rates must be
+            balanced.
+        T_cnd:
+            Condensing temperature at which the mass flow rates must be
+            balanced.
+        x_tol: optional
+            Absolute tolerance for root-finding algorithm
+            (`scipy.optimize.root_scalar` with 'brentq' method).
+        r_tol: optional
+            Relative tolerance for root-finding algorithm.
+        i_max: optional
+            Maximum number of iterations for root-finding algorithm
+
+        Notes
+        -----
+        This method can only be used with a variable speed compressor.
+        Also, the minimum and maximum compressor speed must have been set when
+        creating the `SingleStageVaporCompressionMachine` object.
+
+        Returns
+        -------
+        Object of class `Output`.
         """
-        self.compressor = compressor
-        self.eps_con = eps_con
-        self.eps_eva = eps_eva
-        self.lt_ma = lt_ma
-        self.ht_ma = ht_ma
-        self._lt_air_in = lt_air_in
-        self._ht_air_in = ht_air_in
-        if lt_air_in is not None and ht_air_in is not None:
-            Te_ini = lt_air_in.Tdb - Q_(10, 'K')
-            Tc_ini = ht_air_in.Tdb + Q_(10, 'K')
-            self._find_steady_equilibrium(Te_ini, Tc_ini)
+        c1 = isinstance(self.compressor, VariableSpeedCompressor)
+        c2 = (self.n_cmp_min is not None) and (self.n_cmp_max is not None)
+        if c1 and c2:
+            self._init(
+                evp_air_in, evp_air_m_dot,
+                cnd_air_in, cnd_air_m_dot,
+                T_evp=T_evp, T_cnd=T_cnd
+            )
+            # Find balanced speed between min and max compressor speed:
+            n_cmp_min = self.n_cmp_min.to('1 / min').m
+            n_cmp_max = self.n_cmp_max.to('1 / min').m
+            counter = [0]
+            try:
+                res = optimize.root_scalar(
+                    self.__fun_balance__,
+                    args=(counter,),
+                    method='brentq',
+                    bracket=(n_cmp_min, n_cmp_max),
+                    xtol=x_tol,
+                    rtol=r_tol,
+                    maxiter=i_max
+                )
+                self.n_cmp = Q_(res.root, '1 / min')
+            except Exception as err:
+                if isinstance(err, (CondenserError, EvaporatorError)):
+                    logger.error("Operating state could not be determined.")
+                elif isinstance(err, ValueError):
+                    logger.error(
+                        "No compressor speed can be found to establish the "
+                        "given evaporation temperature "
+                        f"{self.compressor.Te.to('degC'):~P.3f} and condensing "
+                        f"temperature {self.compressor.Tc.to('degC'):~P.3f} "
+                        f"under the given operating conditions."
+                    )
+                else:
+                    logger.error(
+                        f'Speed balancing failed due to '
+                        f'"{type(err).__name__}: {err}".'
+                    )
+                self.output = Output(
+                    evp_air_m_dot=self.evp_air_m_dot,
+                    cnd_air_m_dot=self.cnd_air_m_dot,
+                    evp_air_in=self.evp_air_in,
+                    cnd_air_in=self.cnd_air_in,
+                    n_cmp=self.n_cmp,
+                    dT_sh=self.dT_sh
+                )
+                self.output.success = False
+                return self.output
+            else:
+                logger.info(
+                    f"Speed balancing finished after {counter[0]} iterations with "
+                    f"message: {res.flag}"
+                )
+                self.output = Output(
+                    evp_air_m_dot=self.evp_air_m_dot,
+                    cnd_air_m_dot=self.cnd_air_m_dot,
+                    evp_air_in=self.evp_air_in,
+                    cnd_air_in=self.cnd_air_in,
+                    n_cmp=self.n_cmp,
+                    dT_sh=self.dT_sh,
+                    evp_air_out=self.evaporator.air_out,
+                    cnd_air_out=self.condenser.air_out,
+                    evp_Q_dot=self.evaporator.Q_dot,
+                    cnd_Q_dot=self.condenser.Q_dot,
+                    cmp_W_dot=self.compressor.Wc_dot,
+                    rfg_m_dot=self.compressor.m_dot,
+                    T_evp=self.evaporator.T_evp,
+                    P_evp=self.evaporator.P_evp,
+                    T_cnd=self.condenser.T_cnd,
+                    P_cnd=self.condenser.P_cnd,
+                    dT_sc=self.condenser.dT_sc,
+                    suction_gas=self.evaporator.rfg_out,
+                    discharge_gas=self.condenser.rfg_in,
+                    liquid=self.condenser.rfg_out,
+                    mixture=self.evaporator.rfg_in,
+                    COP=self.condenser.Q_dot / self.compressor.Wc_dot,
+                    EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
+                    evp_eps=self.evaporator.eps,
+                    cnd_eps=self.condenser.eps
+                )
+                self.output.success = True
+                return self.output
 
-    @property
-    def lt_air_in(self) -> HumidAir:
-        return self._lt_air_in
+    def __fun_rate__(self, unknowns: np.ndarray, counter: list[int]) -> float:
+        """
+        Calculates the deviation between the refrigerant mass flow rate let
+        through by the expansion device in order to maintain the set degree
+        of refrigerant superheating, and the refrigerant mass flow rate
+        generated by the compressor at the given evaporation temperature and
+        condensing temperature.
 
-    @lt_air_in.setter
-    def lt_air_in(self, lt_air_in: HumidAir) -> None:
-        """Set state of air at evaporator entrance."""
-        self._lt_air_in = lt_air_in
+        Parameters
+        ----------
+        unknowns:
+            Numpy array with two floats: the evaporation temperature, and the
+            condensing temperature.
+        counter:
+            List of a single int to count the number of calls to `__fun__`.
 
-    @property
-    def ht_air_in(self) -> HumidAir:
-        return self._ht_air_in
+        Notes
+        -----
+        This function should only be used internally in method `rate`.
+        """
+        i = counter[0]
+        T_evp = Q_(unknowns[0], 'degC')
+        T_cnd = Q_(unknowns[1], 'degC')
 
-    @ht_air_in.setter
-    def ht_air_in(self, ht_air_in: HumidAir) -> None:
-        """Set state of air at condenser entrance."""
-        self._ht_air_in = ht_air_in
+        logger.info(
+            f"Iteration {i + 1}: "
+            f"Try with: T_evp = {T_evp:~P.3f}, T_cnd = {T_cnd:~P.3f}"
+        )
 
-    @property
-    def speed(self) -> Optional[Quantity]:
-        if isinstance(self.compressor, VariableSpeedCompressor):
-            return self.compressor.speed
+        self.compressor.Te = T_evp
+        self.compressor.Tc = T_cnd
+        cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
+        dev = self._get_deviation(cmp_rfg_m_dot, i)
+        counter[0] += 1
+        return abs(dev)
+
+    def __fun_balance__(self, n_cmp: float, counter: list[int]) -> float:
+        """
+        Calculates the deviation between the refrigerant mass flow rate let
+        through by the expansion device in order to maintain the set degree
+        of refrigerant superheating, and the refrigerant mass flow rate
+        generated by the compressor at the given compressor speed.
+
+        Parameters
+        ----------
+        n_cmp:
+            Compressor speed
+        counter:
+            List of a single int to count the number of calls to `__fun__`.
+
+        Notes
+        -----
+        This function should only be used internally in method `balance_by_speed`.
+        """
+        i = counter[0]
+
+        logger.info(
+            f"Iteration {i + 1}: "
+            f"Try with: {n_cmp:.3f} rpm"
+        )
+
+        self.compressor.speed = Q_(n_cmp, '1 / min')
+        cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
+        dev = self._get_deviation(cmp_rfg_m_dot, i)
+        counter[0] += 1
+        return dev
+
+    def _init(
+        self,
+        evp_air_in: HumidAir,
+        evp_air_m_dot: Quantity,
+        cnd_air_in: HumidAir,
+        cnd_air_m_dot: Quantity,
+        n_cmp: Quantity | None = None,
+        T_evp: Quantity | None = None,
+        T_cnd: Quantity | None = None
+    ) -> None:
+        """
+        Sets the operating conditions of the machine, when calling method `rate`
+        or method `balance_by_speed`.
+        """
+        self.evp_air_in = evp_air_in
+        self.evp_air_m_dot = evp_air_m_dot
+        self.cnd_air_in = cnd_air_in
+        self.cnd_air_m_dot = cnd_air_m_dot
+        self.compressor.dT_sh = self.dT_sh
+        if isinstance(self.compressor, VariableSpeedCompressor) and n_cmp is not None:
+            self.n_cmp = self.compressor.speed = n_cmp
+        if T_evp is not None:
+            self.compressor.Te = T_evp
+        if T_cnd is not None:
+            self.compressor.Tc = T_cnd
+
+    def _guess_initial_T_evp(self, T_evp_ini: Quantity | None) -> float:
+        """
+        If the user does not provide an initial guess for the evaporation
+        temperature to method `rate`, an initial value of 20 K below the
+        temperature of the air entering the evaporator is taken.
+        """
+        if T_evp_ini is None:
+            dT = Q_(20, 'K')
+            T_evp = self.evp_air_in.Tdb - dT
+            return T_evp.to('degC').m
         else:
-            return None
+            return T_evp_ini.to('degC').m
 
-    @speed.setter
-    def speed(self, rpm: Quantity) -> None:
-        """Set compressor speed (in case `compressor` attribute is an instance
-        of `VariableSpeedCompressor`-class)."""
-        if isinstance(self.compressor, VariableSpeedCompressor):
-            self.compressor.speed = rpm
-
-    def simulate(self) -> None:
-        """Run the calculations to find evaporator temperature and condenser
-         temperature at the current set working conditions. Call this method after
-         first setting `lt_air_in`, `ht_air_in` and/or `rpm`."""
-        if self._lt_air_in is not None:
-            Te_ini = self._lt_air_in.Tdb - Q_(10, 'K')
+    def _guess_initial_T_cnd(self, T_cnd_ini: Quantity | None) -> float:
+        """
+        If the user does not provide an initial guess for the condensation
+        temperature to method `rate`, an initial value of 20 K above the
+        temperature of the air entering the condenser is taken.
+        """
+        if T_cnd_ini is None:
+            dT = Q_(20, 'K')
+            T_cnd = self.cnd_air_in.Tdb + dT
+            return T_cnd.to('degC').m
         else:
-            Te_ini = None
-        if self._ht_air_in is not None:
-            Tc_ini = self._ht_air_in.Tdb + Q_(10, 'K')
-        else:
-            Tc_ini = None
-        if Te_ini is not None and Tc_ini is not None:
-            self._find_steady_equilibrium(Te_ini, Tc_ini)
+            return T_cnd_ini.to('degC').m
 
-    def _find_steady_equilibrium(self, Te_ini: Quantity, Tc_ini: Quantity) -> None:
-        """Find evaporator and condenser temperature under the given working
-        conditions."""
+    def _get_physical_bounds(self) -> tuple[tuple[float, float], ...]:
+        """
+        Returns the lower and upper limit of the evaporation and condensation
+        temperature for use with the minimization algorithm in method `rate`.
+        The lower limit of the evaporation temperature is set to negative
+        infinity. Its upper limit is set to the temperature of the air entering
+        the evaporator.
+        The lower limit of the condensation temperature is set to the
+        temperature of the air entering the condenser. Its upper limit is set
+        1 K below the critical point temperature of the refrigerant.
+        """
+        T_crit = self.refrigerant.critical_point.T
+        T_cnd_min = self.cnd_air_in.Tdb.to('degC').m
+        T_cnd_max = (T_crit - Q_(1, 'K')).to('degC').m
+        T_evp_min = -np.inf  # °C
+        T_evp_max = self.evp_air_in.Tdb.to('degC').m
+        return (
+            (T_evp_min, T_evp_max),
+            (T_cnd_min, T_cnd_max)
+        )
 
-        def eq(unknowns: np.ndarray) -> np.ndarray:
-            Te = Q_(unknowns[0], 'K')
-            Tc = Q_(unknowns[1], 'K')
-            self.compressor.Te = Te
-            self.compressor.Tc = Tc
-            Qc_dot = self.compressor.Qc_dot
-            Qh_dot = self.compressor.Qh_dot
-            Te_new = self._get_Te(Qc_dot)
-            Tc_new = self._get_Tc(Qh_dot)
-            out1 = Te_new.to('K') - Te
-            out2 = Tc_new.to('K') - Tc
-            return np.array([out1.m, out2.m])
+    def _check_mass_balance(self) -> tuple[Quantity, Quantity]:
+        """
+        Returns the absolute error and relative error between the mass flow
+        rate of refrigerant according to the compressor model (computed by the
+        correlation in the compressor model with the resulting evaporation and
+        condensation temperature) and the mass flow rate of refrigerant
+        according to the evaporator model (computed by the evaporator model in
+        order to maintain the degree of superheat set on the expansion device).
+        The relative error is the ratio of the absolute error to the mass flow
+        rate of refrigerant according to the compressor model. It expresses
+        the deviation of the refrigerant mass flow rate according to the
+        evaporator model with respect to the refrigerant mass flow rate according
+        to the compressor model as a fraction (percentage).
+        """
+        abs_err = abs(self.evaporator.rfg_m_dot - self.compressor.m_dot)
+        rel_err = abs_err / abs(self.compressor.m_dot)
+        return abs_err, rel_err.to('pct')
 
-        roots = fsolve(eq, np.array([Te_ini.to('K').m, Tc_ini.to('K').m]))
-        Te = Q_(roots[0], 'K')
-        Tc = Q_(roots[1], 'K')
-        self.compressor.Te = Te
-        self.compressor.Tc = Tc
+    def _check_energy_balance(self) -> tuple[Quantity, Quantity]:
+        """
+        Returns the absolute error and relative error between the
+        refrigeration capacity (heat absorption rate) according to the
+        condensing unit model (computed by taking the difference between the
+        heat rejection rate of the condenser and the compressor power) and
+        the refrigeration capacity according to the evaporator model.
+        The relative error is the ratio of the absolute error to the
+        refrigeration capacity according to the compressor model. It expresses
+        the deviation of the refrigeration capacity according to the evaporator
+        model with respect to the refrigeration capacity according to the
+        compressor model as a fraction (percentage).
+        """
+        Q_evp_cmp_model = self.condenser.Q_dot - self.compressor.Wc_dot
+        Q_evp_evp_model = self.evaporator.Q_dot
+        abs_err = abs(Q_evp_evp_model - Q_evp_cmp_model)
+        rel_err = abs_err / abs(Q_evp_cmp_model)
+        return abs_err, rel_err.to('pct')
 
-    def _get_Te(self, Qc_dot: Quantity) -> Quantity:
-        """Find evaporator temperature for given cooling capacity `Qc_dot` and
-        for given conditions at evaporator set at instantiation of the
-        `VaporCompressionSystem`-object."""
-        ha_sat = self._lt_air_in.h - Qc_dot / (self.eps_eva * self.lt_ma)
-        Te = HumidAir(h=ha_sat, RH=Q_(100, 'pct')).Tdb
-        return Te
+    def _get_deviation(self, cmp_rfg_m_dot: Quantity, i: int) -> float:
+        """
+        Calculates the deviation in a single cycle between the mass flow rate
+        of refrigerant let through by the expansion device (to maintain the set
+        degree of refrigerant superheating at the evaporator outlet) and the
+        mass flow rate of refrigerant displaced by the compressor.
 
-    def _get_Tc(self, Qh_dot: Quantity) -> Quantity:
-        """Find condenser temperature for given condenser capacity `Qh_dot` and
-        for given conditions at condenser set at instantiation of the
-        `VaporCompressionSystem`-object."""
-        Tc = self._ht_air_in.Tdb + Qh_dot / (self.ht_ma * CP_HUMID_AIR * self.eps_con)
-        return Tc
+        Returns
+        -------
+        The value (float) of the deviation expressed in units kg/h.
+        """
+        logger.info(
+            f"Iteration {i + 1}: "
+            "Refrigerant mass flow rate from compressor = "
+            f"{cmp_rfg_m_dot:~P.3f}"
+        )
 
-    @property
-    def Qc_dot(self) -> Quantity:
-        """Get cooling capacity of vapor compression system under the conditions
-        set at instantiation of the `VaporCompressionSystem`-object."""
-        return self.compressor.Qc_dot
+        cnd_rfg_in = self.compressor.discharge_gas
 
-    @property
-    def Wc_dot(self) -> Quantity:
-        """Get compressor input power under the conditions set at instantiation
-        of the `VaporCompressionSystem`-object."""
-        return self.compressor.Wc_dot
+        logger.info(
+            f"Iteration {i + 1}: "
+            "Refrigerant entering condenser with "
+            f"T = {cnd_rfg_in.T.to('degC'):~P.3f}, "
+            f"P = {cnd_rfg_in.P.to('bar'):~P.3f}"
+        )
 
-    @property
-    def m_dot(self) -> Quantity:
-        """Get refrigerant mass flow rate under the conditions set at
-        instantiation of the `VaporCompressionSystem`-object."""
-        return self.compressor.m_dot
+        try:
+            self.condenser.solve(
+                air_in=self.cnd_air_in,
+                air_m_dot=self.cnd_air_m_dot,
+                rfg_in=cnd_rfg_in,
+                rfg_m_dot=cmp_rfg_m_dot
+            )
+        except CondenserError as err:
+            logger.error(
+                f"Iteration {i + 1}: "
+                f"{type(err).__name__}: {err}"
+            )
+            raise err
 
-    @property
-    def Qh_dot(self) -> Quantity:
-        """Get condenser heat rejection under the conditions
-        set at instantiation of the `VaporCompressionSystem`-object."""
-        return self.compressor.Qh_dot
+        logger.info(
+            f"Iteration {i + 1}: "
+            "Refrigerant leaving condenser with "
+            f"T = {self.condenser.rfg_out.T.to('degC'):~P.3f}, "
+            f"P = {self.condenser.rfg_out.P.to('bar'):~P.3f}"
+        )
 
-    @property
-    def COP(self) -> Quantity:
-        """Get COP of vapor compression system under the conditions
-        set at instantiation of the `VaporCompressionSystem`-object."""
-        return self.compressor.COP
+        evp_rfg_in = self.refrigerant(
+            h=self.condenser.rfg_out.h,
+            P=self.compressor.Pe
+        )
 
-    @property
-    def Te(self) -> Quantity:
-        """Get evaporator temperature of vapor compression system under the
-        conditions set at instantiation of the `VaporCompressionSystem`-object."""
-        return self.compressor.Te
+        logger.info(
+            f"Iteration {i + 1}: "
+            "Refrigerant entering evaporator with "
+            f"T = {evp_rfg_in.T.to('degC'):~P.3f}, "
+            f"P = {evp_rfg_in.P.to('bar'):~P.3f}, "
+            f"x = {evp_rfg_in.x.to('pct'):~P.3f}"
+        )
 
-    @property
-    def Tc(self) -> Quantity:
-        """Get condenser temperature of vapor compression system under the
-        conditions set at instantiation of the `VaporCompressionSystem`-object."""
-        return self.compressor.Tc
+        try:
+            self.evaporator.solve(
+                air_in=self.evp_air_in,
+                air_m_dot=self.evp_air_m_dot,
+                rfg_in=evp_rfg_in,
+                dT_sh=self.dT_sh,
+                rfg_m_dot_ini=cmp_rfg_m_dot
+            )
+        except EvaporatorError as err:
+            logger.error(
+                f"Iteration {i + 1}: "
+                f"{type(err).__name__}: {err}"
+            )
+            raise err
 
-    @property
-    def suction_gas(self) -> FluidState:
-        """Get state of suction gas under the conditions set at instantiation
-        of the `VaporCompressionSystem`-object."""
-        return self.compressor.suction_gas
+        logger.info(
+            f"Iteration {i + 1}: "
+            "Refrigerant leaving evaporator with "
+            f"T = {self.evaporator.rfg_out.T.to('degC'):~P.3f}, "
+            f"P = {self.evaporator.rfg_out.P.to('bar'):~P.3f}"
+        )
 
-    @property
-    def discharge_gas(self) -> FluidState:
-        """Get state of discharge gas under the conditions set at instantiation
-        of the `VaporCompressionSystem`-object."""
-        return self.compressor.discharge_gas
+        evp_rfg_m_dot = self.evaporator.rfg_m_dot.to('kg / hr')
 
-    @property
-    def liquid(self) -> FluidState:
-        """Get state of liquid under the conditions set at instantiation
-        of the `VaporCompressionSystem`-object."""
-        return self.compressor.liquid
+        logger.info(
+            f"Iteration {i + 1}: "
+            "Refrigerant mass flow rate through evaporator = "
+            f"{evp_rfg_m_dot.to('kg / hr'):~P.3f}"
+        )
 
-    @property
-    def mixture(self) -> FluidState:
-        """Get state of mixture under the conditions set at instantiation
-        of the `VaporCompressionSystem`-object."""
-        return self.compressor.mixture
+        dev = evp_rfg_m_dot - cmp_rfg_m_dot
 
-    @property
-    def isentropic_efficiency(self) -> Quantity:
-        """Get the isentropic efficiency of the compressor."""
-        return self.compressor.eta_is
+        logger.info(
+            f"Iteration {i + 1}: "
+            "Deviation between refrigerant mass flow rates = "
+            f"{dev:~P.3f}"
+        )
 
-    @property
-    def super_heat(self) -> Quantity:
-        """Get the degree of superheat of the suction gas."""
-        return self.compressor.dT_sh
+        return dev.magnitude
 
-    @property
-    def sub_cooling(self) -> Quantity:
-        """Get the degree of subcooling of the liquid at the inlet of
-        the expansion device."""
-        return self.compressor.dT_sc
+    def test_rate(
+        self,
+        evp_air_in: HumidAir,
+        evp_air_m_dot: Quantity,
+        cnd_air_in: HumidAir,
+        cnd_air_m_dot: Quantity,
+        n_cmp: Quantity | None = None,
+        T_evp: Quantity | None = None,
+        T_cnd: Quantity | None = None
+    ) -> float:
+        """
+        For the given operating conditions, returns the absolute value of the
+        deviation between the mass flow rate let through by the expansion device
+        (to maintain the set degree of refrigerant superheating at the
+        evaporator outlet) and the mass flow rate of refrigerant displaced by
+        the compressor.
+        """
+        self._init(
+            evp_air_in, evp_air_m_dot,
+            cnd_air_in, cnd_air_m_dot,
+            n_cmp
+        )
+        counter = [0]
+        T_evp = self._guess_initial_T_evp(T_evp)
+        T_cnd = self._guess_initial_T_cnd(T_cnd)
+        unknowns = np.array([T_evp, T_cnd])
+        dev = self.__fun_rate__(unknowns, counter)
+        return dev

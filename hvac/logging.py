@@ -26,7 +26,7 @@ class ModuleLogger:
         return console_handler
 
     @classmethod
-    def create_file_handler(cls, file_path: str, log_level: int | None = None) -> FileHandler:
+    def create_file_handler(cls, file_path: Path | str, log_level: int | None = None) -> FileHandler:
         # Create a log handler that logs records to a file.
         file_handler = logging.FileHandler(file_path, mode='a', encoding='utf-8')
         file_handler.setFormatter(cls.FORMATTER)
@@ -42,7 +42,7 @@ class ModuleLogger:
     def get_logger(
         cls,
         logger_name: str,
-        file_path: str | None = None,
+        file_path: Path | str | None = None,
         log_level: int = logging.DEBUG
     ) -> Logger:
         """Returns a logger with `logger_name`. If a logger with `logger_name`

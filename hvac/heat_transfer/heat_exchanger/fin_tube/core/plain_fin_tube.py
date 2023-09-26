@@ -97,7 +97,7 @@ class PlainFinTubeHeatExchangerCore:
         N_r: optional
             Number of rows.
         """
-        # Create the internal heat transfer surface.
+        # Create the internal heat transfer surface:
         if condensing:
             self.internal_surface = _InternalCondensingHeatTransferSurface(
                 parent=self,
@@ -129,7 +129,7 @@ class PlainFinTubeHeatExchangerCore:
                 ),
                 tube_length=kwargs.get('int_tube_length')
             )
-        # Create the external heat transfer surface.
+        # Create the external heat transfer surface:
         self.external_surface = _ExternalSinglePhaseHeatTransferSurface(
             parent=self,
             geometry=geometry.PlainFinStaggeredTBO(
@@ -144,7 +144,7 @@ class PlainFinTubeHeatExchangerCore:
         # Set L2 if the number of rows is specified:
         if N_r is not None:
             self.L2 = N_r * S_l
-        # Initialize internal variables.
+        # Initialize internal attributes:
         self._T_wall: Quantity | None = None
 
     @property

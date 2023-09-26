@@ -1,9 +1,10 @@
-"""Rating of a plain finned tube cross flow heat exchanger with single-phase
+"""
+Rating of a plain finned tube cross-flow heat exchanger with single-phase
 fluids.
 
 References
 ----------
-[1] Shah, R. K., & Sekulic, D. P. (2003). Fundamentals of Heat Exchanger Design.
+[1] Shah, R. K., & Sekulic, D. P. (2003). Fundamentals of Heat Exchanger Design.
     John Wiley & Sons. (§ 9.2.1 and § 9.3).
 """
 from hvac import Quantity

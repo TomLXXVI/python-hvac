@@ -1,9 +1,10 @@
-"""Sizing of a plain flat finned tube counterflow or cross flow heat exchanger
+"""
+Sizing of a plain flat finned tube counterflow or crossflow heat exchanger
 for single-phase fluids.
 
 References
 ----------
-[1] Shah, R. K., & Sekulic, D. P. (2003). Fundamentals of Heat Exchanger Design.
+[1] Shah, R. K., & Sekulic, D. P. (2003). Fundamentals of Heat Exchanger Design.
     John Wiley & Sons. (§ 9.2.2 and § 9.3).
 """
 import numpy as np

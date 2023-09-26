@@ -1,12 +1,11 @@
-from .air_evaporator import (
-    PlainFinTubeCounterFlowEvaporator,
-    DXAirCoolingCoil
+from .core import (
+    PlainFinTubeHeatExchangerCore
 )
 
 from .air_condenser import (
-    PlainFinTubeCounterFlowCondenser
+    PlainFinTubeCounterFlowAirCondenser
 )
 
-from .core import (
-    PlainFinTubeHeatExchangerCore
+from .air_evaporator import (
+    PlainFinTubeCounterFlowAirEvaporator
 )

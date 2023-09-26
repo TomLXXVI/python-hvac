@@ -1,7 +1,0 @@
-from .plain_fin_tube_superheat_evaporator import PlainFinTubeCounterFlowSuperheatEvaporator
-from .plain_fin_tube_boiling_evaporator import PlainFinTubeCounterFlowBoilingEvaporator
-from .plain_fin_tube_evaporator import PlainFinTubeCounterFlowEvaporator
-
-PFT_CO_SH_EVP = PlainFinTubeCounterFlowSuperheatEvaporator
-PFT_CO_BO_EVP = PlainFinTubeCounterFlowBoilingEvaporator
-PFT_CO_EVP = PlainFinTubeCounterFlowEvaporator

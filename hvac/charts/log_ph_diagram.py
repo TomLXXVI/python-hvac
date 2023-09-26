@@ -136,9 +136,14 @@ class LogPhDiagram:
 
         fig, axis = plt.subplots(figsize=size, dpi=dpi, layout='constrained')
 
-        self._propertyPlot = PropertyPlot(self.refrigerant.coolprop_abstract_state, 'PH', unit_system='EUR')
+        self._propertyPlot = PropertyPlot(
+            self.refrigerant.coolprop_abstract_state,
+            'PH',
+            unit_system='EUR'
+        )
 
-        # Close the figure made by `PropertyPlot` and pass it our own `Figure` and `Axis` object.
+        # Close the figure made by `PropertyPlot` and pass it our own `Figure`
+        # and `Axis` object.
         plt.close(self._propertyPlot.figure)
         self._propertyPlot.figure = fig
         self._propertyPlot.axis = axis
@@ -155,8 +160,11 @@ class LogPhDiagram:
         """Pass a `StandardVaporCompressionCycle` instance to draw this cycle on
         the log(P)-h diagram."""
         self.cycle = cycle
-
-        self._scc_cycle = SimpleCompressionCycle(self.refrigerant.coolprop_abstract_state, 'PH', unit_system='EUR')
+        self._scc_cycle = SimpleCompressionCycle(
+            self.refrigerant.coolprop_abstract_state,
+            'PH',
+            unit_system='EUR'
+        )
         self._scc_cycle.simple_solve(
             T0=cycle.suctionGas.T.to('K').magnitude,
             p0=cycle.suctionGas.P.to('Pa').magnitude,
@@ -166,7 +174,6 @@ class LogPhDiagram:
         )
         self._scc_cycle.steps = 50
         self._stateContainer = self._scc_cycle.get_state_changes()
-
         plt.close(self._scc_cycle.figure)
 
     def show(self):

@@ -1,13 +1,13 @@
-"""Analysis of the refrigeration capacity of a condensing unit.
+"""ANALYSIS OF THE REFRIGERATION CAPACITY OF A CONDENSING UNIT.
 
 A condensing unit is a combination of a compressor and condenser. In the
-analysis of a condensing unit the steady-state performance is determined for
+analysis of a condensing unit, the steady-state performance is determined for
 a range of condensing temperatures, while the evaporation temperature remains
 constant. Other operating conditions remain fixed (compressor speed, degree
-of superheat set on expansion device, state and mass flow rate of air entering
-condenser).
+of superheat set on the expansion device, state and mass flow rate of air
+entering the condenser).
 
-For the implementation of the analysis multiprocessing is applied using the
+For the implementation of the analysis, multiprocessing is applied using the
 `ProcessPoolExecutor` class from `concurrent.futures`. The analysis for each
 pair of evaporating and condensing temperatures runs parallel in a separate
 process.
@@ -22,19 +22,25 @@ from hvac import Quantity
 from hvac.logging import ModuleLogger
 from hvac.charts import LineChart
 from hvac.fluids import Fluid, HumidAir, CoolPropWarning
-from hvac.heat_transfer.heat_exchanger.fin_tube import air_condenser, air_evaporator
-from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
+from hvac.heat_transfer.heat_exchanger.fin_tube import (
+    PlainFinTubeCounterFlowAirEvaporator,
+    PlainFinTubeCounterFlowAirCondenser
+)
+from hvac.vapor_compression import (
+    VariableSpeedCompressor,
+    FixedSpeedCompressor
+)
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 warnings.filterwarnings('ignore', category=CoolPropWarning)
-warnings.filterwarnings('ignore', category=air_condenser.CondenserWarning)
+
 
 logger = ModuleLogger.get_logger(__name__)
 
 Q_ = Quantity
 
-Evaporator = air_evaporator.rating.PlainFinTubeCounterFlowEvaporator
-Condenser = air_condenser.rating.PlainFinTubeCounterFlowCondenser
+Evaporator = PlainFinTubeCounterFlowAirEvaporator
+Condenser = PlainFinTubeCounterFlowAirCondenser
 Compressor = VariableSpeedCompressor | FixedSpeedCompressor
 R134a = Fluid('R134a')
 
@@ -51,7 +57,7 @@ class CondensingUnit:
         air_in: HumidAir,
         m_dot_air: Quantity
     ) -> None:
-        """Creates instance of `CondensingUnit` class.
+        """Creates an instance of the `CondensingUnit` class.
 
         Parameters
         ----------
@@ -102,39 +108,26 @@ class CondensingUnit:
         # compressor to determine the state of the suction gas entering the
         # compressor and the state of the discharge gas leaving the compressor.
         # Determine performance of condenser:
-        self.condenser(
-            m_dot_air=self.m_dot_air,
-            m_dot_rfg=self.compressor.m_dot,
+        self.condenser.solve(
+            air_m_dot=self.m_dot_air,
+            rfg_m_dot=self.compressor.m_dot,
             air_in=self.air_in,
             rfg_in=self.compressor.discharge_gas
         )
         return self.compressor.Wc_dot, self.condenser.Q_dot
 
 
-# Evaporator model:
-evaporator = Evaporator(
-    L1=Q_(0.731, 'm'),
-    L3=Q_(0.244, 'm'),
-    N_r=3,
-    S_t=Q_(25.4, 'mm'),
-    S_l=Q_(22.0, 'mm'),
-    D_i=Q_(8.422, 'mm'),
-    D_o=Q_(10.2, 'mm'),
-    t_f=Q_(0.3302, 'mm'),
-    N_f=1 / Q_(3.175, 'mm')
-)
-
 # Condenser model:
 condenser = Condenser(
-    L1=Q_(0.999, 'm'),
-    L3=Q_(0.333, 'm'),
-    N_r=5,
-    S_t=Q_(25.4, 'mm'),
-    S_l=Q_(22.0, 'mm'),
-    D_i=Q_(8.422, 'mm'),
-    D_o=Q_(10.2, 'mm'),
-    t_f=Q_(0.3302, 'mm'),
-    N_f=1 / Q_(3.175, 'mm')
+    W_fro=Q_(0.999, 'm'),
+    H_fro=Q_(0.333, 'm'),
+    N_rows=5,
+    S_trv=Q_(25.4, 'mm'),
+    S_lon=Q_(22.0, 'mm'),
+    D_int=Q_(8.422, 'mm'),
+    D_ext=Q_(10.2, 'mm'),
+    t_fin=Q_(0.3302, 'mm'),
+    N_fin=1 / Q_(3.175, 'mm')
 )
 
 # Compressor model:
@@ -158,7 +151,9 @@ condensing_unit = CondensingUnit(
 def task(T_evp: Quantity, T_cnd: Quantity) -> Quantity:
     """Runs the analysis of the condensing unit for the given evaporating
     temperature `T_evp` and condensing temperature `T_cnd` and returns the
-    refrigeration capacity of the condensing unit.
+    refrigeration capacity of the condensing unit, being the heat rejection
+    rate in the condenser minus the mechanical power added to the refrigerant
+    by the compressor.
     """
     global condensing_unit
     logger.info(f"Running task with T_evp {T_evp:~P.2f} and T_cnd {T_cnd:~P.2f}")
@@ -186,10 +181,10 @@ if __name__ == '__main__':
     # of the condensing unit in a separate process:
     with ProcessPoolExecutor() as executor:
         for r in executor.map(task, T_evp_rng, T_cnd_rng):
-            Q_evp_rng.append(r) # collect the refrigeration capacities
+            Q_evp_rng.append(r)  # collect the refrigeration capacities
 
-    # Process the results --> We want to see the refrigeration capacity as a
-    # function of the condensation temperature:
+    # Process the results --> We want to see the refrigeration capacity of the
+    # condensing unit as a function of the condensation temperature:
     d = {
         'T_cnd': [T_cnd.to('degC').m for T_cnd in T_cnd_rng],
         'Q_evp': [Q_evp.to('kW').m for Q_evp in Q_evp_rng]
