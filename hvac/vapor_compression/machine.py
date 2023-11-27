@@ -39,9 +39,9 @@ class Output:
     Dataclass for grouping the simulation results to be returned when
     a simulation is finished.
     """
-    evp_air_m_dot: Quantity
+    evp_air_m_dot: Quantity | None
     cnd_air_m_dot: Quantity
-    evp_air_in: HumidAir
+    evp_air_in: HumidAir | None
     cnd_air_in: HumidAir
     n_cmp: Quantity
     dT_sh: Quantity
@@ -64,7 +64,9 @@ class Output:
     cnd_eps: Quantity | None = None
     COP: Quantity | None = None
     EER: Quantity | None = None
-    
+    evp_air_dP: Quantity | None = None
+    cnd_air_dP: Quantity | None = None
+
     def __post_init__(self):
         self.units: dict[str, tuple[str, int]] = {
             'm_dot': ('kg / hr', 3),
@@ -74,7 +76,8 @@ class Output:
             'dT': ('K', 3),
             'Q_dot': ('kW', 3),
             'W_dot': ('kW', 3),
-            'P': ('bar', 3),
+            'P_rfg': ('bar', 3),
+            'P_air': ('Pa', 3),
             'h': ('kJ / kg', 3)
         }
         self.success: bool = False
@@ -92,7 +95,8 @@ class Output:
         u_dT, d_dT = self.units['dT']
         u_Q_dot, d_Q_dot = self.units['Q_dot']
         u_W_dot, d_W_dot = self.units['W_dot']
-        u_P, d_P = self.units['P']
+        u_P_rfg, d_P_rfg = self.units['P_rfg']
+        u_P_air, d_P_air = self.units['P_air']
         u_h, d_h = self.units['h']
 
         if self.success:
@@ -122,23 +126,25 @@ class Output:
                 'evp_eps': self.evp_eps.to('frac').m,
                 'cnd_eps': self.cnd_eps.to('frac').m,
                 'T_evp': self.T_evp.to(u_T).m,
-                'P_evp': self.P_evp.to(u_P).m,
+                'P_evp': self.P_evp.to(u_P_rfg).m,
                 'T_cnd': self.T_cnd.to(u_T).m,
-                'P_cnd': self.P_cnd.to(u_P).m,
+                'P_cnd': self.P_cnd.to(u_P_rfg).m,
                 'dT_sc': self.dT_sc.to(u_dT).m,
                 'T_suction_gas': self.suction_gas.T.to(u_T).m,
-                'P_suction_gas': self.suction_gas.P.to(u_P).m,
+                'P_suction_gas': self.suction_gas.P.to(u_P_rfg).m,
                 'h_suction_gas': self.suction_gas.h.to(u_h).m,
                 'T_discharge_gas': self.discharge_gas.T.to(u_T).m,
-                'P_discharge_gas': self.discharge_gas.P.to(u_P).m,
+                'P_discharge_gas': self.discharge_gas.P.to(u_P_rfg).m,
                 'h_discharge_gas': self.discharge_gas.h.to(u_h).m,
                 'T_liquid': self.liquid.T.to(u_T).m,
-                'P_liquid': self.liquid.P.to(u_P).m,
+                'P_liquid': self.liquid.P.to(u_P_rfg).m,
                 'h_liquid': self.liquid.h.to(u_h).m,
                 'T_mixture': self.mixture.T.to(u_T).m,
-                'P_mixture': self.mixture.P.to(u_P).m,
+                'P_mixture': self.mixture.P.to(u_P_rfg).m,
                 'h_mixture': self.mixture.h.to(u_h).m,
-                'x_mixture': self.mixture.x.to('pct').m
+                'x_mixture': self.mixture.x.to('pct').m,
+                'evp_air_dP': self.evp_air_dP.to(u_P_air).m,
+                'cnd_air_dP': self.cnd_air_dP.to(u_P_air).m
             }
         else:
             d = {
@@ -183,7 +189,9 @@ class Output:
                 'T_mixture': float('nan'),
                 'P_mixture': float('nan'),
                 'h_mixture': float('nan'),
-                'x_mixture': float('nan')
+                'x_mixture': float('nan'),
+                'evp_air_dP': float('nan'),
+                'cnd_air_dP': float('nan')
             }
         return d
 
@@ -196,61 +204,106 @@ class Output:
             u_dT, d_dT = self.units['dT']
             u_Q_dot, d_Q_dot = self.units['Q_dot']
             u_W_dot, d_W_dot = self.units['W_dot']
-            u_P, d_P = self.units['P']
+            u_P_rfg, d_P_rfg = self.units['P_rfg']
+            u_P_air, d_P_air = self.units['P_air']
             u_h, d_h = self.units['h']
 
-            output = (
-                f"evp_air_m_dot = {self.evp_air_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
-                f"cnd_air_m_dot = {self.cnd_air_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
-                "evp_air_in = "
-                f"{self.evp_air_in.Tdb.to(u_T):~P.{d_T}f} DB, "
-                f"{self.evp_air_in.W.to(u_W):~P.{d_W}f} AH "
-                f"({self.evp_air_in.RH.to('pct'):~P.0f} RH)\n"
-                "cnd_air_in = "
-                f"{self.cnd_air_in.Tdb.to(u_T):~P.{d_T}f} DB, "
-                f"{self.cnd_air_in.W.to(u_W):~P.{d_W}f} AH "
-                f"({self.cnd_air_in.RH.to('pct'):~P.0f} RH)\n"
-                f"n_cmp = {self.n_cmp.to(u_n):~P.{d_n}f}\n"
-                f"dT_sh = {self.dT_sh.to(u_dT):~P.{d_dT}f}\n"
-                "evp_air_out = "
-                f"{self.evp_air_out.Tdb.to(u_T):~P.{d_T}f} DB, "
-                f"{self.evp_air_out.W.to(u_W):~P.{d_W}f} AH "
-                f"({self.evp_air_out.RH.to('pct'):~P.0f} RH)\n"
-                "cnd_air_out = "
-                f"{self.cnd_air_out.Tdb.to(u_T):~P.{d_T}f} DB, "
-                f"{self.cnd_air_out.W.to(u_W):~P.{d_W}f} AH "
-                f"({self.cnd_air_out.RH.to('pct'):~P.0f} RH)\n"
-                f"evp_Q_dot = {self.evp_Q_dot.to(u_Q_dot):~P.{d_Q_dot}f}\n"
-                f"cnd_Q_dot = {self.cnd_Q_dot.to(u_Q_dot):~P.{d_Q_dot}f}\n"
-                f"cmp_W_dot = {self.cmp_W_dot.to(u_W_dot):~P.{d_W_dot}f}\n"
-                f"rfg_m_dot = {self.rfg_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
-                f"COP = {self.COP.to('frac'):~P.3f}\n"
-                f"EER = {self.EER.to('frac'):~P.3f}\n"
-                f"evp_eps = {self.evp_eps.to('frac'):~P.4f}\n"
-                f"cnd_eps = {self.cnd_eps.to('frac'):~P.4f}\n"
-                f"T_evp = {self.T_evp.to(u_T):~P.{d_T}f}\n"
-                f"P_evp = {self.P_evp.to(u_P):~P.{d_P}f}\n"
-                f"T_cnd = {self.T_cnd.to(u_T):~P.{d_T}f}\n"
-                f"P_cnd = {self.P_cnd.to(u_P):~P.{d_P}f}\n"
-                f"dT_sc = {self.dT_sc.to(u_dT):~P.{d_dT}f}\n"
-                "suction_gas = "
-                f"{self.suction_gas.T.to(u_T):~P.{d_T}f}, "
-                f"{self.suction_gas.h.to(u_h):~P.{d_h}f}, "
-                f"{self.suction_gas.P.to(u_P):~P.{d_P}f}\n"
-                "discharge_gas = "
-                f"{self.discharge_gas.T.to(u_T):~P.{d_T}f}, "
-                f"{self.discharge_gas.h.to(u_h):~P.{d_h}f}, "
-                f"{self.discharge_gas.P.to(u_P):~P.{d_P}f}\n"
-                "liquid = "
-                f"{self.liquid.T.to(u_T):~P.{d_T}f}, "
-                f"{self.liquid.h.to(u_h):~P.{d_h}f}, "
-                f"{self.liquid.P.to(u_P):~P.{d_P}f}\n"
-                "mixture = "
-                f"{self.mixture.T.to(u_T):~P.{d_T}f}, "
-                f"{self.mixture.h.to(u_h):~P.{d_h}f}, "
-                f"{self.mixture.P.to(u_P):~P.{d_P}f}, "
-                f"{self.mixture.x.to('pct'):~P.0f}\n"
-            )
+            output = ''
+            if self.evp_air_m_dot is not None:
+                output += f"evp_air_m_dot = {self.evp_air_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
+            if self.cnd_air_m_dot is not None:
+                output += f"cnd_air_m_dot = {self.cnd_air_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
+            if self.evp_air_in is not None:
+                output += (
+                    "evp_air_in = "
+                    f"{self.evp_air_in.Tdb.to(u_T):~P.{d_T}f} DB, "
+                    f"{self.evp_air_in.W.to(u_W):~P.{d_W}f} AH "
+                    f"({self.evp_air_in.RH.to('pct'):~P.0f} RH)\n"
+                )
+            if self.cnd_air_in is not None:
+                output += (
+                    "cnd_air_in = "
+                    f"{self.cnd_air_in.Tdb.to(u_T):~P.{d_T}f} DB, "
+                    f"{self.cnd_air_in.W.to(u_W):~P.{d_W}f} AH "
+                    f"({self.cnd_air_in.RH.to('pct'):~P.0f} RH)\n"
+                )
+            if self.n_cmp is not None:
+                output += f"n_cmp = {self.n_cmp.to(u_n):~P.{d_n}f}\n"
+            if self.dT_sh is not None:
+                output += f"dT_sh = {self.dT_sh.to(u_dT):~P.{d_dT}f}\n"
+            if self.evp_air_out is not None:
+                output += (
+                    "evp_air_out = "
+                    f"{self.evp_air_out.Tdb.to(u_T):~P.{d_T}f} DB, "
+                    f"{self.evp_air_out.W.to(u_W):~P.{d_W}f} AH "
+                    f"({self.evp_air_out.RH.to('pct'):~P.0f} RH)\n"
+                )
+            if self.cnd_air_out is not None:
+                output += (
+                    "cnd_air_out = "
+                    f"{self.cnd_air_out.Tdb.to(u_T):~P.{d_T}f} DB, "
+                    f"{self.cnd_air_out.W.to(u_W):~P.{d_W}f} AH "
+                    f"({self.cnd_air_out.RH.to('pct'):~P.0f} RH)\n"
+                )
+            if self.evp_Q_dot is not None:
+                output += f"evp_Q_dot = {self.evp_Q_dot.to(u_Q_dot):~P.{d_Q_dot}f}\n"
+            if self.cnd_Q_dot is not None:
+                output += f"cnd_Q_dot = {self.cnd_Q_dot.to(u_Q_dot):~P.{d_Q_dot}f}\n"
+            if self.cmp_W_dot is not None:
+                output += f"cmp_W_dot = {self.cmp_W_dot.to(u_W_dot):~P.{d_W_dot}f}\n"
+            if self.rfg_m_dot is not None:
+                output += f"rfg_m_dot = {self.rfg_m_dot.to(u_m_dot):~P.{d_m_dot}f}\n"
+            if self.COP is not None:
+                output += f"COP = {self.COP.to('frac'):~P.3f}\n"
+            if self.EER is not None:
+                output += f"EER = {self.EER.to('frac'):~P.3f}\n"
+            if self.evp_eps is not None:
+                output += f"evp_eps = {self.evp_eps.to('frac'):~P.4f}\n"
+            if self.cnd_eps is not None:
+                output += f"cnd_eps = {self.cnd_eps.to('frac'):~P.4f}\n"
+            if self.T_evp is not None:
+                output += f"T_evp = {self.T_evp.to(u_T):~P.{d_T}f}\n"
+            if self.P_evp is not None:
+                output += f"P_evp = {self.P_evp.to(u_P_rfg):~P.{d_P_rfg}f}\n"
+            if self.T_cnd is not None:
+                output += f"T_cnd = {self.T_cnd.to(u_T):~P.{d_T}f}\n"
+            if self.P_cnd is not None:
+                output += f"P_cnd = {self.P_cnd.to(u_P_rfg):~P.{d_P_rfg}f}\n"
+            if self.dT_sc is not None:
+                output += f"dT_sc = {self.dT_sc.to(u_dT):~P.{d_dT}f}\n"
+            if self.suction_gas is not None:
+                output += (
+                    "suction_gas = "
+                    f"{self.suction_gas.T.to(u_T):~P.{d_T}f}, "
+                    f"{self.suction_gas.h.to(u_h):~P.{d_h}f}, "
+                    f"{self.suction_gas.P.to(u_P_rfg):~P.{d_P_rfg}f}\n"
+                )
+            if self.discharge_gas is not None:
+                output += (
+                    "discharge_gas = "
+                    f"{self.discharge_gas.T.to(u_T):~P.{d_T}f}, "
+                    f"{self.discharge_gas.h.to(u_h):~P.{d_h}f}, "
+                    f"{self.discharge_gas.P.to(u_P_rfg):~P.{d_P_rfg}f}\n"
+                )
+            if self.liquid is not None:
+                output += (
+                    "liquid = "
+                    f"{self.liquid.T.to(u_T):~P.{d_T}f}, "
+                    f"{self.liquid.h.to(u_h):~P.{d_h}f}, "
+                    f"{self.liquid.P.to(u_P_rfg):~P.{d_P_rfg}f}\n"
+                )
+            if self.mixture is not None:
+                output += (
+                    "mixture = "
+                    f"{self.mixture.T.to(u_T):~P.{d_T}f}, "
+                    f"{self.mixture.h.to(u_h):~P.{d_h}f}, "
+                    f"{self.mixture.P.to(u_P_rfg):~P.{d_P_rfg}f}, "
+                    f"{self.mixture.x.to('pct'):~P.0f}\n"
+                )
+            if self.evp_air_dP is not None:
+                output += f"evp_air_dP = {self.evp_air_dP.to(u_P_air):~P.{d_P_air}f}\n"
+            if self.cnd_air_dP is not None:
+                output += f"cnd_air_dP = {self.cnd_air_dP.to(u_P_air):~P.{d_P_air}f}\n"
             return output
         else:
             return 'None'
@@ -427,7 +480,25 @@ class SingleStageVaporCompressionMachine:
         counter = [0]
 
         logger.info(
-            "Starting machine operation analysis..."
+            "Starting machine operation analysis with..."
+        )
+        if n_cmp is not None:
+            logger.info(
+                f"n_cmp = {n_cmp:~P.0f}"
+            )
+        logger.info(
+            f"evp_air_in: {evp_air_in.Tdb.to('degC'):~P.2f}, "
+            f"{evp_air_in.RH.to('pct'):~P.0f}"
+        )
+        logger.info(
+            f"evp_air_m_dot: {evp_air_m_dot:~P.2f}"
+        )
+        logger.info(
+            f"cnd_air_in: {cnd_air_in.Tdb.to('degC'):~P.2f}, "
+            f"{cnd_air_in.RH.to('pct'):~P.0f}"
+        )
+        logger.info(
+            f"cnd_air_m_dot: {cnd_air_m_dot:~P.2f}"
         )
 
         try:
@@ -466,9 +537,15 @@ class SingleStageVaporCompressionMachine:
                 f"Analysis finished after {counter[0]} iterations with "
                 f"message: {res.message}"
             )
-            logger.info(
-                f"T_evp = {res.x[0]}, T_cnd = {res.x[1]}"
-            )
+            # Update the machine operating state using the evaporation and
+            # condensation temperature returned from `optimize.minimize` (these
+            # are not necessarily the values that were used in the last
+            # iteration).
+            self.compressor.Te = Q_(res.x[0], 'degC')
+            self.compressor.Tc = Q_(res.x[1], 'degC')
+            cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
+            self._get_deviation(cmp_rfg_m_dot, 0, logger_on=False)
+
             self.output = Output(
                 evp_air_m_dot=self.evp_air_m_dot,
                 cnd_air_m_dot=self.cnd_air_m_dot,
@@ -494,7 +571,9 @@ class SingleStageVaporCompressionMachine:
                 COP=self.condenser.Q_dot / self.compressor.Wc_dot,
                 EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
                 evp_eps=self.evaporator.eps,
-                cnd_eps=self.condenser.eps
+                cnd_eps=self.condenser.eps,
+                evp_air_dP=self.evaporator.air_dP,
+                cnd_air_dP=self.condenser.air_dP
             )
             self.output.success = True
             return self.output
@@ -556,11 +635,36 @@ class SingleStageVaporCompressionMachine:
         c1 = isinstance(self.compressor, VariableSpeedCompressor)
         c2 = (self.n_cmp_min is not None) and (self.n_cmp_max is not None)
         if c1 and c2:
+            logger.info(
+                "Starting speed balancing with..."
+            )
+            logger.info(
+                f"evp_air_in: {evp_air_in.Tdb.to('degC'):~P.2f}, "
+                f"{evp_air_in.RH.to('pct'):~P.0f}"
+            )
+            logger.info(
+                f"evp_air_m_dot: {evp_air_m_dot:~P.2f}"
+            )
+            logger.info(
+                f"cnd_air_in: {cnd_air_in.Tdb.to('degC'):~P.2f}, "
+                f"{cnd_air_in.RH.to('pct'):~P.0f}"
+            )
+            logger.info(
+                f"cnd_air_m_dot: {cnd_air_m_dot:~P.2f}"
+            )
+            logger.info(
+                f"T_evp = {T_evp:~P.2f}"
+            )
+            logger.info(
+                f"T_cnd = {T_cnd:~P.2f}"
+            )
+
             self._init(
                 evp_air_in, evp_air_m_dot,
                 cnd_air_in, cnd_air_m_dot,
                 T_evp=T_evp, T_cnd=T_cnd
             )
+
             # Find balanced speed between min and max compressor speed:
             n_cmp_min = self.n_cmp_min.to('1 / min').m
             n_cmp_max = self.n_cmp_max.to('1 / min').m
@@ -581,7 +685,7 @@ class SingleStageVaporCompressionMachine:
                     logger.error("Operating state could not be determined.")
                 elif isinstance(err, ValueError):
                     logger.error(
-                        "No compressor speed can be found to establish the "
+                        "No compressor speed found to establish the "
                         "given evaporation temperature "
                         f"{self.compressor.Te.to('degC'):~P.3f} and condensing "
                         f"temperature {self.compressor.Tc.to('degC'):~P.3f} "
@@ -632,10 +736,20 @@ class SingleStageVaporCompressionMachine:
                     COP=self.condenser.Q_dot / self.compressor.Wc_dot,
                     EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
                     evp_eps=self.evaporator.eps,
-                    cnd_eps=self.condenser.eps
+                    cnd_eps=self.condenser.eps,
+                    evp_air_dP=self.evaporator.air_dP,
+                    cnd_air_dP=self.condenser.air_dP
                 )
                 self.output.success = True
                 return self.output
+        elif not c1:
+            raise ValueError(
+                "The compressor is without variable speed drive."
+            )
+        elif not c2:
+            raise ValueError(
+                "The speed range of the compressor has not been specified."
+            )
 
     def __fun_rate__(self, unknowns: np.ndarray, counter: list[int]) -> float:
         """
@@ -737,7 +851,7 @@ class SingleStageVaporCompressionMachine:
         temperature of the air entering the evaporator is taken.
         """
         if T_evp_ini is None:
-            dT = Q_(20, 'K')
+            dT = Q_(12, 'K')
             T_evp = self.evp_air_in.Tdb - dT
             return T_evp.to('degC').m
         else:
@@ -814,7 +928,12 @@ class SingleStageVaporCompressionMachine:
         rel_err = abs_err / abs(Q_evp_cmp_model)
         return abs_err, rel_err.to('pct')
 
-    def _get_deviation(self, cmp_rfg_m_dot: Quantity, i: int) -> float:
+    def _get_deviation(
+        self,
+        cmp_rfg_m_dot: Quantity,
+        i: int,
+        logger_on: bool = True
+    ) -> float:
         """
         Calculates the deviation in a single cycle between the mass flow rate
         of refrigerant let through by the expansion device (to maintain the set
@@ -825,20 +944,22 @@ class SingleStageVaporCompressionMachine:
         -------
         The value (float) of the deviation expressed in units kg/h.
         """
-        logger.info(
-            f"Iteration {i + 1}: "
-            "Refrigerant mass flow rate from compressor = "
-            f"{cmp_rfg_m_dot:~P.3f}"
-        )
+        if logger_on:
+            logger.info(
+                f"Iteration {i + 1}: "
+                "Refrigerant mass flow rate from compressor = "
+                f"{cmp_rfg_m_dot:~P.3f}"
+            )
 
         cnd_rfg_in = self.compressor.discharge_gas
 
-        logger.info(
-            f"Iteration {i + 1}: "
-            "Refrigerant entering condenser with "
-            f"T = {cnd_rfg_in.T.to('degC'):~P.3f}, "
-            f"P = {cnd_rfg_in.P.to('bar'):~P.3f}"
-        )
+        if logger_on:
+            logger.info(
+                f"Iteration {i + 1}: "
+                "Refrigerant entering condenser with "
+                f"T = {cnd_rfg_in.T.to('degC'):~P.3f}, "
+                f"P = {cnd_rfg_in.P.to('bar'):~P.3f}"
+            )
 
         try:
             self.condenser.solve(
@@ -854,25 +975,27 @@ class SingleStageVaporCompressionMachine:
             )
             raise err
 
-        logger.info(
-            f"Iteration {i + 1}: "
-            "Refrigerant leaving condenser with "
-            f"T = {self.condenser.rfg_out.T.to('degC'):~P.3f}, "
-            f"P = {self.condenser.rfg_out.P.to('bar'):~P.3f}"
-        )
+        if logger_on:
+            logger.info(
+                f"Iteration {i + 1}: "
+                "Refrigerant leaving condenser with "
+                f"T = {self.condenser.rfg_out.T.to('degC'):~P.3f}, "
+                f"P = {self.condenser.rfg_out.P.to('bar'):~P.3f}"
+            )
 
         evp_rfg_in = self.refrigerant(
             h=self.condenser.rfg_out.h,
             P=self.compressor.Pe
         )
 
-        logger.info(
-            f"Iteration {i + 1}: "
-            "Refrigerant entering evaporator with "
-            f"T = {evp_rfg_in.T.to('degC'):~P.3f}, "
-            f"P = {evp_rfg_in.P.to('bar'):~P.3f}, "
-            f"x = {evp_rfg_in.x.to('pct'):~P.3f}"
-        )
+        if logger_on:
+            logger.info(
+                f"Iteration {i + 1}: "
+                "Refrigerant entering evaporator with "
+                f"T = {evp_rfg_in.T.to('degC'):~P.3f}, "
+                f"P = {evp_rfg_in.P.to('bar'):~P.3f}, "
+                f"x = {evp_rfg_in.x.to('pct'):~P.3f}"
+            )
 
         try:
             self.evaporator.solve(
@@ -889,28 +1012,31 @@ class SingleStageVaporCompressionMachine:
             )
             raise err
 
-        logger.info(
-            f"Iteration {i + 1}: "
-            "Refrigerant leaving evaporator with "
-            f"T = {self.evaporator.rfg_out.T.to('degC'):~P.3f}, "
-            f"P = {self.evaporator.rfg_out.P.to('bar'):~P.3f}"
-        )
+        if logger_on:
+            logger.info(
+                f"Iteration {i + 1}: "
+                "Refrigerant leaving evaporator with "
+                f"T = {self.evaporator.rfg_out.T.to('degC'):~P.3f}, "
+                f"P = {self.evaporator.rfg_out.P.to('bar'):~P.3f}"
+            )
 
         evp_rfg_m_dot = self.evaporator.rfg_m_dot.to('kg / hr')
 
-        logger.info(
-            f"Iteration {i + 1}: "
-            "Refrigerant mass flow rate through evaporator = "
-            f"{evp_rfg_m_dot.to('kg / hr'):~P.3f}"
-        )
+        if logger_on:
+            logger.info(
+                f"Iteration {i + 1}: "
+                "Refrigerant mass flow rate through evaporator = "
+                f"{evp_rfg_m_dot.to('kg / hr'):~P.3f}"
+            )
 
         dev = evp_rfg_m_dot - cmp_rfg_m_dot
 
-        logger.info(
-            f"Iteration {i + 1}: "
-            "Deviation between refrigerant mass flow rates = "
-            f"{dev:~P.3f}"
-        )
+        if logger_on:
+            logger.info(
+                f"Iteration {i + 1}: "
+                "Deviation between refrigerant mass flow rates = "
+                f"{dev:~P.3f}"
+            )
 
         return dev.magnitude
 

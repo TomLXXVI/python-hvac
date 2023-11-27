@@ -100,10 +100,10 @@ class TubeBankInside:
     Parameters
     ----------
     S_t:
-        Lateral or transverse pitch, i.e. spacing between tubes of the
+        Lateral or transverse pitch, i.e., spacing between tubes of the
         same row [m].
     S_l:
-        Longitudinal pitch, i.e. spacing between tubes of two adjacent tube
+        Longitudinal pitch, i.e., spacing between tubes of two adjacent tube
         rows [m].
     D_i:
         Inside diameter of the tubes [m].

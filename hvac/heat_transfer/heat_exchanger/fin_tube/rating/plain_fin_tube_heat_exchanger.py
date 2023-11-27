@@ -31,7 +31,7 @@ class PlainFinTubeCrossFlowHeatExchanger(CFT_CRF_HEX):
     Parameters
     ----------
     L1:
-        Tube length in the direction of inside flow, i.e. the length of the
+        Tube length in the direction of inside flow, i.e., the length of the
         tube available for heat transfer with the outside flow.
     L2:
         Length of the tube bank parallel to the direction of external flow.
@@ -39,14 +39,14 @@ class PlainFinTubeCrossFlowHeatExchanger(CFT_CRF_HEX):
         Length of the tube bank perpendicular to the direction of external
         flow.
     S_t:
-        Lateral or transverse pitch, i.e. distance between tubes of the
+        Lateral or transverse pitch, i.e., distance between tubes of the
         same row.
     S_l:
-        Longitudinal pitch, i.e. distance between tubes of two adjacent tube
+        Longitudinal pitch, i.e., distance between tubes of two adjacent tube
         rows.
     t_header:
         Header thickness; L1 + 2 * t_header is the tube length that needs
-        to be taken into account for determining pressure drop along one
+        to be taken into account for determining the pressure drop along one
         tube.
     D_i:
         Inside diameter of the tubes.
@@ -166,7 +166,7 @@ class PlainFinTubeCrossFlowHeatExchanger(CFT_CRF_HEX):
         h_ext: Quantity,
         D_h: Quantity | None = None
     ) -> float:
-        # calculate Fanning friction factor
+        # calculate the Fanning friction factor
         f = f_Wang_and_Chi(
             Re_D_r=self._get_ext_reynolds_number(
                 self.geometry_ext.D_o,
@@ -197,7 +197,7 @@ class PlainFinTubeCounterFlowHeatExchanger(PlainFinTubeCrossFlowHeatExchanger):
         fluid_ext: FluidState,
         UA: Quantity
     ) -> tuple:
-        # get outlet temperatures on internal and external side, heat transfer
+        # get outlet temperatures on the internal and external side, heat transfer
         # rate, effectiveness and overall conductance of heat exchanger
         if self._get_fluid('hot') is self.Fluid_int:
             # internal fluid is hot fluid

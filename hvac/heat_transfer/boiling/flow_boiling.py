@@ -2,7 +2,7 @@
 In this module the Shah correlation is implemented for estimating the local heat
 transfer coefficient for flow boiling inside a tube.
 
-The Shah correlation was developed for saturated flow boiling at sub-critical
+The Shah correlation was developed for saturated flow boiling at subcritical
 heat fluxes and can be used for a wide range of vapor qualities, from saturated
 liquid (x = 0) to the liquid-deficient and dry-out regimes that occur at
 qualities of 0.8 or higher.
@@ -214,7 +214,7 @@ class Tube:
             self.Dh
         )
         h_ = h(h_tilde_, h_l_)
-        return h_
+        return max(0.0, h_)
 
     def _heat_trf_coeff_sat_vapor(self, T_sat: Quantity) -> float:
         # returns the heat transfer coefficient for saturated vapor single-phase

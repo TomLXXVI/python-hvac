@@ -1,6 +1,6 @@
 """
-In this module some correlations are implemented for film condensation on a
-few geometries.
+In this module, correlations are implemented for film condensation on a
+few different geometries.
 
 The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
 HEAT TRANSFER. Cambridge University Press, section 11.4.2 "Correlations for
@@ -25,7 +25,7 @@ class VerticalPlate:
     saturation temperature of the condensing fluid through the appropriate
     setters `T_surf` and `T_sat`. Then, set an initial guess for the condensate
     mass flow rate through setter `m_dot`. The actual condensate mass flow rate
-    is solved for by iteration.
+    is solved by iteration.
     To get the actual condensate mass flow rate, use the `m_dot` getter.
     To get the actual condensate volume flow rate, use the `V_dot` getter.
     To get the average heat transfer coefficient, use the `h_avg` getter.
@@ -251,9 +251,12 @@ class HorizontalPlate:
     """Class for calculating the average heat transfer coefficient for film
     condensation of a fluid on a cool horizontal flat surface (plate).
 
-    A distinction must be made between a downward and upward facing plate.
-    In case of a downward facing plate, instantiate from `HorizontalPlate.Downward`.
-    In case of an upward facing plate, instantiate from `HorizontalPlate.Upward`.
+    A distinction must be made between a downward and upward facing plate:
+    In the case of a downward facing plate, instantiate from
+    `HorizontalPlate.Downward`.
+    In the case of an upward facing plate, instantiate from
+    `HorizontalPlate.Upward`.
+
     After instantiation, set the surface temperature of the cool plate and the
     saturation temperature of the condensing fluid through the appropriate
     setters `T_surf` and `T_sat`. To get the average heat transfer coefficient,
@@ -335,9 +338,9 @@ class HorizontalPlate:
             fluid: Fluid
                 The condensing fluid.
             theta: PlainQuantity
-                Inclination angle of the plate. Should be less than 20°. If
+                Inclination angle of the plate. It should be less than 20°. If
                 a value greater than 20° is given, a warning will be sent and
-                theta will be limited to 20°.
+                `theta` will be limited to 20°.
             """
             self.fluid = fluid
             if theta.to('deg').m > 20.0:

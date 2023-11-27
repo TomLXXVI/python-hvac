@@ -4,8 +4,9 @@ fluids.
 
 References
 ----------
-[1] Shah, R. K., & Sekulic, D. P. (2003). Fundamentals of Heat Exchanger Design.
-    John Wiley & Sons. (§ 9.2.1 and § 9.3).
+[1]
+Shah, R. K., & Sekulic, D. P. (2003), Fundamentals of Heat Exchanger Design.
+John Wiley & Sons.(§ 9.2.1 and § 9.3).
 """
 import math
 from hvac import Quantity
@@ -46,7 +47,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
     Parameters
     ----------
     L1:
-        Tube length in the direction of inside flow, i.e. the length of the
+        Tube length in the direction of inside flow, i.e., the length of the
         tube available for heat transfer with the outside flow.
     L2:
         Length of the tube bank parallel to the direction of external flow.
@@ -54,14 +55,14 @@ class CircularFinTubeCrossFlowHeatExchanger:
         Length of the tube bank perpendicular to the direction of external
         flow.
     S_t:
-        Lateral or transverse pitch, i.e. distance between tubes of the
+        Lateral or transverse pitch, i.e., distance between tubes of the
         same row.
     S_l:
-        Longitudinal pitch, i.e. distance between tubes of two adjacent tube
+        Longitudinal pitch, i.e., distance between tubes of two adjacent tube
         rows.
     t_header:
         Header thickness; L1 + 2 * t_header is the tube length that needs
-        to be taken into account for determining pressure drop along one
+        to be taken into account for determining the pressure drop along one
         tube.
     D_i:
         Inside diameter of the tubes.
@@ -96,7 +97,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         k_f: Quantity = Q_(237, 'W / (m * K)'),
         t_header: Quantity = Q_(0.0, 'mm')
     ) -> None:
-        # geometrical properties and dimensions of heat exchanger are set on
+        # geometrical properties and dimensions of the heat exchanger are set on
         # instantiation
         self.geometry_int = self._create_internal_geometry(
             S_t, S_l, D_i,
@@ -153,9 +154,9 @@ class CircularFinTubeCrossFlowHeatExchanger:
         Parameters
         ----------
         m_dot_int:
-            Mass flow rate of fluid on internal side of heat exchanger.
+            Mass flow rate of fluid on the internal side of heat exchanger.
         m_dot_ext:
-            Mass flow rate of fluid on external side of heat exchanger.
+            Mass flow rate of fluid on the external side of heat exchanger.
         T_int_in:
             Inlet temperature of internal fluid.
         T_ext_in:
@@ -165,9 +166,9 @@ class CircularFinTubeCrossFlowHeatExchanger:
         P_ext_in:
             Inlet pressure of external fluid.
         Fluid_int:
-            Type of fluid on internal side.
+            Type of fluid on the internal side.
         Fluid_ext
-            Type of fluid on external side.
+            Type of fluid on the external side.
         eps_ini:
             initial guess for the heat exchanger effectiveness (for most
             single-pass crossflow exchangers assume 50-75 %)
@@ -215,15 +216,15 @@ class CircularFinTubeCrossFlowHeatExchanger:
         ----------
         Additional parameters can be retrieved when the rating routine has
         finished.
-        self.eps: float
+        eps: float
             Effectiveness of the heat exchanger.
-        self.UA: Quantity
+        UA: Quantity
             Overall conductance of the heat exchanger.
-        self.dP_int: Quantity
-            Pressure drop on the internal side of the heat exchanger.
-        self.dP_ext: Quantity
-            Pressure drop on the external side of the heat exchanger.
-        self.v_fa: Quantity
+        dP_int: Quantity
+            The pressure drop on the internal side of the heat exchanger.
+        dP_ext: Quantity
+            The pressure drop on the external side of the heat exchanger.
+        v_fa: Quantity
             Face velocity of external fluid.
         """
         # determine an initial guess for the outlet temperatures
@@ -344,10 +345,10 @@ class CircularFinTubeCrossFlowHeatExchanger:
     def _get_fluid(self, which: str) -> Fluid:
         """Returns the type of fluid indicated by `which`.
         Parameter `which` can either be 'hot' or 'cold'.
-        In case `which` is 'hot', the hot fluid will be returned, i.e. the fluid
+        In case `which` is 'hot', the hot fluid will be returned, i.e., the fluid
         on the internal or external side that gives off heat and reduces in
         temperature between inlet and outlet.
-        In case `which` is 'cold', the cold fluid will be returned, i.e. the fluid
+        In case `which` is 'cold', the cold fluid will be returned, i.e., the fluid
         on the internal or external side that receives heat and raises in
         temperature between inlet and outlet.
         """
@@ -540,7 +541,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         return Re_ext
 
     def _get_int_heat_trf_coeff(self, fluid_int: FluidState) -> Quantity:
-        """Returns heat transfer coefficient on internal side."""
+        """Returns heat transfer coefficient on the internal side."""
         self._tube_int.m_dot = self._get_m_dot_tube(fluid_int)
         h_int = self._tube_int.avg_heat_transfer_coefficient(self.geometry_int.L1)
         # this assumes the same heat transfer coefficient in all tubes
@@ -572,7 +573,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
 
     @staticmethod
     def _get_int_resistance(h_int: Quantity, A_int: Quantity) -> Quantity:
-        """Returns thermal resistance on internal side of heat exchanger."""
+        """Returns thermal resistance on the internal side of heat exchanger."""
         h_int.ito('W / (m ** 2 * K)')
         A_int.ito('m ** 2')
         R_int = 1 / (h_int * A_int)  # K / W
@@ -604,7 +605,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         eta_ext: float,
         A_ext: Quantity
     ) -> Quantity:
-        """Returns thermal resistance on external side of heat exchanger."""
+        """Returns thermal resistance on the external side of heat exchanger."""
         h_ext.ito('W / (m ** 2 * K)')
         A_ext.ito('m ** 2')
         R_ext = 1 / (eta_ext * h_ext * A_ext)  # K / W
@@ -639,7 +640,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         """Returns thermal regime of the internal fluid."""
         if self.T_int_in > self.T_ext_in:
             # internal fluid is the hot fluid giving off heat to cold fluid on
-            # external side.
+            # the external side.
             return "cooling"
         else:
             return "heating"
@@ -690,7 +691,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         """Returns thermal regime of external fluid."""
         if self.T_int_in > self.T_ext_in:
             # internal fluid is the hot fluid giving off heat to cold fluid on
-            # external side.
+            # the external side.
             return "heating"
         else:
             return "cooling"
@@ -744,10 +745,10 @@ class CircularFinTubeCrossFlowHeatExchanger:
         eta_ext = self._get_overall_fin_efficiency(h_ext)
         # calculate overall thermal conductance
         R_int = self._get_int_resistance(h_int, A_int)
-        R_foul_int = Q_(0.0, 'K / W')  # we ignore fouling on internal side
+        R_foul_int = Q_(0.0, 'K / W')  # we ignore fouling on the internal side
         R_cond = Q_(0.0, 'K / W')  # we ignore the resistance to conduction
         R_ext = self._get_ext_resistance(h_ext, eta_ext, A_ext)
-        R_foul_ext = Q_(0.0, 'K / W')  # we ignore fouling on external side
+        R_foul_ext = Q_(0.0, 'K / W')  # we ignore fouling on the external side
         R_tot = R_int + R_foul_int + R_cond + R_ext + R_foul_ext
         UA = 1 / R_tot
         return UA
@@ -758,7 +759,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         fluid_ext: FluidState,
         UA: Quantity
     ) -> tuple:
-        # get outlet temperatures on internal and external side, heat transfer
+        # get outlet temperatures on the internal and external side, heat transfer
         # rate, effectiveness and overall conductance of heat exchanger
         if self._get_fluid('hot') is self.Fluid_int:
             # internal fluid is hot fluid
@@ -804,7 +805,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         fluid_ext: FluidState,
         h_ext: Quantity
     ) -> Quantity:
-        """Returns pressure drop on internal side."""
+        """Returns pressure drop on the internal side."""
         f_cp = self._tube_int.friction_factor() / 4  # Fanning friction factor
         # correct friction factor for variable fluid properties effects
         f_corr = correct_friction_factor(
@@ -814,7 +815,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
             thermal_regime=self._get_int_thermal_regime(),
             fluid=fluid_int
         )
-        # calculate pressure drop
+        # calculate the pressure drop
         L_dP = self._get_int_flow_length()
         D_h = self._tube_int.Dh
         u_m = self._tube_int.mean_velocity()
@@ -830,7 +831,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         h_ext: Quantity,
         D_h: Quantity | None = None
     ) -> float:
-        # calculate tube bank friction factor
+        # calculate the tube bank friction factor
         f_tb = f_Chai(
             Re_D_o=self._get_ext_reynolds_number(
                 Q_(self.geometry_ext.D_o, 'm'),
@@ -843,7 +844,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
             t_f=self.geometry_ext.t_f.to('m').m,
             N_f=self.geometry_ext.N_f.to('1 / m').m
         )
-        # convert tube bank friction factor to Fanning friction factor
+        # convert the tube bank friction factor to the Fanning friction factor
         f = convert_friction_factor(
             f_tb,
             self.geometry_ext.S_l.to('m').m,
@@ -867,7 +868,7 @@ class CircularFinTubeCrossFlowHeatExchanger:
         h_ext: Quantity,
         T_ext_out: Quantity
     ) -> Quantity:
-        """Returns pressure drop on external side."""
+        """Returns pressure drop on the external side."""
         G_ext = self._get_ext_mass_velocity()  # kg / (s * m ** 2)
         D_h = self.geometry_ext.D_h.to('m')
         L = self.geometry_ext.L2.to('m')
@@ -923,7 +924,7 @@ class CircularFinTubeCounterFlowHeatExchanger(CircularFinTubeCrossFlowHeatExchan
         fluid_ext: FluidState,
         UA: Quantity
     ) -> tuple:
-        # get outlet temperatures on internal and external side, heat transfer
+        # get outlet temperatures on the internal and external side, heat transfer
         # rate, effectiveness and overall conductance of heat exchanger
         if self._get_fluid('hot') is self.Fluid_int:
             # internal fluid is hot fluid
@@ -956,6 +957,8 @@ class CircularFinTubeCounterFlowHeatExchanger(CircularFinTubeCrossFlowHeatExchan
         )
 
     def _get_int_flow_length(self) -> Quantity:
-        """Returns the internal flow path length (pressure drop length) in case
-        of a counterflow heat exchanger."""
+        """
+        Returns the internal flow path length (pressure drop length) in case
+        of a counterflow heat exchanger.
+        """
         return self.geometry_int.L2

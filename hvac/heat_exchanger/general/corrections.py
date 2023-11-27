@@ -1,9 +1,10 @@
-"""Miscellaneous functions.
+"""
+Nusselt number and friction factor corrections.
 
 References
 ----------
-[1] Shah, R. K., & Sekulic, D. P. (2003). Fundamentals of Heat Exchanger Design.
-    John Wiley & Sons.
+[1] Shah, R. K., & Sekulic, D. P. Fundamentals of Heat Exchanger Design
+    (John Wiley & Sons, 2003).
 """
 import math
 from hvac import Quantity
@@ -70,7 +71,7 @@ def correct_nusselt_number(
     thermal_regime: str,
     fluid: FluidState | HumidAir,
 ) -> float:
-    """Returns corrected Nusselt number acc. to [1], eqs. 7.157 and 7.158.
+    """Returns the corrected Nusselt number acc. to [1], eqs. 7.157 and 7.158.
 
     Parameters
     ----------
@@ -123,7 +124,7 @@ def correct_friction_factor(
     thermal_regime: str,
     fluid: FluidState | HumidAir
 ) -> float:
-    """Returns corrected friction factor acc. to [1], eqs. 7.157 and 7.158.
+    """Returns the corrected friction factor acc. to [1], eqs. 7.157 and 7.158.
 
     Parameters
     ----------

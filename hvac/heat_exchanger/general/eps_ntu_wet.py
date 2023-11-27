@@ -97,7 +97,7 @@ class AbstractHeatExchanger(ABC):
         self.m_dot_r = m_dot_r.to('kg / s')
         self.m_dot_a = m_dot_a.to('kg / s')
         self.T_r_in = T_r_in.to('K')
-        self.T_r_out = T_r_out.to('K')
+        self.T_r_out = T_r_out.to('K') if T_r_out is not None else None
         self.air_in = air_in
         self._P_r = P_r.to('Pa')
         self._Rfg = refrigerant
@@ -116,7 +116,6 @@ class AbstractHeatExchanger(ABC):
         # other parameters
         self._type = kwargs.get('type_')  # cross-flow heat exchanger
         self._N = kwargs.get('N')  # shell-tube heat exchanger
-
         # if the refrigerant outlet temperature is not known:
         if self.T_r_out is None and T_r_out_ini is not None:
             self.T_r_out = self._find_T_r_out(T_r_out_ini)
@@ -283,7 +282,7 @@ class CounterFlowHeatExchanger(AbstractHeatExchanger):
 
     def __eps__(self, C_r: float, NTU: float) -> float:
         eps = float('nan')
-        if C_r < 1.0:
+        if C_r != 1.0:
             n = 1 - np.exp(-NTU * (1 - C_r))
             d = 1 - C_r * np.exp(-NTU * (1 - C_r))
             eps = n / d
@@ -293,7 +292,7 @@ class CounterFlowHeatExchanger(AbstractHeatExchanger):
 
     def __NTU__(self, C_r: float, eps: float) -> float:
         NTU = float('nan')
-        if C_r < 1.0:
+        if C_r != 1.0:
             NTU = (
                 np.log((1 - eps * C_r) / (1 - eps))
                 / (1 - C_r)

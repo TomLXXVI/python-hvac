@@ -524,7 +524,6 @@ class ExpositionHall:
         """
         Creates the building and returns its single space.
         """
-
         # Create a time schedule for turning the cooling system on/off:
         cooling_schedule = None
 

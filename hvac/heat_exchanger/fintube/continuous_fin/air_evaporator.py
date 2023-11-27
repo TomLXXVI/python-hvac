@@ -1,36 +1,205 @@
-"""
-AIR EVAPORATOR MODEL
-Plain fin-tube counter-flow heat exchanger.
-
-Known inputs:
-- State of air entering the evaporator.
-- Mass flow rate of air entering the evaporator.
-- State of refrigerant entering the evaporator.
-- Required degree of refrigerant superheating at the evaporator outlet.
-
-Purpose:
-Determine the mass flow rate of refrigerant through the evaporator so that the
-required degree of refrigerant superheating is reached. Once this mass flow
-rate has been determined, other operational characteristics are also determined.
-"""
-import numpy as np
+import math
+from abc import ABC, abstractmethod
 from scipy import optimize
 from hvac import Quantity
-from hvac.fluids import HumidAir, FluidState, CP_HUMID_AIR
-from hvac.heat_transfer.heat_exchanger.fin_tube.core import PlainFinTubeHeatExchangerCore
-from hvac.heat_transfer.heat_exchanger import eps_ntu as dry
-from hvac.heat_transfer.heat_exchanger import eps_ntu_wet as wet
 from hvac.logging import ModuleLogger
-from .exceptions import *
+from hvac.fluids import FluidState, HumidAir, CP_HUMID_AIR
+import hvac.heat_transfer.forced_convection.internal_flow as single_phase_flow
+import hvac.heat_transfer.boiling.flow_boiling as boiling_flow
+from hvac.heat_exchanger.general import eps_ntu as dry
+from hvac.heat_exchanger.general import eps_ntu_wet as wet
+from .geometry import ContinuousFinStaggeredTubeBank
+from .air_to_water import ExternalSurface
 
 
 Q_ = Quantity
+
 logger = ModuleLogger.get_logger(__name__)
 logger.setLevel(ModuleLogger.ERROR)
 
 
+class EvaporatorError(Exception):
+    pass
+
+
+class SuperheatingError(EvaporatorError):
+    pass
+
+
+class BoilingError(EvaporatorError):
+    pass
+
+
+class HeatExchangerCore:
+    # Continuous plain fin, staggered tube bank.
+
+    def __init__(
+        self,
+        width: Quantity,
+        height: Quantity,
+        num_rows: int | None,
+        pitch_trv: Quantity,
+        pitch_lon: Quantity,
+        d_o: Quantity,
+        d_i: Quantity,
+        t_fin: Quantity,
+        fin_density: Quantity,
+        k_fin: Quantity = Q_(237, 'W / (m * K)'),
+        d_r: Quantity | None = None,
+        boiling: bool = False
+    ) -> None:
+        self.geometry = ContinuousFinStaggeredTubeBank(
+            width, height, num_rows, pitch_trv,
+            pitch_lon, d_o, d_i, t_fin, fin_density,
+            k_fin, d_r
+        )
+        if boiling:
+            self.internal = BoilingPhaseInternalSurface(self)
+        else:
+            self.internal = SinglePhaseInternalSurface(self)
+        self.external = ExternalSurface(self)
+
+        self.T_wall: Quantity | None = None
+        self.h_int: Quantity | None = None
+        self.R_int: Quantity | None = None
+        self.h_ext: Quantity | None = None
+        self.R_ext: Quantity | None = None
+        self.R_tot: Quantity | None = None
+        self.UA: Quantity | None = None
+        self.eta_surf: float | None = None
+        self.dP_ext: Quantity | None = None
+
+    def hex_properties(
+        self,
+        air_mean: HumidAir,
+        air_in: HumidAir,
+        air_out: HumidAir,
+        rfg_mean: FluidState,
+        air_m_dot: Quantity,
+        rfg_m_dot: Quantity,
+        Q_dot: Quantity
+    ) -> dict[str, Quantity | float]:
+        self.internal.m_dot = rfg_m_dot
+        self.internal.rfg = rfg_mean
+        self.external.m_dot = air_m_dot
+        self.external.air = air_mean
+        self.T_wall = self.__find_wall_temperature(Q_dot)
+        self.h_int = self.internal.heat_transfer_coeff(Q_dot)
+        self.R_int = self.internal.thermal_resistance(self.h_int)
+        self.h_ext = self.external.heat_transfer_coeff(self.T_wall)
+        self.R_ext = self.external.thermal_resistance(self.h_ext)
+        self.R_tot = self.R_int + self.R_ext
+        self.UA = 1 / self.R_tot
+        self.dP_ext = self.external.pressure_drop(air_in.rho, air_out.rho, self.T_wall)
+        self.eta_surf = self.external.eta_surf(self.h_ext)
+        return {
+            'h_int': self.h_int,
+            'h_ext': self.h_ext,
+            'R_int': self.R_int,
+            'R_ext': self.R_ext,
+            'R_tot': self.R_tot,
+            'UA': self.UA,
+            'eta_surf': self.eta_surf,
+            'dP_ext': self.dP_ext
+        }
+
+    def __find_wall_temperature(self, Q_dot: Quantity) -> Quantity:
+
+        def __eq__(T_wall: float) -> float:
+            T_wall = Q_(T_wall, 'K')
+            h_int = self.internal.heat_transfer_coeff(Q_dot)
+            R_int = self.internal.thermal_resistance(h_int)
+            h_ext = self.external.heat_transfer_coeff(T_wall)
+            R_ext = self.external.thermal_resistance(h_ext)
+            T_int = self.internal.rfg.T.to('K')
+            T_ext = self.external.air.Tdb.to('K')
+            n = T_int / R_int + T_ext / R_ext
+            d = 1 / R_int + 1 / R_ext
+            T_wall_new = n / d
+            dev = (T_wall_new - T_wall).to('K').m
+            return dev
+
+        T_int = self.internal.rfg.T.to('K').m    # cold fluid
+        T_ext = self.external.air.Tdb.to('K').m  # hot fluid
+        if T_ext > T_int:
+            sol = optimize.root_scalar(
+                __eq__,
+                bracket=(T_int, T_ext)
+            )
+            T_wall = Q_(sol.root, 'K')
+        else:
+            T_wall = Q_(T_int, 'K')
+        return T_wall
+
+
+class InternalSurface(ABC):
+
+    def __init__(self, parent: HeatExchangerCore):
+        self.parent = parent
+        self.rfg: FluidState | None = None
+        self.m_dot: Quantity | None = None
+
+    def _m_dot_tube(self) -> Quantity:
+        # Here it is assumed that every tube in the first row is connected to
+        # the supply header.
+        A_min = self.parent.geometry.internal.A_min
+        n_r = self.parent.geometry.num_rows
+        d_i = self.parent.geometry.d_i
+        G = self.m_dot / (A_min / n_r)
+        A_tube = math.pi * d_i ** 2 / 4
+        m_dot_tube = G * A_tube
+        return m_dot_tube
+
+    def thermal_resistance(self, h: Quantity) -> Quantity:
+        A_tot = self.parent.geometry.internal.A_tot
+        R = 1 / (h * A_tot)
+        return R
+
+    @abstractmethod
+    def heat_transfer_coeff(self, *args, **kwargs) -> Quantity:
+        ...
+
+
+class SinglePhaseInternalSurface(InternalSurface):
+
+    def heat_transfer_coeff(self, *args, **kwargs) -> Quantity:
+        tube = single_phase_flow.CircularTube(
+            Di=self.parent.geometry.d_i,
+            L=self.parent.geometry.length,
+            fluid=self.rfg
+        )
+        tube.m_dot = self._m_dot_tube()
+        h = tube.avg_heat_transfer_coefficient()
+        if isinstance(h, tuple):
+            h = h[0]  # if laminar flow, assume constant heat flux
+        return h.to('W / (m ** 2 * K)')
+
+
+class BoilingPhaseInternalSurface(InternalSurface):
+
+    def heat_transfer_coeff(self, Q_dot: Quantity) -> Quantity:
+        d_i = self.parent.geometry.d_i
+        A_tube = math.pi * d_i ** 2 / 4
+        A_tot = self.parent.geometry.internal.A_tot
+        tube = boiling_flow.Tube(
+            Dh=self.parent.geometry.internal.d_h,
+            A=A_tube,
+            fluid=self.rfg.fluid,
+            tube_orient='horizontal'
+        )
+        tube.m_dot = self._m_dot_tube()
+        h = tube.heat_trf_coeff(
+            x=self.rfg.x,
+            T_sat=self.rfg.T,
+            q_s=Q_dot / A_tot
+        )
+        if isinstance(h, tuple):
+            h = h[0]  # if laminar flow, assume constant heat flux
+        return h.to('W / (m ** 2 * K)')
+
+
 class SuperheatingRegion:
-    
+
     def __init__(
         self,
         W_fro: Quantity,
@@ -68,15 +237,16 @@ class SuperheatingRegion:
         k_fin:
             Thermal conductivity of the fin material.
         """
-        self.core = PlainFinTubeHeatExchangerCore(
-            L1=W_fro,
-            L3=H_fro,
-            S_t=S_trv,
-            S_l=S_lon,
-            D_i=D_int,
-            D_o=D_ext,
-            t_f=t_fin,
-            N_f=N_fin,
+        self.core = HeatExchangerCore(
+            width=W_fro,
+            height=H_fro,
+            num_rows=None,
+            pitch_trv=S_trv,
+            pitch_lon=S_lon,
+            d_i=D_int,
+            d_o=D_ext,
+            t_fin=t_fin,
+            fin_density=N_fin,
             k_fin=k_fin
         )
         # Known parameters:
@@ -106,11 +276,16 @@ class SuperheatingRegion:
         """
         # Set the parameters on the heat exchanger core needed to determine
         # the overall heat transfer conductance of the superheated region:
-        self.core.L2 = Q_(L_flow, 'mm')
-        self.core.ext.m_dot = self.air_m_dot
-        self.core.int.m_dot = rfg_m_dot
-        self.core.ext.fluid_mean = air_mean
-        self.core.int.fluid_mean = rfg_mean
+        self.core.geometry.length = Q_(L_flow, 'mm')
+        hex_props = self.core.hex_properties(
+            air_mean=air_mean,
+            air_in=self.air_in,
+            air_out=self.air_out,
+            rfg_mean=rfg_mean,
+            air_m_dot=self.air_m_dot,
+            rfg_m_dot=rfg_m_dot,
+            Q_dot=Q_dot
+        )
 
         # Determine the heat transfer rate through the heat exchanger core:
         cnt_flow_hex = dry.CounterFlowHeatExchanger(
@@ -118,7 +293,7 @@ class SuperheatingRegion:
             C_hot=air_mean.cp * self.air_m_dot,
             T_cold_in=self.rfg_in.T,
             T_hot_in=self.air_in.Tdb,
-            UA=self.core.UA
+            UA=hex_props['UA']
         )
         dev = (cnt_flow_hex.Q - Q_dot).to('kW')
 
@@ -126,7 +301,7 @@ class SuperheatingRegion:
         logger.debug(
             f"Superheating region/Iteration {i + 1}: "
             f"Refrigerant mass flow rate = {rfg_m_dot.to('kg / hr'):~P.3f}. "
-            f"Try flow length {self.core.L2.to('mm'):~P.3f}. "
+            f"Try flow length {self.core.geometry.length.to('mm'):~P.3f}. "
             f"Heat transfer deviation = {dev:~P.3f}."
         )
         counter[0] += 1
@@ -229,7 +404,7 @@ class SuperheatingRegion:
                 T_rfg_avg = air_avg.Tdb - lmtd
                 rfg_avg = Rfg(T=T_rfg_avg, P=P_evp)
                 return air_avg, rfg_avg
-    
+
     def _get_lmtd(self, air_out: HumidAir) -> Quantity:
         """
         Calculates the LMTD in the superheating region.
@@ -247,7 +422,7 @@ class SuperheatingRegion:
                 f"zero."
             )
             dT_min = Q_(1.e-12, 'K')
-        lmtd = (dT_max - dT_min) / np.log(dT_max / dT_min)
+        lmtd = (dT_max - dT_min) / math.log(dT_max / dT_min)
         return lmtd
 
     @property
@@ -278,7 +453,10 @@ class SuperheatingRegion:
         Returns the air-side pressure drop along the superheating region of the
         evaporator.
         """
-        dP_air = self.core.ext.get_pressure_drop(self.air_in, self.air_out)
+        dP_air = self.core.external.pressure_drop(
+            self.air_in.rho, self.air_out.rho,
+            self.core.T_wall
+        )
         return dP_air
 
 
@@ -321,15 +499,16 @@ class BoilingRegion:
         k_fin:
             Thermal conductivity of the fin material.
         """
-        self.core = PlainFinTubeHeatExchangerCore(
-            L1=W_fro,
-            L3=H_fro,
-            S_t=S_trv,
-            S_l=S_lon,
-            D_i=D_int,
-            D_o=D_ext,
-            t_f=t_fin,
-            N_f=N_fin,
+        self.core = HeatExchangerCore(
+            width=W_fro,
+            height=H_fro,
+            num_rows=None,
+            pitch_trv=S_trv,
+            pitch_lon=S_lon,
+            d_i=D_int,
+            d_o=D_ext,
+            t_fin=t_fin,
+            fin_density=N_fin,
             k_fin=k_fin,
             boiling=True
         )
@@ -392,20 +571,26 @@ class BoilingRegion:
         # heat the refrigerant stream must absorb to become a saturated
         # vapor in the boiling region of the evaporator:
         rfg_mean = self._get_rfg_mean()
+        self.core.geometry.length = L_flow
         for i in range(i_max):
             air_mean = self._get_air_mean(air_in, air_out)
 
             # Set the parameters on the heat exchanger core needed to determine
             # the air-side and refrigerant-side heat transfer coefficients, and
             # the air-side finned surface efficiency in the superheated region:
-            self.core.L2 = L_flow
-            self.core.ext.m_dot = self.air_m_dot
-            self.core.int.fluid_mean = rfg_mean
-            self.core.int.m_dot = rfg_m_dot
-            self.core.ext.fluid_mean = air_mean
-            self.core.int.Q = Q_dot
+            hex_props = self.core.hex_properties(
+                air_mean=air_mean,
+                air_in=self.air_in,
+                air_out=air_out,
+                rfg_mean=rfg_mean,
+                air_m_dot=self.air_m_dot,
+                rfg_m_dot=rfg_m_dot,
+                Q_dot=Q_dot
+            )
 
             # Determine the heat transfer rate through heat exchanger core:
+            A_ext = self.core.geometry.external.A_tot.to('m ** 2')
+            A_int = self.core.geometry.internal.A_tot.to('m ** 2')
             cnt_flow_hex = wet.CounterFlowHeatExchanger(
                 m_dot_r=rfg_m_dot,
                 m_dot_a=self.air_m_dot,
@@ -415,11 +600,11 @@ class BoilingRegion:
                 P_r=self.rfg_in.P,
                 refrigerant=self.rfg_in.fluid,
                 air_in=air_in,
-                h_ext=self.core.ext.h,
-                h_int=self.core.int.h,
-                eta_surf_wet=self.core.ext.eta,
-                A_ext_to_A_int=self.core.ext.geo.A / self.core.int.geo.A,
-                A_ext=self.core.ext.geo.A
+                h_ext=hex_props['h_ext'],
+                h_int=hex_props['h_int'],
+                eta_surf_wet=hex_props['eta_surf'],
+                A_ext_to_A_int=A_ext.m / A_int.m,
+                A_ext=A_ext
             )
             # Note: It is assumed that in the boiling region the air-side heat
             # transfer surface is fully wet.
@@ -473,7 +658,7 @@ class BoilingRegion:
                 f"positive value near zero."
             )
             dh_min = Q_(1.e-12, 'kJ / kg')
-        lmed = (dh_max - dh_min) / np.log(dh_max / dh_min)
+        lmed = (dh_max - dh_min) / math.log(dh_max / dh_min)
 
         h_sat_air_avg = (sat_air_in.h + sat_air_out.h) / 2
         h_air_avg = h_sat_air_avg + lmed
@@ -490,7 +675,7 @@ class BoilingRegion:
                 f"value near zero."
             )
             dT_min = Q_(1.e-12, 'K')
-        lmtd = (dT_max - dT_min) / np.log(dT_max / dT_min)
+        lmtd = (dT_max - dT_min) / math.log(dT_max / dT_min)
 
         T_rfg_avg = (self.rfg_in.T + self.rfg_out.T) / 2
         T_air_avg = T_rfg_avg + lmtd
@@ -540,7 +725,10 @@ class BoilingRegion:
         Returns the air-side pressure drop along the boiling region of the
         evaporator.
         """
-        dP_air = self.core.ext.get_pressure_drop(self.air_in, self.air_out)
+        dP_air = self.core.external.pressure_drop(
+            self.air_in.rho, self.air_out.rho,
+            self.core.T_wall
+        )
         return dP_air
 
 
@@ -585,7 +773,7 @@ class PlainFinTubeCounterFlowAirEvaporator:
         Air-side pressure drop under the current operating conditions
         (calculated after calling method `solve`).
     """
-    
+
     def __init__(
         self,
         W_fro: Quantity,
@@ -811,18 +999,18 @@ class PlainFinTubeCounterFlowAirEvaporator:
                 self.__fun__,
                 args=(counter,),
                 method='secant',
-                x0=0.5 * rfg_m_dot_max,
+                x0=0.6 * rfg_m_dot_max,
                 x1=rfg_m_dot_max,
                 xtol=0.01,   # kg/hr
                 rtol=0.001,  # 0.1 %
                 maxiter=20
             )
-        except ValueError:
+        except ValueError as err:
             message = (
                 "The refrigerant cannot be superheated to the required degree "
                 "in the evaporator under the current operating conditions."
             )
-            logger.error(message)
+            logger.error(f"{type(err).__name__}: {err}")
             raise EvaporatorError(message) from None
         except (BoilingError, SuperheatingError) as err:
             logger.error(f"{type(err).__name__}: {err}")
@@ -842,7 +1030,7 @@ class PlainFinTubeCounterFlowAirEvaporator:
             )
             self.eps = self.Q_dot / self.Q_dot_max
             self.air_dP = (
-                self.boiling_region.dP_air
-                + self.superheating_region.dP_air
+                    self.boiling_region.dP_air
+                    + self.superheating_region.dP_air
             )
             return self.rfg_m_dot

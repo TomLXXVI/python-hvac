@@ -12,17 +12,17 @@ air_ntp = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 
 
 class AircoSystem:
-    """Class for designing a single-zone air conditioning system for cooling and
-    dehumidifying air that already incorporates a DX air cooler with a known set
-    of operating conditions taken from its datasheet.
+    """Class for designing a single-zone air conditioning system used for
+    cooling and dehumidifying air with a DX air cooler.
 
-    The design procedure determines the required face area of the air cooler,
-    so that the desired zone air temperature will be maintained given the sensible
-    cooling load of the zone, while face velocity and refrigerant temperature
-    remain at the values given in the datasheet. In this way, the heat and mass
-    transfer effectiveness of the air cooler can be assumed to be identical
-    to the values that are valid for the given set of operating conditions in
-    the datasheet.
+    The DX air cooler is selected from a catalog, and it has a known set of
+    operating conditions taken from its datasheet.
+    The design procedure determines the required face area of this air cooler,
+    while face velocity and refrigerant temperature remain at the values given
+    in the datasheet.
+    In this way, the heat and mass transfer effectiveness of the air cooler can
+    be assumed to remain identical to the values that are valid for the given
+    set of operating conditions in the datasheet.
     """
     class WetDXAirCooler:
 
@@ -211,9 +211,10 @@ class AircoSystem:
 
     def _determine_supply_air_flow_rate(self) -> tuple[Quantity, Quantity]:
         # Determine the mass flow rate of supply air from a sensible heat
-        # balance of the zone, i.e., the mass flow rate of supply air needed to
-        # maintain the desired zone air temperature and compensates the
-        # sensible cooling load of the zone.
+        # balance of the zone.
+        # This is the mass flow rate of supply air that is needed to maintain the
+        # desired zone air temperature and compensates for the sensible cooling
+        # load of the zone.
         zone = AirConditioningProcess(
             air_in=self.supply_air,
             T_ao=self.zone_air.Tdb,

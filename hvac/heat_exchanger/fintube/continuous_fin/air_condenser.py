@@ -1,30 +1,196 @@
-"""
-AIR CONDENSER MODEL
-Plain fin-tube counter-flow heat exchanger.
-
-Known inputs:
-- State of air entering the condenser.
-- Mass flow rate of air entering the condenser.
-- State of refrigerant entering the condenser.
-- Mass flow rate of refrigerant entering the condenser.
-
-Purpose:
-Determine the state of the air and the state of the refrigerant leaving the
-condenser. Once these states have been determined, other operational
-characteristics are also determined.
-"""
-import numpy as np
+import math
+from abc import ABC, abstractmethod
 from scipy import optimize
 from hvac import Quantity
-from hvac.fluids import FluidState, HumidAir, CP_HUMID_AIR, CoolPropError
-from hvac.heat_transfer.heat_exchanger.fin_tube import PlainFinTubeHeatExchangerCore
-from hvac.heat_transfer.heat_exchanger.eps_ntu import CounterFlowHeatExchanger
 from hvac.logging import ModuleLogger
-from .exceptions import *
+from hvac.fluids import HumidAir, FluidState, CoolPropError, CP_HUMID_AIR
+import hvac.heat_transfer.forced_convection.internal_flow as single_phase_flow
+import hvac.heat_transfer.condensation.flow_condensation as condensing_flow
+from hvac.heat_exchanger.general.eps_ntu import CounterFlowHeatExchanger
+from .geometry import ContinuousFinStaggeredTubeBank
+from .air_to_water import ExternalSurface
+
 
 Q_ = Quantity
+
 logger = ModuleLogger.get_logger(__name__)
 logger.setLevel(ModuleLogger.ERROR)
+
+
+class CondenserError(Exception):
+    pass
+
+
+class DesuperheatingError(CondenserError):
+    pass
+
+
+class CondensingError(CondenserError):
+    pass
+
+
+class SubcoolingError(CondenserError):
+    pass
+
+
+class HeatExchangerCore:
+    # Continuous plain fin, staggered tube bank.
+
+    def __init__(
+        self,
+        width: Quantity,
+        height: Quantity,
+        num_rows: int,
+        pitch_trv: Quantity,
+        pitch_lon: Quantity,
+        d_o: Quantity,
+        d_i: Quantity,
+        t_fin: Quantity,
+        fin_density: Quantity,
+        k_fin: Quantity = Q_(237, 'W / (m * K)'),
+        d_r: Quantity | None = None,
+        condensing: bool = False
+    ) -> None:
+        self.geometry = ContinuousFinStaggeredTubeBank(
+            width, height, num_rows, pitch_trv,
+            pitch_lon, d_o, d_i, t_fin, fin_density,
+            k_fin, d_r
+        )
+        if condensing:
+            self.internal = CondensingPhaseInternalSurface(self)
+        else:
+            self.internal = SinglePhaseInternalSurface(self)
+        self.external = ExternalSurface(self)
+
+        self.T_wall: Quantity | None = None
+        self.h_int: Quantity | None = None
+        self.R_int: Quantity | None = None
+        self.h_ext: Quantity | None = None
+        self.R_ext: Quantity | None = None
+        self.R_tot: Quantity | None = None
+        self.UA: Quantity | None = None
+        self.eta_surf: float | None = None
+        self.dP_ext: Quantity | None = None
+
+    def hex_properties(
+        self,
+        air_mean: HumidAir,
+        air_in: HumidAir,
+        air_out: HumidAir,
+        rfg_mean: FluidState,
+        air_m_dot: Quantity,
+        rfg_m_dot: Quantity,
+    ) -> dict[str, Quantity | float]:
+        self.internal.m_dot = rfg_m_dot
+        self.internal.rfg = rfg_mean
+        self.external.m_dot = air_m_dot
+        self.external.air = air_mean
+        self.T_wall = self.__find_wall_temperature()
+        self.h_int = self.internal.heat_transfer_coeff(self.T_wall)
+        self.R_int = self.internal.thermal_resistance(self.h_int)
+        self.h_ext = self.external.heat_transfer_coeff(self.T_wall)
+        self.R_ext = self.external.thermal_resistance(self.h_ext)
+        self.R_tot = self.R_int + self.R_ext
+        self.UA = 1 / self.R_tot
+        self.dP_ext = self.external.pressure_drop(air_in.rho, air_out.rho, self.T_wall)
+        self.eta_surf = self.external.eta_surf(self.h_ext)
+        return {
+            'h_int': self.h_int,
+            'h_ext': self.h_ext,
+            'R_int': self.R_int,
+            'R_ext': self.R_ext,
+            'R_tot': self.R_tot,
+            'UA': self.UA,
+            'eta_surf': self.eta_surf,
+            'dP_ext': self.dP_ext
+        }
+
+    def __find_wall_temperature(self) -> Quantity:
+
+        def __eq__(T_wall: float) -> float:
+            T_wall = Q_(T_wall, 'K')
+            h_int = self.internal.heat_transfer_coeff(T_wall)
+            R_int = self.internal.thermal_resistance(h_int)
+            h_ext = self.external.heat_transfer_coeff(T_wall)
+            R_ext = self.external.thermal_resistance(h_ext)
+            T_int = self.internal.rfg.T.to('K')
+            T_ext = self.external.air.Tdb.to('K')
+            n = T_int / R_int + T_ext / R_ext
+            d = 1 / R_int + 1 / R_ext
+            T_wall_new = n / d
+            dev = (T_wall_new - T_wall).to('K').m
+            return dev
+
+        T_int = self.internal.rfg.T.to('K').m   # hot fluid
+        T_ext = self.external.air.Tdb.to('K').m  # cold fluid
+        if T_int > T_ext:
+            sol = optimize.root_scalar(
+                __eq__,
+                bracket=(T_ext + 1.e-12, T_int - 1.e-12)
+            )
+            T_wall = Q_(sol.root, 'K')
+        else:
+            T_wall = Q_(T_int, 'K')
+        return T_wall
+
+
+class InternalSurface(ABC):
+
+    def __init__(self, parent: HeatExchangerCore):
+        self.parent = parent
+        self.rfg: FluidState | None = None
+        self.m_dot: Quantity | None = None
+
+    def _m_dot_tube(self) -> Quantity:
+        # Here it is assumed that every tube in the first row is connected to
+        # the supply header.
+        A_min = self.parent.geometry.internal.A_min
+        n_r = self.parent.geometry.num_rows
+        d_i = self.parent.geometry.d_i
+        G = self.m_dot / (A_min / n_r)
+        A_tube = math.pi * d_i ** 2 / 4
+        m_dot_tube = G * A_tube
+        return m_dot_tube
+
+    def thermal_resistance(self, h: Quantity) -> Quantity:
+        A_tot = self.parent.geometry.internal.A_tot
+        R = 1 / (h * A_tot)
+        return R
+
+    @abstractmethod
+    def heat_transfer_coeff(self, *args, **kwargs) -> Quantity:
+        ...
+
+
+class SinglePhaseInternalSurface(InternalSurface):
+
+    def heat_transfer_coeff(self, *args, **kwargs) -> Quantity:
+        tube = single_phase_flow.CircularTube(
+            Di=self.parent.geometry.d_i,
+            L=self.parent.geometry.length,
+            fluid=self.rfg
+        )
+        tube.m_dot = self._m_dot_tube()
+        h = tube.avg_heat_transfer_coefficient()
+        if isinstance(h, tuple):
+            h = h[0]  # if laminar flow, assume constant heat flux
+        return h.to('W / (m ** 2 * K)')
+
+
+class CondensingPhaseInternalSurface(InternalSurface):
+
+    def heat_transfer_coeff(self, T_wall: Quantity) -> Quantity:
+        tube = condensing_flow.HorizontalTube(
+            D=self.parent.geometry.internal.d_h,
+            fluid=self.rfg.fluid
+        )
+        tube.m_dot = self._m_dot_tube()
+        h = tube.heat_trf_coeff(
+            x=self.rfg.x,
+            T_sat=self.rfg.T,
+            T_surf=T_wall
+        )
+        return h.to('W / (m ** 2 * K)')
 
 
 def _get_lmtd(
@@ -49,7 +215,7 @@ def _get_lmtd(
             f"zero."
         )
         dT_min = Q_(1.e-12, 'K')
-    lmtd = (dT_max - dT_min) / np.log(dT_max / dT_min)
+    lmtd = (dT_max - dT_min) / math.log(dT_max / dT_min)
     return lmtd
 
 
@@ -67,15 +233,16 @@ class DesuperheatingRegion:
         N_fin: Quantity,
         k_fin: Quantity
     ) -> None:
-        self.core = PlainFinTubeHeatExchangerCore(
-            L1=W_fro,
-            L3=H_fro,
-            S_t=S_trv,
-            S_l=S_lon,
-            D_i=D_int,
-            D_o=D_ext,
-            t_f=t_fin,
-            N_f=N_fin,
+        self.core = HeatExchangerCore(
+            width=W_fro,
+            height=H_fro,
+            num_rows=0,
+            pitch_trv=S_trv,
+            pitch_lon=S_lon,
+            d_i=D_int,
+            d_o=D_ext,
+            t_fin=t_fin,
+            fin_density=N_fin,
             k_fin=k_fin
         )
         # Known parameters:
@@ -104,11 +271,15 @@ class DesuperheatingRegion:
         # Set the parameters on the heat exchanger core needed to determine
         # the overall heat transfer conductance of the desuperheating region:
         L_flow = Q_(L_flow, 'mm')
-        self.core.L2 = L_flow
-        self.core.m_dot_ext = self.air_m_dot
-        self.core.m_dot_int = self.rfg_m_dot
-        self.core.ext.fluid_mean = air_mean
-        self.core.int.fluid_mean = rfg_mean
+        self.core.geometry.length = L_flow
+        self.core.hex_properties(
+            air_mean=air_mean,
+            air_in=self.air_in,
+            air_out=self.air_out,
+            rfg_mean=rfg_mean,
+            air_m_dot=self.air_m_dot,
+            rfg_m_dot=self.rfg_m_dot
+        )
 
         # Determine a new value the flow length:
         # First, the convection heat transfer coefficient `h_int` on the
@@ -121,9 +292,8 @@ class DesuperheatingRegion:
         # can be determined.
         # Finally, in the function `_get_flow_length` the flow length of the
         # desuperheating region is calculated that corresponds with `A_int`.
-        h_int = self.core.int.h
         R_int = (rfg_mean.T - self.core.T_wall) / self.Q_dot
-        A_int = 1 / (R_int * h_int)
+        A_int = 1 / (R_int * self.core.h_int)
         L_flow_new = self._get_flow_length(A_int.to('m ** 2'))
 
         dev = (L_flow_new - L_flow).to('mm')
@@ -152,11 +322,15 @@ class DesuperheatingRegion:
         into saturated vapor.
         """
         L_flow = Q_(L_flow, 'mm')
-        self.core.L2 = L_flow
-        self.core.m_dot_ext = self.air_m_dot
-        self.core.m_dot_int = self.rfg_m_dot
-        self.core.ext.fluid_mean = air_mean
-        self.core.int.fluid_mean = rfg_mean
+        self.core.geometry.length = L_flow
+        self.core.hex_properties(
+            air_mean=air_mean,
+            air_in=self.air_in,
+            air_out=self.air_out,
+            rfg_mean=rfg_mean,
+            air_m_dot=self.air_m_dot,
+            rfg_m_dot=self.rfg_m_dot
+        )
 
         cnt_flw_hex = CounterFlowHeatExchanger(
             C_cold=self.air_m_dot * air_mean.cp,
@@ -259,12 +433,12 @@ class DesuperheatingRegion:
         Calculates the flow length that corresponds with the interior heat
         transfer surface area `A_int`.
         """
-        D_i = self.core.int.geometry.D_i
-        L1 = self.core.int.geometry.L1
-        L3 = self.core.int.geometry.L3
-        S_trv = self.core.int.geometry.S_t
-        S_lon = self.core.int.geometry.S_l
-        num = A_int / (np.pi * D_i * L1) - 0.5
+        D_i = self.core.geometry.d_i
+        L1 = self.core.geometry.width
+        L3 = self.core.geometry.height
+        S_trv = self.core.geometry.pitch_trv
+        S_lon = self.core.geometry.pitch_lon
+        num = A_int / (math.pi * D_i * L1) - 0.5
         den = L3 / (S_trv * S_lon) - 1 / (2 * S_lon)
         L2 = num / den
         return L2.to('mm')
@@ -298,8 +472,7 @@ class DesuperheatingRegion:
         Returns the air-side pressure drop along the desuperheating region of
         the condenser.
         """
-        dP_air = self.core.ext.get_pressure_drop(self.air_in, self.air_out)
-        return dP_air
+        return self.core.dP_ext
 
 
 class CondensingRegion:
@@ -316,15 +489,16 @@ class CondensingRegion:
         N_fin: Quantity,
         k_fin: Quantity
     ) -> None:
-        self.core = PlainFinTubeHeatExchangerCore(
-            L1=W_fro,
-            L3=H_fro,
-            S_t=S_trv,
-            S_l=S_lon,
-            D_i=D_int,
-            D_o=D_ext,
-            t_f=t_fin,
-            N_f=N_fin,
+        self.core = HeatExchangerCore(
+            width=W_fro,
+            height=H_fro,
+            num_rows=0,
+            pitch_trv=S_trv,
+            pitch_lon=S_lon,
+            d_i=D_int,
+            d_o=D_ext,
+            t_fin=t_fin,
+            fin_density=N_fin,
             k_fin=k_fin,
             condensing=True
         )
@@ -354,11 +528,15 @@ class CondensingRegion:
         # Set the parameters on the heat exchanger core needed to determine
         # the overall heat transfer conductance of the condensing region:
         L_flow = Q_(L_flow, 'mm')
-        self.core.L2 = L_flow
-        self.core.m_dot_ext = self.air_m_dot
-        self.core.m_dot_int = self.rfg_m_dot
-        self.core.ext.fluid_mean = air_mean
-        self.core.int.fluid_mean = rfg_mean
+        self.core.geometry.length = L_flow
+        self.core.hex_properties(
+            air_mean=air_mean,
+            air_in=self.air_in,
+            air_out=self.air_out,
+            rfg_mean=rfg_mean,
+            air_m_dot=self.air_m_dot,
+            rfg_m_dot=self.rfg_m_dot
+        )
 
         # Determine a new value the flow length:
         # First, the convection heat transfer coefficient `h_int` on the
@@ -371,9 +549,8 @@ class CondensingRegion:
         # can be determined.
         # Finally, in the function `_get_flow_length` the flow length of the
         # condensing region is calculated that corresponds with `A_int`.
-        h_int = self.core.int.h
         R_int = (rfg_mean.T - self.core.T_wall) / self.Q_dot
-        A_int = 1 / (R_int * h_int)
+        A_int = 1 / (R_int * self.core.h_int)
         L_flow_new = self._get_flow_length(A_int.to('m ** 2'))
 
         dev = (L_flow_new - L_flow).to('mm')
@@ -402,11 +579,15 @@ class CondensingRegion:
         into saturated liquid.
         """
         L_flow = Q_(L_flow, 'mm')
-        self.core.L2 = L_flow
-        self.core.m_dot_ext = self.air_m_dot
-        self.core.m_dot_int = self.rfg_m_dot
-        self.core.ext.fluid_mean = air_mean
-        self.core.int.fluid_mean = rfg_mean
+        self.core.geometry.length = L_flow
+        self.core.hex_properties(
+            air_mean=air_mean,
+            air_in=self.air_in,
+            air_out=self.air_out,
+            rfg_mean=rfg_mean,
+            air_m_dot=self.air_m_dot,
+            rfg_m_dot=self.rfg_m_dot
+        )
 
         cnt_flw_hex = CounterFlowHeatExchanger(
             C_cold=self.air_m_dot * air_mean.cp,
@@ -420,6 +601,7 @@ class CondensingRegion:
         i = counter[0]
         logger.debug(
             f"Condensing region/Iteration {i + 1}: "
+            f"Flow length = {L_flow:~P.3f}. "
             f"Heat transfer deviation = {dev:~P.3f}."
         )
         counter[0] += 1
@@ -488,7 +670,7 @@ class CondensingRegion:
     @property
     def Q_dot(self) -> Quantity:
         """
-        Returns the heat transfer rate in the desuperheating region of the
+        Returns the heat transfer rate in the condensing region of the
         condenser.
         """
         Q_dot = self.rfg_m_dot * (self.rfg_in.h - self.rfg_out.h)
@@ -499,12 +681,12 @@ class CondensingRegion:
         Calculates the flow length that corresponds with the interior heat
         transfer surface area `A_int`.
         """
-        D_i = self.core.int.geometry.D_i
-        L1 = self.core.int.geometry.L1
-        L3 = self.core.int.geometry.L3
-        S_trv = self.core.int.geometry.S_t
-        S_lon = self.core.int.geometry.S_l
-        num = A_int / (np.pi * D_i * L1) - 0.5
+        D_i = self.core.geometry.d_i
+        L1 = self.core.geometry.width
+        L3 = self.core.geometry.height
+        S_trv = self.core.geometry.pitch_trv
+        S_lon = self.core.geometry.pitch_lon
+        num = A_int / (math.pi * D_i * L1) - 0.5
         den = L3 / (S_trv * S_lon) - 1 / (2 * S_lon)
         L2 = num / den
         return L2.to('mm')
@@ -527,8 +709,7 @@ class CondensingRegion:
         Returns the air-side pressure drop along the condensing region of
         the condenser.
         """
-        dP_air = self.core.ext.get_pressure_drop(self.air_in, self.air_out)
-        return dP_air
+        return self.core.dP_ext
 
 
 class SubcoolingRegion:
@@ -545,15 +726,16 @@ class SubcoolingRegion:
         N_fin: Quantity,
         k_fin: Quantity
     ) -> None:
-        self.core = PlainFinTubeHeatExchangerCore(
-            L1=W_fro,
-            L3=H_fro,
-            S_t=S_trv,
-            S_l=S_lon,
-            D_i=D_int,
-            D_o=D_ext,
-            t_f=t_fin,
-            N_f=N_fin,
+        self.core = HeatExchangerCore(
+            width=W_fro,
+            height=H_fro,
+            num_rows=0,
+            pitch_trv=S_trv,
+            pitch_lon=S_lon,
+            d_i=D_int,
+            d_o=D_ext,
+            t_fin=t_fin,
+            fin_density=N_fin,
             k_fin=k_fin
         )
         # Known parameters:
@@ -606,11 +788,15 @@ class SubcoolingRegion:
         air_mean, rfg_mean = self._get_fluid_mean_states(air_out, rfg_out)
 
         # Set heat exchanger core parameters to calculate UA:
-        self.core.L2 = L_flow
-        self.core.m_dot_ext = self.air_m_dot
-        self.core.m_dot_int = self.rfg_m_dot
-        self.core.ext.fluid_mean = air_mean
-        self.core.int.fluid_mean = rfg_mean
+        self.core.geometry.length = L_flow
+        self.core.hex_properties(
+            air_mean=air_mean,
+            air_in=self.air_in,
+            air_out=air_out,
+            rfg_mean=rfg_mean,
+            air_m_dot=self.air_m_dot,
+            rfg_m_dot=self.rfg_m_dot
+        )
 
         # Determine a new value for the heat transfer rate through the heat
         # exchanger core of the subcooling region:
@@ -739,8 +925,7 @@ class SubcoolingRegion:
         Returns the air-side pressure drop along the subcooling region of
         the condenser.
         """
-        dP_air = self.core.ext.get_pressure_drop(self.air_in, self.air_out)
-        return dP_air
+        return self.core.dP_ext
 
 
 class PlainFinTubeCounterFlowAirCondenser:

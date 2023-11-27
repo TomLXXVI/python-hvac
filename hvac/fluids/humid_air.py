@@ -55,7 +55,6 @@ class HumidAir:
             )
             self._inputs['W'] = 0.0
 
-
     @property
     def P(self) -> Quantity:
         return Q_(self._P, 'Pa')

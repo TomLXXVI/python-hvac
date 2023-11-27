@@ -23,7 +23,6 @@ from hvac.logging import ModuleLogger
 from hvac.charts import LineChart
 from hvac.fluids import Fluid, HumidAir, CoolPropWarning
 from hvac.heat_transfer.heat_exchanger.fin_tube import (
-    PlainFinTubeCounterFlowAirEvaporator,
     PlainFinTubeCounterFlowAirCondenser
 )
 from hvac.vapor_compression import (
@@ -39,7 +38,6 @@ logger = ModuleLogger.get_logger(__name__)
 
 Q_ = Quantity
 
-Evaporator = PlainFinTubeCounterFlowAirEvaporator
 Condenser = PlainFinTubeCounterFlowAirCondenser
 Compressor = VariableSpeedCompressor | FixedSpeedCompressor
 R134a = Fluid('R134a')
@@ -168,9 +166,9 @@ def task(T_evp: Quantity, T_cnd: Quantity) -> Quantity:
 
 if __name__ == '__main__':
     # Set evaporation temperature:
-    T_evp = 3.0  # degC
+    T_evp = 5.0  # degC
     # Set range of condensation temperatures:
-    T_cnd_rng = Q_(np.arange(40.0, 62.0, 2.0), 'degC')
+    T_cnd_rng = Q_(np.arange(54.0, 72.0, 2.0), 'degC')
     # Create an array of the same evaporation temperature having the same length
     # as the range of condensation temperatures:
     T_evp_rng = Q_(np.array(list(itertools.repeat(T_evp, len(T_cnd_rng)))), 'degC')

@@ -7,12 +7,14 @@ from hvac.heat_transfer.forced_convection import internal_flow
 from hvac.heat_transfer.condensation import flow_condensation
 from hvac.heat_transfer.boiling import flow_boiling
 from hvac.heat_transfer.finned_surface.fins import Fin, PlainContinuousFin
-from hvac.heat_transfer.heat_exchanger.misc import correct_nusselt_number, correct_friction_factor
+from hvac.heat_transfer.heat_exchanger.corrections import correct_nusselt_number, correct_friction_factor
+from hvac.logging import ModuleLogger
 from .. import correlations
 from . import geometry
 
-
+logger = ModuleLogger.get_logger(__name__)
 Q_ = Quantity
+
 
 # heat transfer correlation for plain fin-tube heat exchanger
 ht_correlation = correlations.plain_flat_fin.heat_transfer.j_Wang_and_Chi
@@ -210,32 +212,41 @@ class PlainFinTubeHeatExchangerCore:
         """
         A_int = self.internal_surface.geometry.A
         R_int = 1 / (h_int * A_int)
+
         A_ext = self.external_surface.geometry.A
         R_ext = 1 / (eta_ext * h_ext * A_ext)
-        T_int_m = self.internal_surface.fluid_mean.T.to('K')
+
+        T_int = self.internal_surface.fluid_mean.T.to('K')
+
         if isinstance(self.external_surface.fluid_mean, HumidAir):
-            T_ext_m = self.external_surface.fluid_mean.Tdb
+            T_ext = self.external_surface.fluid_mean.Tdb
         else:
-            T_ext_m = self.external_surface.fluid_mean.T
-        n = T_int_m / R_int + T_ext_m / R_ext
+            T_ext = self.external_surface.fluid_mean.T
+
+        n = T_int / R_int + T_ext / R_ext
         d = 1 / R_int + 1 / R_ext
         T_w = n / d
         return T_w.to('K')
 
     @property
     def T_wall(self) -> Quantity:
-        """Gets average wall temperature of tubes."""
+        """Returns the average wall temperature of tubes."""
         if self._T_wall is None:
+
             def _eq(T_w: float) -> float:
                 T_w = Q_(T_w, 'K')
+
                 if isinstance(self.int, _InternalBoilingHeatTransferSurface):
                     h_int = self.int.h
                 else:
                     # noinspection PyProtectedMember
                     h_int = self.int._get_heat_trf_coeff(T_w)
+
                 h_ext = self.ext.get_heat_trf_coeff(T_w)
                 eta_ext = self.ext.get_eta(h_ext)
+
                 T_w_new = self._get_wall_temperature(h_int, h_ext, eta_ext)
+
                 dev = T_w_new.to('K') - T_w.to('K')
                 return dev.m
 
@@ -243,19 +254,25 @@ class PlainFinTubeHeatExchangerCore:
                 T_fluid_ext = self.ext.fluid_mean.Tdb.to('K')
             else:
                 T_fluid_ext = self.ext.fluid_mean.T.to('K')
-            T_fluid_min = min(
-                self.int.fluid_mean.T.to('K'),
-                T_fluid_ext
-            ).m + 1.e-3
-            T_fluid_max = max(
-                self.int.fluid_mean.T.to('K'),
-                T_fluid_ext
-            ).m - 1.e-3
-            try:
-                sol = optimize.root_scalar(_eq, bracket=[T_fluid_min, T_fluid_max])
-                self._T_wall = Q_(sol.root, 'K')
-            except ValueError:
-                self._T_wall = Q_((T_fluid_min + T_fluid_max) / 2, 'K')
+
+            T_fluid_min = min(self.int.fluid_mean.T.to('K'), T_fluid_ext).m
+            T_fluid_max = max(self.int.fluid_mean.T.to('K'), T_fluid_ext).m
+            if T_fluid_max > T_fluid_min:
+                try:
+                    sol = optimize.root_scalar(
+                        _eq,
+                        bracket=(T_fluid_min + 1.e-12, T_fluid_max - 1.e-12)
+                    )
+                    self._T_wall = Q_(sol.root, 'K')
+                except ValueError:
+                    logger.warning(
+                        "Mean wall temperature not between "
+                        f"{T_fluid_min} K and {T_fluid_max} K."
+                    )
+                    self._T_wall = Q_((T_fluid_min + T_fluid_max) / 2, 'K')
+            else:
+                self._T_wall = Q_(T_fluid_min, 'K')
+
         return self._T_wall
 
     @property
@@ -794,7 +811,8 @@ class _ExternalHeatTransferSurface(ABC):
 
 
 class _ExternalSinglePhaseHeatTransferSurface(_ExternalHeatTransferSurface):
-    """Model of external heat transfer surface in case of single-phase external
+    """
+    Model of external heat transfer surface in case of single-phase external
     fluid. Derived from general class `_ExternalHeatTransferSurface`.
 
     Attributes and properties

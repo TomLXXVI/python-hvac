@@ -19,6 +19,7 @@ dill = ">=0.3.6"
 pint = ">=0.20.1"
 odfpy = "^1.4.1"
 multiprocess = "^0.70.14"
+lmfit = "^1.2.2"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^3.6.0"

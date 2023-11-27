@@ -1,2 +1,3 @@
 from .real_compressor import FixedSpeedCompressor, VariableSpeedCompressor
-from .machine import SingleStageVaporCompressionMachine
+from .machine import SingleStageVaporCompressionMachine, Output
+from .condensing_unit import CondensingUnit
