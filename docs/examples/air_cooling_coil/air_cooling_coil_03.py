@@ -99,7 +99,7 @@ def system_fun(args) -> HumidAir:
     reached thermal equilibrium.
     In steady-state conditions, the state of space air entering the cooling coil
     becomes constant in time. Also, the state of air leaving the cooling coil,
-    and the state of water leaving the cooling coil becomes constant.
+    and the state of water leaving the cooling coil become constant.
 
     Returns
     -------
