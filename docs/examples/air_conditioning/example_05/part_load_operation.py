@@ -2,10 +2,15 @@
 PART-LOAD OPERATION ANALYSIS OF A SINGLE-ZONE VAV AIR-COOLING SYSTEM WITH
 ECONOMIZER.
 """
+import warnings
 from datetime import date
 import dill as pickle
 from hvac import Quantity
-from hvac.fluids import HumidAir
+from hvac.fluids import HumidAir, CoolPropWarning
+
+warnings.filterwarnings('ignore', category=CoolPropWarning)
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+
 from hvac.charts import LineChart, PsychrometricChart, StatePoint
 from hvac.air_conditioning.single_zone.vav_cooling_sim import (
     VAVSingleZoneAirCoolingSystem,
@@ -19,7 +24,6 @@ from hvac.climate import (
     TMY
 )
 from exposition_hall import ExpositionHall
-
 
 Q_ = Quantity
 
@@ -83,14 +87,17 @@ airco_system = VAVSingleZoneAirCoolingSystem(
 # The function `get_simulation_data` returns for a specified day (indicated by
 # a month and day index) a `CoolingSimData` object. See module `vav_cooling_sim`
 # in subpackage `air_conditioning.single_zone` for more information. We use this
-# object to get the outdoor air temperature and the relative sensible and latent
-# zone loads at part-load for each hour of the day.
+# object to get the outdoor air temperature, the zone air setpoint temperature,
+# and the relative sensible and latent zone loads at part-load for each hour
+# of the day.
 
 
 def get_simulation_data(
     month: int, day: int,
+    ExpositionHall: type[ExpositionHall],
     design_data: DesignData
 ) -> CoolingSimData:
+    # Retrieve the climate data for the given month and day:
     climate = ClimateData.create_from_TMY_data(
         day=date(2022, month, day),
         location=Location(
@@ -103,16 +110,22 @@ def get_simulation_data(
         tmy=TMY('tmy_gent_2005_2020.csv')
     )
 
+    # Create the `ExpositionHall` model based on the current climate data:
     hall = ExpositionHall.create(
         climate,
-        max_num_people=50,
-        min_num_people=5
+        T_comfort=design_data.zone_air.Tdb,
+        T_economy=design_data.zone_air.Tdb,
+        num_people_max=50,
+        num_people_min=5
     )
 
+    # Prepare the simulation data. When `sim_data` is called, it will return an
+    # iterator over tuples containing the outdoor air temperature, the zone
+    # air setpoint temperature, the relative sensible zone load, and the relative
+    # latent zone load, ordered from 0 to 23 h on the selected day and month of
+    # the year.
     sim_data = CoolingSimData(
-        T_outdoor_db_rng=climate.Tdb_profile['T'],
-        T_outdoor_wb_rng=climate.Twb_profile['T'],
-        df_Q_zone=hall.get_heat_gains(unit='kW'),
+        zone=hall,
         design_data=design_data
     )
     return sim_data
@@ -139,7 +152,7 @@ def save_data(outputs: list[Output], file_path: str) -> None:
 # ------------------------------------------------------------------------------
 # SIMULATION OF PART-LOAD OPERATION AT A GIVEN DAY
 
-def main():
+def main(month: int, day: int):
     # We will save the line charts generated further on this function to a
     # subfolder in the current working directory.
     # The results we will pickle with the function `save_data` will be saved in
@@ -148,24 +161,30 @@ def main():
     data_folder = "./data/"
 
     # Get the simulation working data for the given month and day:
-    sim_data = get_simulation_data(7, 21, airco_system.design_data)
+    sim_data = get_simulation_data(
+        month, day,
+        ExpositionHall,
+        airco_system.design_data
+    )
 
     # Run the simulation for each hour of the day we have selected:
     outputs = []
-    for hour, (outdoor_air, rel_Q_zone_sen, rel_Q_zone_lat) in enumerate(sim_data()):
+    for hour, tup in enumerate(sim_data()):
+        outdoor_air, T_set_zone, rel_Q_zone_sen, rel_Q_zone_lat = tup
         print(f"hour: {hour}")
         print(
             "outdoor air: "
             f"{outdoor_air.Tdb.to('degC'):~P.3f} DB, "
             f"{outdoor_air.W.to('g / kg'):~P.3f} AH "
             f"({outdoor_air.RH.to('pct'):~P.3f} RH)",
+            "zone air setpoint temperature: "
+            f"{T_set_zone.to('degC'):~P.3f} DB",
             "relative sensible zone load: "
             f"{rel_Q_zone_sen.to('pct'):~P.3f}",
             "relative latent zone load: "
             f"{rel_Q_zone_lat.to('pct'):~P.3f}",
             sep='\n'
         )
-
         # Analyze part-load operation of the air-cooling system by passing the
         # state of outdoor air and the relative sensible and latent zone loads,
         # and the setpoint of the zone air temperature at the given hour of the
@@ -174,7 +193,7 @@ def main():
             outdoor_air=outdoor_air,
             rel_Q_zone_sen=rel_Q_zone_sen,
             rel_Q_zone_lat=rel_Q_zone_lat,
-            T_set_zone=Q_(26, 'degC')
+            T_set_zone=T_set_zone
         )
         outputs.append(output)
         print(output)
@@ -185,7 +204,7 @@ def main():
 
     # DRAW LINE CHARTS WITH THE RESULTS
 
-    # Daily profile of dry-bulb and wet-bulb outdoor air temperature:
+    # Hourly profile of dry-bulb and wet-bulb outdoor air temperature:
     chart_00 = LineChart()
     chart_00.add_xy_data(
         label='outdoor air dry-bulb temperature',
@@ -201,7 +220,7 @@ def main():
     chart_00.x1.scale(0, 24, 1)
     chart_00.y1.add_title('temperature, °C')
     chart_00.add_legend()
-    chart_00.show()
+    # chart_00.show()
     chart_00.save('chart_00', location=chart_folder)
 
     # Relative zone loads:
@@ -227,7 +246,7 @@ def main():
     chart_01.y1.add_title('relative zone load, %')
     chart_01.y1.scale(-20, 220, 20)
     chart_01.add_legend()
-    chart_01.show()
+    # chart_01.show()
     chart_01.save('chart_01', location=chart_folder)
 
     # Temperatures:
@@ -267,7 +286,7 @@ def main():
     chart_02.y1.add_title('air temperature, °C')
     chart_02.y1.scale(10, 45, 5)
     chart_02.add_legend()
-    chart_02.show()
+    # chart_02.show()
     chart_02.save('chart_02', location=chart_folder)
 
     # Humidity levels:
@@ -306,7 +325,7 @@ def main():
     chart_03.x1.scale(0, 24, 1)
     chart_03.y1.add_title('air humidity, g/kg')
     chart_03.add_legend()
-    chart_03.show()
+    # chart_03.show()
     chart_03.save('chart_03', location=chart_folder)
 
     # Volume flow rates:
@@ -334,7 +353,7 @@ def main():
     chart_04.y1.add_title('air volume flow rate, m³/h')
     chart_04.y1.scale(0, 11000, 1000)
     chart_04.add_legend()
-    chart_04.show()
+    # chart_04.show()
     chart_04.save('chart_04', location=chart_folder)
 
     # Cooling coil and heating coil loads:
@@ -356,7 +375,7 @@ def main():
     chart_05.y1.add_title('cooling/heating coil load, kW')
     chart_05.y1.scale(0, 80, 10)
     chart_05.add_legend()
-    chart_05.show()
+    # chart_05.show()
     chart_05.save('chart_05', location=chart_folder)
 
     # States of zone air:
@@ -367,8 +386,9 @@ def main():
     ]
     for i, state_point in enumerate(state_points):
         chart_06.plot_point(f"Pnt. {i}", state_point)
-    chart_06.show()
+    # chart_06.show()
+    chart_06.chart.save('chart_06', location=chart_folder)
 
 
 if __name__ == '__main__':
-    main()
+    main(month=7, day=21)

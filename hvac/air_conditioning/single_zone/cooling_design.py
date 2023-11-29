@@ -91,7 +91,7 @@ class Output:
 
 class AircoSystem:
     """Class for determining the cooling coil load of a single-zone CAV or
-    VAV system at summer peak design conditions needed for sizing the cooling
+    VAV system at summer peak design conditions needed to size the cooling
     coil.
 
     Attributes

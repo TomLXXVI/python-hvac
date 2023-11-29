@@ -5,10 +5,9 @@ with a DX air-cooling coil and optionally an air-heating coil.
 from collections.abc import Iterator
 import warnings
 from dataclasses import dataclass
-import pandas as pd
 from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid, CoolPropWarning, CP_HUMID_AIR
-import hvac.heat_transfer.heat_exchanger.fin_tube.core as core
+from hvac.cooling_load_calc import Space
 from hvac.air_conditioning import AirConditioningProcess, AirStream, AdiabaticMixing
 from hvac.charts.psychrometric_chart import PsychrometricChart, StatePoint
 from .cooling_design import Output
@@ -19,8 +18,8 @@ warnings.filterwarnings('ignore', category=CoolPropWarning)
 
 
 Q_ = Quantity
-HexCore = core.plain_fin_tube.PlainFinTubeHeatExchangerCore
 logger = ModuleLogger.get_logger(__name__)
+logger.setLevel(ModuleLogger.ERROR)
 
 
 # Define standard (NTP) air:
@@ -79,7 +78,8 @@ class DesignData:
 
 
 class VAVSingleZoneAirCoolingSystem:
-    """Model for analyzing the steady-state part-load operation of a single-zone
+    """
+    Model for analyzing the steady-state part-load operation of a single-zone
     VAV air-cooling system equipped with an air-cooling coil and optionally an
     air-heating coil.
 
@@ -110,7 +110,7 @@ class VAVSingleZoneAirCoolingSystem:
     recirculation of return air is set to a minimum (zero), and all supply air
     to the zone will come from outdoors.
     If outdoor air temperature is above the zone air temperature setpoint, the
-    outdoor air flow rate is restricted to what's required for zone ventilation,
+    outdoor air flow rate is restricted to what's required for zone ventilation
     only and recirculation of return air is now at its maximum.
     """
     def __init__(
@@ -203,6 +203,7 @@ class VAVSingleZoneAirCoolingSystem:
             self.design_data.m_dot_vent,
             rel_m_dot_supply_min * self.design_data.m_dot_supply
         )
+
         # The maximum supply air mass flow rate is limited to its design value
         # (considered to be the maximum flow rate that the supply fan can
         # displace).
@@ -533,12 +534,13 @@ class VAVSingleZoneAirCoolingSystem:
             W=self.W_min_cool
         )
 
-        # With the initial supply air state being selected, determine the needed
-        # mass flow rate of supply air to maintain the zone air temperature at
-        # its setpoint, the resulting state of return air, and the required
-        # new state of supply air, should the needed mass flow rate of supply air
-        # could not be attained with the initial state of supply air (i.e., if
-        # the supply air mass flow rate is at its minimum or maximum limit).
+        # With the initial supply air state being selected, determine (1) the
+        # needed mass flow rate of supply air to maintain the zone air
+        # temperature at its setpoint, (2) the resulting state of return air,
+        # and the required new state of supply air, should the needed mass flow
+        # rate of supply air could not be attained with the initial state of
+        # supply air (i.e., if the supply air mass flow rate is at its minimum
+        # or maximum limit).
         m_dot_supply, return_air, supply_air_req = self._control_supply_fan(
             supply_air_ini,
         )
@@ -705,60 +707,71 @@ class CoolingSimData:
     """
     def __init__(
         self,
-        T_outdoor_db_rng: list[Quantity],
-        T_outdoor_wb_rng: list[Quantity],
-        df_Q_zone: pd.DataFrame,
+        zone: Space,
         design_data: DesignData
     ) -> None:
         """Creates an instance of class `CoolingSimData`.
 
         Parameters
         ----------
-        T_outdoor_db_rng:
-            List of hourly dry-bulb outdoor air temperatures ordered from 0 to 23 h.
-        T_outdoor_wb_rng:
-            List of hourly wet-bulb outdoor air temperatures ordered from 0 to 23 h.
-        df_Q_zone:
-            Pandas-DataFrame object retrieved from a `Building`, a `BuildingEntity`,
-            a `VentilationZone`, or a `Space` object in subpackage
-            `hvac.cooling_load_calc` that contains the hourly sensible and latent
-            cooling loads.
+        zone:
+            `Space` object that represents the thermal model of the single-zone
+             building.
         design_data:
-            `DesignData` object that contains data coming from the design calculations
-            of the single-zone VAV air-cooling system, including the sensible and
-            latent design cooling load.
+            `DesignData` object that contains data from the design
+            calculations of the single-zone VAV air-cooling system, including
+            the sensible and latent design cooling load.
         """
-        self.T_outdoor_db_rng = T_outdoor_db_rng
-        self.T_outdoor_wb_rng = T_outdoor_wb_rng
-        self.df_dQ_zone = df_Q_zone
+        # Get the outdoor air dry-bulb and wet-bulb temperatures for each hour
+        # of the day (index 0 to 23):
+        self.T_outdoor_db_rng = zone.climate_data.Tdb_profile['T']
+        self.T_outdoor_wb_rng = zone.climate_data.Twb_profile['T']
+        # Get the zone air setpoint temperature for each hour of the day
+        # (index 0 to 23):
+        self.T_set_zone_rng = [
+            Q_(zone.T_int_fun(t_hr=t), 'degC')
+            for t in range(len(self.T_outdoor_db_rng))
+        ]
+        # Get the dataframe with the zone loads (heat gains) for each hour of
+        # the day:
+        self.df_Q_zone = zone.get_heat_gains(unit='kW')
         self.design_data = design_data
-
+        # Combine outdoor air dry-bulb and wet-bulb temperatures in `HumidAir`
+        # objects:
         self.outdoor_air_rng = [
             HumidAir(Tdb=T_outdoor_db, Twb=T_outdoor_wb)
-            for T_outdoor_db, T_outdoor_wb in zip(T_outdoor_db_rng, T_outdoor_wb_rng)
+            for T_outdoor_db, T_outdoor_wb
+            in zip(self.T_outdoor_db_rng, self.T_outdoor_wb_rng)
         ]
-
+        # 'Quantify' and put the sensible zone loads from the dataframe in a
+        # list (index 0 to 23):
         self.Q_zone_sen_rng = [
             Q_(Q, 'kW')
-            for Q in df_Q_zone['Q_sen_load'].values
+            for Q in self.df_Q_zone['Q_sen_load'].values
         ]
+        # 'Quantify' and put the latent zone loads from the dataframe in a
+        # list (index 0 to 23):
         self.Q_zone_lat_rng = [
             Q_(Q, 'kW')
-            for Q in df_Q_zone['Q_lat_load'].values
+            for Q in self.df_Q_zone['Q_lat_load'].values
         ]
-
+        # Determine the relative sensible zone loads (i.e., as a fraction of the
+        # design load):
         self.rel_Q_zone_sen_rng = [
-            Q_zone_sen.to('kW') / design_data.Q_zone_sen.to('kW')
+            Q_zone_sen.to('kW') / self.design_data.Q_zone_sen.to('kW')
             for Q_zone_sen in self.Q_zone_sen_rng
         ]
+        # Determine the relative latent zone loads (i.e., as a fraction of the
+        # design load):
         self.rel_Q_zone_lat_rng = [
-            Q_zone_lat.to('kW') / design_data.Q_zone_lat.to('kW')
+            Q_zone_lat.to('kW') / self.design_data.Q_zone_lat.to('kW')
             for Q_zone_lat in self.Q_zone_lat_rng
         ]
 
     def __call__(self) -> Iterator[list[tuple[HumidAir, Quantity, Quantity]]]:
         """Returns an iterator over tuples which have three elements:
         -   the state of outdoor air
+        -   the zone air setpoint temperature
         -   the corresponding relative sensible cooling load (ratio of the
             sensible part-load to the sensible design-load)
         -   the corresponding relative latent cooling load (ratio of the latent
@@ -769,6 +782,7 @@ class CoolingSimData:
         """
         return zip(
             self.outdoor_air_rng,
+            self.T_set_zone_rng,
             self.rel_Q_zone_sen_rng,
             self.rel_Q_zone_lat_rng
         )
@@ -777,20 +791,22 @@ class CoolingSimData:
         self,
         hour: int,
         is_relative: bool = True
-    ) -> tuple[HumidAir, Quantity, Quantity]:
-        """Returns for the given hour a tuple of three elements:
+    ) -> tuple[HumidAir, Quantity, Quantity, Quantity]:
+        """Returns for the given hour (index 0 to 23) a tuple of three elements:
         -   the state of outdoor air
+        -   the zone air setpoint temperature
         -   the corresponding relative sensible cooling load (ratio of the
             sensible part-load to the sensible design-load)
         -   the corresponding relative latent cooling load (ratio of the latent
             part-load to the latent design-load)
         """
         outdoor_air = self.outdoor_air_rng[hour]
+        T_set_zone = self.T_set_zone_rng[hour]
         if is_relative:
             rel_Q_zone_sen = self.rel_Q_zone_sen_rng[hour]
             rel_Q_zone_lat = self.rel_Q_zone_lat_rng[hour]
-            return outdoor_air, rel_Q_zone_sen, rel_Q_zone_lat
+            return outdoor_air, T_set_zone, rel_Q_zone_sen, rel_Q_zone_lat
         else:
             Q_zone_sen = self.Q_zone_sen_rng[hour]
             Q_zone_lat = self.Q_zone_lat_rng[hour]
-            return outdoor_air, Q_zone_sen, Q_zone_lat
+            return outdoor_air, T_set_zone, Q_zone_sen, Q_zone_lat

@@ -83,7 +83,7 @@ class Schedule:
 
 
 class OccupancySchedule(Schedule):
-    """Schedule for number of persons in a space."""
+    """Schedule for the number of persons in a space."""
     pass
 
 
