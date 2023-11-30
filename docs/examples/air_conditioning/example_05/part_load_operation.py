@@ -5,6 +5,7 @@ ECONOMIZER.
 import warnings
 from datetime import date
 import dill as pickle
+import pandas as pd
 from hvac import Quantity
 from hvac.fluids import HumidAir, CoolPropWarning
 
@@ -68,7 +69,8 @@ airco_system = VAVSingleZoneAirCoolingSystem(
         zone_air=HumidAir(Tdb=Q_(26.0, 'degC'), RH=Q_(50, 'pct')),
         supply_air=HumidAir(Tdb=Q_(14, 'degC'), W=Q_(7.783, 'g / kg')),
     ),
-    heating_coil_present=True
+    heating_coil_present=True,
+    # variable_cooling_setpoint=True
 )
 
 # ------------------------------------------------------------------------------
@@ -81,7 +83,7 @@ airco_system = VAVSingleZoneAirCoolingSystem(
 
 # We also need a thermal model of our single-zone building to calculate the zone
 # loads at part-load. For this, we use the model `ExpositionHall` we created in
-# example 01 of the cooling load calculation examples (see docs/examples/
+# example_01 of the cooling load calculation examples (see docs/examples/
 # cooling_load_calc).
 
 # The function `get_simulation_data` returns for a specified day (indicated by
@@ -115,8 +117,8 @@ def get_simulation_data(
         climate,
         T_comfort=design_data.zone_air.Tdb,
         T_economy=design_data.zone_air.Tdb,
-        num_people_max=50,
-        num_people_min=5
+        num_people_max=200,
+        num_people_min=100
     )
 
     # Prepare the simulation data. When `sim_data` is called, it will return an
@@ -147,6 +149,58 @@ def save_data(outputs: list[Output], file_path: str) -> None:
     ]
     with open(file_path, 'wb') as fh:
         pickle.dump(data, fh)
+
+
+# ------------------------------------------------------------------------------
+# The function `create_output_table` is just a helper function to display the
+# output results of the simulation in a table (Pandas' DataFrame).
+
+def create_output_table(outputs: list[Output]) -> pd.DataFrame:
+    d = {
+        'T_oa': [],
+        'W_oa': [],
+        'T_set_zone': [],
+        'W_set_zone': [],
+        'Q_dot_zone': [],
+        'SHR_zone': [],
+        'm_dot_supply': [],
+        'm_dot_vent': [],
+        'm_dot_recir': [],
+        'T_mix': [],
+        'W_mix': [],
+        'T_cool': [],
+        'W_cool': [],
+        'T_supply': [],
+        'W_supply': [],
+        'T_return': [],
+        'W_return': [],
+        'Q_dot_cc': [],
+        'SHR_cc': [],
+        'Q_dot_hc': []
+    }
+    for output in outputs:
+        d['T_oa'].append(output.outdoor_air.Tdb.to(output.units['T'][0]).m)
+        d['W_oa'].append(output.outdoor_air.W.to(output.units['W'][0]).m)
+        d['T_set_zone'].append(output.zone_air_sp.Tdb.to(output.units['T'][0]).m)
+        d['W_set_zone'].append(output.zone_air_sp.W.to(output.units['W'][0]).m)
+        d['Q_dot_zone'].append(output.Q_dot_zone.to(output.units['Q_dot'][0]).m)
+        d['SHR_zone'].append(output.SHR_zone.to(output.units['SHR'][0]).m)
+        d['m_dot_supply'].append(output.m_dot_supply.to(output.units['m_dot'][0]).m)
+        d['m_dot_vent'].append(output.m_dot_vent.to(output.units['m_dot'][0]).m)
+        d['m_dot_recir'].append(output.m_dot_recir.to(output.units['m_dot'][0]).m)
+        d['T_mix'].append(output.mixed_air.Tdb.to(output.units['T'][0]).m)
+        d['W_mix'].append(output.mixed_air.W.to(output.units['W'][0]).m)
+        d['T_cool'].append(output.cooled_air.Tdb.to(output.units['T'][0]).m)
+        d['W_cool'].append(output.cooled_air.W.to(output.units['W'][0]).m)
+        d['T_supply'].append(output.supply_air.Tdb.to(output.units['T'][0]).m)
+        d['W_supply'].append(output.supply_air.W.to(output.units['W'][0]).m)
+        d['T_return'].append(output.return_air.Tdb.to(output.units['T'][0]).m)
+        d['W_return'].append(output.return_air.W.to(output.units['W'][0]).m)
+        d['Q_dot_cc'].append(output.Q_dot_cc.to(output.units['Q_dot'][0]).m)
+        d['SHR_cc'].append(output.SHR_cc.to(output.units['SHR'][0]).m)
+        d['Q_dot_hc'].append(output.Q_dot_hc.to(output.units['Q_dot'][0]).m)
+    df = pd.DataFrame(d)
+    return df
 
 
 # ------------------------------------------------------------------------------
@@ -197,10 +251,19 @@ def main(month: int, day: int):
         )
         outputs.append(output)
         print(output)
+        print()
 
     # Pickle the results in `outputs` with the function `save_data` (this can
     # be omitted).
     save_data(outputs, data_folder + "data.pickle")
+
+    # Show the outputs in a table:
+    with pd.option_context(
+        'display.max_rows', None,
+        'display.max_columns', None,
+        'display.width', 1000
+    ):
+        print(create_output_table(outputs))
 
     # DRAW LINE CHARTS WITH THE RESULTS
 

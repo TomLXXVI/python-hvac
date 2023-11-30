@@ -193,8 +193,8 @@ class AirConditioningProcess(Process):
         }
         super().__init__(equations)
 
-        # Assign known input values (not None) of the air conditioning process to the values of the corresponding
-        # variables in the equation.
+        # Assign known input values (not None) of the air conditioning process
+        # to the values of the corresponding variables in the equation.
         self._air_in = air_in
         if isinstance(self._air_in, HumidAir):
             self['T_ai'] = self._air_in.Tdb
@@ -230,9 +230,21 @@ class AirConditioningProcess(Process):
             self['W_adp'] = self._ADP.W
             self['h_adp'] = self._ADP.h
         else:
-            if T_adp is not None: self['T_adp'] = T_adp
-            if W_adp is not None: self['W_adp'] = W_adp
-            if h_adp is not None: self['h_adp'] = h_adp
+            if T_adp is not None:
+                self['T_adp'] = T_adp
+                self._ADP = HumidAir(Tdb=T_adp, RH=Q_(100, 'pct'))
+                self['W_adp'] = self._ADP.W
+                self['h_adp'] = self._ADP.h
+            if W_adp is not None:
+                self['W_adp'] = W_adp
+                self._ADP = HumidAir(W=W_adp, RH=Q_(100, 'pct'))
+                self['T_adp'] = self._ADP.Tdb
+                self['h_adp'] = self._ADP.h
+            if h_adp is not None:
+                self['h_adp'] = h_adp
+                self._ADP = HumidAir(h=h_adp, RH=Q_(100, 'pct'))
+                self['T_adp'] = self._ADP.Tdb
+                self['W_adp'] = self._ADP.W
 
         if beta is not None: self['beta'] = beta  # contact factor
         if SHR is not None: self['SHR'] = SHR

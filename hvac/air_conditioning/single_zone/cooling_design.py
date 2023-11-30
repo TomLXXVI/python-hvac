@@ -20,10 +20,14 @@ class Output:
     m_dot_supply: Quantity
     m_dot_vent: Quantity
     m_dot_recir: Quantity
+    outdoor_air: HumidAir
     mixed_air: HumidAir
     cooled_air: HumidAir
     supply_air: HumidAir
     return_air: HumidAir
+    zone_air_sp: HumidAir
+    Q_dot_zone: Quantity
+    SHR_zone: Quantity
     Q_dot_cc: Quantity
     SHR_cc: Quantity
     Q_dot_hc: Quantity | None = None
@@ -59,6 +63,10 @@ class Output:
             f"{self.V_dot_vent_ntp.to(self.units['V_dot'][0]):~P.{self.units['V_dot'][1]}f}\n"
             "recirculation air volume flow rate (NTP) = "
             f"{self.V_dot_recir_ntp.to(self.units['V_dot'][0]):~P.{self.units['V_dot'][1]}f}\n"
+            "outdoor air = "
+            f"{self.outdoor_air.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
+            f"{self.outdoor_air.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
+            f"({self.outdoor_air.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
             "mixed air = "
             f"{self.mixed_air.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
             f"{self.mixed_air.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
@@ -75,9 +83,15 @@ class Output:
             f"{self.return_air.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
             f"{self.return_air.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
             f"({self.return_air.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
+            "zone air (setpoint) = "
+            f"{self.zone_air_sp.Tdb.to(self.units['T'][0]):~P.{self.units['T'][1]}f} DB, "
+            f"{self.zone_air_sp.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
+            f"({self.zone_air_sp.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
+            "zone cooling load = "
+            f"{self.Q_dot_zone.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}, "
+            f"{self.SHR_zone.to(self.units['SHR'][0]):~P.{self.units['SHR'][1]}f}\n"
             "cooling coil load = "
-            f"{self.Q_dot_cc.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}\n"
-            "sensible heat ratio = "
+            f"{self.Q_dot_cc.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}, "
             f"{self.SHR_cc.to(self.units['SHR'][0]):~P.{self.units['SHR'][1]}f}"
         )
         if self.Q_dot_hc is not None:
@@ -196,6 +210,9 @@ class AircoSystem:
         self.eps_hr_W = eps_hr_W
         self.units = units or {}
 
+        self.Q_dot_zone_sen = self.SHR_zone * self.Q_dot_zone
+        self.Q_dot_zone_lat = self.Q_dot_zone - self.Q_dot_zone_sen
+
         self.m_dot_vent: Quantity | None = None
         self.supply_air: HumidAir | None = None
         self.m_dot_supply: Quantity | None = None
@@ -242,7 +259,9 @@ class AircoSystem:
         self.V_dot_vent = self.m_dot_vent / self.outdoor_air.rho
         return Output(
             self.m_dot_supply, self.m_dot_vent, self.m_dot_recir,
-            self.mixed_air, self.cooled_air, self.supply_air, self.return_air,
+            self.outdoor_air, self.mixed_air, self.cooled_air,
+            self.supply_air, self.return_air, self.zone_air,
+            self.Q_dot_zone, self.SHR_zone,
             self.Q_dot_cc, self.SHR_cc, None, self.units
         )
 

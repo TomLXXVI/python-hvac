@@ -177,13 +177,36 @@ class VAVSingleZoneAirCoolingSystem:
 
         self.rel_m_dot_supply_min = rel_m_dot_supply_min
 
+        # Determine the ADP of the cooling coil at design conditions.
+        # It is assumed that the ADP of the cooling coil is a constant.
+        # --> To what extent is this assumption correct?
+        mixing_chamber_des = AdiabaticMixing(
+            in1=AirStream(
+                state=self.design_data.outdoor_air,
+                m_da=self.design_data.m_dot_vent
+            ),
+            in2=AirStream(
+                state=self.design_data.zone_air,
+                m_da=self.design_data.m_dot_recir
+            ),
+            out=AirStream(m_da=self.design_data.m_dot_supply)
+        )
+        mixed_air_des = mixing_chamber_des.stream_out.state
+        cooling_coil_des = AirConditioningProcess(
+            air_in=mixed_air_des,
+            air_out=self.design_data.supply_air,
+            m_da=self.design_data.m_dot_supply,
+            Q_sen=self.design_data.Q_zone_sen,
+            Q_lat=self.design_data.Q_zone_lat
+        )
+        self.ADP_cc = cooling_coil_des.ADP
+
         self.units = units or {}
 
         self.outdoor_air: HumidAir | None = None
         self.rel_Q_zone_sen: Quantity | None = None
         self.rel_Q_zone_lat: Quantity | None = None
         self.T_set_zone: Quantity | None = None
-        self.release_cooling: bool = True
 
         self.m_dot_supply: Quantity | None = None
         self.m_dot_recir: Quantity | None = None
@@ -251,11 +274,11 @@ class VAVSingleZoneAirCoolingSystem:
                     # The cooling coil controller is able to increase the cooling
                     # air setpoint temperature to maintain the zone air setpoint
                     # temperature.
-                    # --> To what extent is this possible?
+                    # --> To what extent is this always possible?
                     zone = AirConditioningProcess(
                         W_ai=supply_air.W,
                         # Actually, `W_ai` will also change because the cooling
-                        # process line is sloped.
+                        # process line is sloped --> see `_control_cooling_coil`.
                         T_ao=self.T_set_zone,
                         m_da=m_dot_supply,
                         Q_sen=self.rel_Q_zone_sen * self.design_data.Q_zone_sen,
@@ -266,7 +289,7 @@ class VAVSingleZoneAirCoolingSystem:
                 else:
                     # The setpoint zone air temperature cannot be maintained.
                     # Use outdoor air as supply air (and turn off the cooling
-                    # coil --> see `_control_cooling_coil(...)`).
+                    # coil --> see `_control_cooling_coil`).
                     supply_air = self.outdoor_air  # new state of supply air
                     zone = AirConditioningProcess(
                         air_in=supply_air,
@@ -293,7 +316,7 @@ class VAVSingleZoneAirCoolingSystem:
                 zone = AirConditioningProcess(
                     W_ai=supply_air.W,
                     # Actually, `W_ai` will also change because the cooling
-                    # process line is sloped.
+                    # process line is sloped --> see `_control_cooling_coil`.
                     T_ao=self.T_set_zone,
                     m_da=m_dot_supply,
                     Q_sen=self.rel_Q_zone_sen * self.design_data.Q_zone_sen,
@@ -384,7 +407,7 @@ class VAVSingleZoneAirCoolingSystem:
         # Cooling coil control. Determine if the cooling coil can be active and
         # the state of air at the cooling coil outlet.
         if (m_dot_supply == self.m_dot_supply_min) and not self.heating_coil_present:
-            # If the mass flow rate of supply air is at its minimum limit, and
+            # If the mass flow rate of supply air is at its minimum limit and
             # no heating coil is present, the zone air temperature will drop
             # below its setpoint if the cooling coil is active, unless the
             # cooling coil controller can increase the cooling air setpoint
@@ -398,9 +421,11 @@ class VAVSingleZoneAirCoolingSystem:
                     cooling_coil = AirConditioningProcess(
                         air_in=mixed_air,
                         m_da=m_dot_supply,
-                        air_out=supply_air_req
+                        T_ao=supply_air_req.Tdb,
+                        ADP=self.ADP_cc
                     )
-                    cooled_air = supply_air_req
+                    cooled_air = cooling_coil.air_out
+                    # cooled_air = supply_air_req
                 else:
                     cooling_coil = None
                     cooled_air = mixed_air
@@ -420,9 +445,11 @@ class VAVSingleZoneAirCoolingSystem:
                 cooling_coil = AirConditioningProcess(
                     air_in=mixed_air,
                     m_da=m_dot_supply,
-                    air_out=supply_air_req
+                    T_ao=supply_air_req.Tdb,
+                    ADP=self.ADP_cc
                 )
-                cooled_air = supply_air_req
+                cooled_air = cooling_coil.air_out
+                # cooled_air = supply_air_req
             else:
                 cooling_coil = None
                 cooled_air = mixed_air
@@ -430,17 +457,15 @@ class VAVSingleZoneAirCoolingSystem:
             # If the mass flow rate of supply air is between its minimum and
             # maximum limit, and the mixed air temperature is higher than the
             # cooling air setpoint temperature, the cooling coil controller
-            # keeps the cooled air state fixed at its normal setpoint (both
-            # temperature `T_set_cool` and humidity ratio `W_min_cool`).
-            cooled_air = HumidAir(
-                Tdb=self.T_set_cool,
-                W=self.W_min_cool
-            )
+            # keeps the cooled air temperature fixed at its normal setpoint
+            # temperature `T_set_cool`.
             cooling_coil = AirConditioningProcess(
                 air_in=mixed_air,
-                air_out=cooled_air,
-                m_da=m_dot_supply
+                m_da=m_dot_supply,
+                T_ao=self.T_set_cool,
+                ADP=self.ADP_cc
             )
+            cooled_air = cooling_coil.air_out
         else:
             # The cooling coil is turned off.
             cooling_coil = None
@@ -640,9 +665,15 @@ class VAVSingleZoneAirCoolingSystem:
         else:
             self.Q_dot_hc = heating_coil.Q_sen
 
+        Q_dot_zone_sen = self.rel_Q_zone_sen * self.design_data.Q_zone_sen
+        Q_dot_zone_lat = self.rel_Q_zone_lat * self.design_data.Q_zone_lat
+        Q_dot_zone = Q_dot_zone_sen + Q_dot_zone_lat
+        SHR_zone = Q_dot_zone_sen / Q_dot_zone
         return Output(
             self.m_dot_supply, self.m_dot_vent, self.m_dot_recir,
-            self.mixed_air, self.cooled_air, self.supply_air, self.return_air,
+            self.outdoor_air, self.mixed_air, self.cooled_air,
+            self.supply_air, self.return_air, self.design_data.zone_air,
+            Q_dot_zone, SHR_zone,
             self.Q_dot_cc, self.SHR_cc, self.Q_dot_hc, self.units
         )
 
