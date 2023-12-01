@@ -159,7 +159,7 @@ def create_output_table(outputs: list[Output]) -> pd.DataFrame:
     d = {
         'T_oa': [],
         'W_oa': [],
-        'T_set_zone': [],
+        'T_zone_sp': [],
         'W_set_zone': [],
         'Q_dot_zone': [],
         'SHR_zone': [],
@@ -181,7 +181,7 @@ def create_output_table(outputs: list[Output]) -> pd.DataFrame:
     for output in outputs:
         d['T_oa'].append(output.outdoor_air.Tdb.to(output.units['T'][0]).m)
         d['W_oa'].append(output.outdoor_air.W.to(output.units['W'][0]).m)
-        d['T_set_zone'].append(output.zone_air_sp.Tdb.to(output.units['T'][0]).m)
+        d['T_zone_sp'].append(output.zone_air_sp.Tdb.to(output.units['T'][0]).m)
         d['W_set_zone'].append(output.zone_air_sp.W.to(output.units['W'][0]).m)
         d['Q_dot_zone'].append(output.Q_dot_zone.to(output.units['Q_dot'][0]).m)
         d['SHR_zone'].append(output.SHR_zone.to(output.units['SHR'][0]).m)
@@ -247,7 +247,7 @@ def main(month: int, day: int):
             outdoor_air=outdoor_air,
             rel_Q_zone_sen=rel_Q_zone_sen,
             rel_Q_zone_lat=rel_Q_zone_lat,
-            T_set_zone=T_set_zone
+            T_zone_sp=T_set_zone
         )
         outputs.append(output)
         print(output)

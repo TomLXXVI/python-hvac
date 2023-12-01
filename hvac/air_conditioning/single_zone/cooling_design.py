@@ -26,8 +26,8 @@ class Output:
     supply_air: HumidAir
     return_air: HumidAir
     zone_air_sp: HumidAir
-    Q_dot_zone: Quantity
-    SHR_zone: Quantity
+    Q_dot_zone_sen: Quantity
+    Q_dot_zone_lat: Quantity
     Q_dot_cc: Quantity
     SHR_cc: Quantity
     Q_dot_hc: Quantity | None = None
@@ -88,8 +88,8 @@ class Output:
             f"{self.zone_air_sp.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
             f"({self.zone_air_sp.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
             "zone cooling load = "
-            f"{self.Q_dot_zone.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}, "
-            f"{self.SHR_zone.to(self.units['SHR'][0]):~P.{self.units['SHR'][1]}f}\n"
+            f"{self.Q_dot_zone_sen.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f} (S), "
+            f"{self.Q_dot_zone_lat.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f} (L)\n"
             "cooling coil load = "
             f"{self.Q_dot_cc.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}, "
             f"{self.SHR_cc.to(self.units['SHR'][0]):~P.{self.units['SHR'][1]}f}"
@@ -156,11 +156,11 @@ class AircoSystem:
         Parameters
         ----------
         zone_air:
-            Desired state of zone air. Should be the same state that was used
+            Desired state of zone air. Should be the same state used
             for the cooling load calculation of the building.
         outdoor_air:
             State of outdoor air on which the design calculations will be
-            based. Should be the same state that was used for the cooling load
+            based. Should be the same state used for the cooling load
             calculation of the building.
         Q_dot_zone:
             Total cooling load of the zone according to the cooling load
@@ -261,7 +261,7 @@ class AircoSystem:
             self.m_dot_supply, self.m_dot_vent, self.m_dot_recir,
             self.outdoor_air, self.mixed_air, self.cooled_air,
             self.supply_air, self.return_air, self.zone_air,
-            self.Q_dot_zone, self.SHR_zone,
+            self.Q_dot_zone_sen, self.Q_dot_zone_lat,
             self.Q_dot_cc, self.SHR_cc, None, self.units
         )
 
@@ -320,7 +320,7 @@ class AircoSystem:
     ) -> HumidAir:
         # determine the state of air at the cooling coil outlet: if supply
         # fan air heating is taken into account and assuming a draw-through
-        # arrangement, the state of the cooled air is determined in order to
+        # arrangement, the state of the cooled air is determined to
         # compensate for air heating due to supply fan inefficiencies.
         if all((eta_fan, eta_motor, dP_fan)):
             supply_fan = Fan(

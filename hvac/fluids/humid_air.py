@@ -55,6 +55,13 @@ class HumidAir:
             )
             self._inputs['W'] = 0.0
 
+    def __str__(self):
+        return (
+            f"{self.Tdb.to('degC'):~P.2f} DB, "
+            f"{self.W.to('g/kg'):~P.2f} AH "
+            f"({self.RH.to('pct'):~P.0f} RH)"
+        )
+
     @property
     def P(self) -> Quantity:
         return Q_(self._P, 'Pa')
@@ -70,7 +77,10 @@ class HumidAir:
         sym_in2 = self._coolprop_qties[sym_in_key2][0]
         val_in2 = self._inputs[sym_in_key2]
         sym_out = self._coolprop_qties[key][0]
-        val_out = HAPropsSI(sym_out, 'P', self._P, sym_in1, val_in1, sym_in2, val_in2)
+        try:
+            val_out = HAPropsSI(sym_out, 'P', self._P, sym_in1, val_in1, sym_in2, val_in2)
+        except ValueError:
+            val_out = float('nan')
         unit_out = self._coolprop_qties[key][1]
         qty_out = Q_(val_out, unit_out)
         return qty_out

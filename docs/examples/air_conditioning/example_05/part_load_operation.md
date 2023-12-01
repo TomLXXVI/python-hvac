@@ -66,11 +66,11 @@ the `CoolingSimData` object that contains all the data needed for analyzing the
 part-load operation of the air-cooling system.
 
 In a for-loop statement we call the `CoolingSimData` object repeatedly, which 
-will on each iteration return a tuple with the state of outdoor air, the zone 
-air setpoint temperature, the sensible cooling load, and the latent cooling load,
-starting at 0 h and finishing at 23 h. 
-Inside the for-loop, we call the `analyze()`-method on our 
-`VAVSingleZoneAirCoolingSystem` object while passing it all the elements inside 
+will on each iteration, starting at 0 h and finishing at 23 h, return a tuple 
+with the state of outdoor air, the zone air setpoint temperature, the sensible 
+cooling load of the zone, and the latent cooling load of the zone. 
+In the body of the for-loop, we call the `analyze()`-method on our 
+`VAVSingleZoneAirCoolingSystem` object, passing it all the elements inside 
 the current tuple. 
 Inside the `analyze()`-method the steady-state operation of the single-zone 
 air-cooling system is determined. The results are returned packed in an 
@@ -115,9 +115,9 @@ method contains:
 
 ## Description of the Part-Load Control Strategy
 
-The `analyze()`-method starts with an initial state for the supply air to the
-space or zone. The supply air temperature is set to the setpoint temperature of
-the cooling coil if it was specified when instantiating the 
+The `analyze()`-method starts with an initial state of the supply air to the
+space or zone. The initial supply air temperature is set to the setpoint 
+temperature of the cooling coil if it was specified when instantiating the 
 `VAVSingleZoneAirCoolingSystem` class; otherwise the supply air temperature from
 the design data is taken. The initial humidity ratio of the supply air is set 
 to the humidity ratio of the air at the exit of the cooling coil if it was 
@@ -125,53 +125,53 @@ specified when instantiating the `VAVSingleZoneAirCoolingSystem` class;
 otherwise the supply air humidity ratio from the design data is taken.
 
 ### Supply Fan Control
-Based on this initial state of the supply air, and taking the sensible and 
-latent cooling load of the space into account, together with the space air
-setpoint temperature, the required mass flow rate of supply air is calculated.
+With this initial state of the supply air, the sensible and latent cooling load 
+of the space, and the zone air setpoint temperature, the required mass flow 
+rate of supply air is calculated.
 
-If the required mass flow rate should become smaller than the minimum limit 
-needed to properly mix the supply air with space air, the mass flow rate of 
-supply air is kept to this minimum limit.
+If the required mass flow rate should be smaller than the minimum limit needed to
+properly mix the supply air with space air, the mass flow rate of supply air is 
+kept to this minimum limit.
 In case a heating coil is present, the required state of supply air is 
-recalculated with the minimum mass flow rate of supply air to maintain the
+recalculated with the minimum mass flow rate of supply air so to maintain the
 setpoint temperature of the space.
 If no heating coil is present, but the setpoint temperature of the cooling coil
 can be reset, the required state of supply air is also recalculated (however, 
 under the simplifying assumption that the apparatus dew point (ADP) of the 
 cooling coil, that can be derived from the design data, is a constant, 
-independent of part-load conditions).
+independent of any part-load conditions).
 If no heating coil is present, nor can the cooling coil setpoint 
 temperature be reset, the cooling coil will be completely turned off, and 
 unconditioned outdoor air is used directly to supply air to the space.
 
-If the required mass flow rate should become greater than the maximum limit 
+If the required mass flow rate should be greater than the maximum limit 
 (i.e., the maximum flow rate the supply fan can displace), the zone air 
 temperature will inevitably raise above its setpoint value, unless the cooling
 coil setpoint temperature can be decreased. In that case, the required state of
 supply air is recalculated.
 
 ### Mixing Control
-Mixing control (economizer operation) controls the ratio between the outdoor air
-and recirculation air mass flow rates.
-
-If the outdoor air temperature is higher than the space air setpoint temperature,
-outdoor air mass flow rate is restricted to a minimum value still required to 
-sufficiently ventilate the building. The outside air (OA) damper is set in its
-minimum open position, while the return air (RA) damper is set in its maximum 
-open position.
+Mixing control (aka economizer operation) controls the mixing ratio between 
+outdoor air and recirculation air mass flow rates.
 
 If the outdoor air temperature is lower than the cooling coil setpoint 
 temperature, there is no need to mechanically cool the air supplied to the space.
-The mixing controller controls the position of the OA- and RA-damper so that
-the mixed air temperature equals the supply air setpoint temperature.
+The mixing controller controls the position of the outside air (OA) damper and 
+return air (RA) damper so that the mixed air temperature matches with the supply
+air setpoint temperature.
 
-If the outdoor air temperature is between the space air setpoint temperature and
-the supply air setpoint temperature, mixing would raise the mixed air 
-temperature more above the outdoor air temperature and consequently more above 
-the cooling coil setpoint temperature, thereby increasing energy consumption to 
-cool the air in the cooling coil. Therefore, mixing control is inactive under 
-this condition. The outside air (OA) damper is set in its maximum open position, 
-while the return air (RA) damper is set in its minimum open position.
+However, if the outdoor air temperature is higher than the zone air setpoint 
+temperature, the outdoor air mass flow rate is restricted to a minimum value 
+just sufficient to ventilate the building. The OA damper is set in its minimum 
+open position, while the RA damper is set in its maximum open position.
+
+Also, if the outdoor air temperature is between the zone air setpoint 
+temperature and the cooling coil setpoint temperature, mixing would raise the 
+mixed air temperature more above the outdoor air temperature and consequently 
+more above the cooling coil setpoint temperature, thereby increasing the energy 
+consumption to cool the air in the cooling coil. Therefore, mixing control is 
+made inactive under this condition. The OA damper is set in its maximum open 
+position, while the RA damper is set in its minimum open position.
 
 ### Cooling Coil Control
 If the mass flow rate of supply air is at its minimum limit and no heating coil
@@ -179,9 +179,10 @@ is present, the zone air temperature will drop below its setpoint if the cooling
 coil is active, unless the cooling coil controller can increase the cooling air 
 setpoint temperature to get at the required state of supply air needed to 
 maintain the zone air temperature setpoint.
-However, only when the mixed air has a higher temperature than the required 
-supply air temperature, the mixed air can be cooled to the required supply air 
-temperature. Otherwise, the cooling coil should be turned off.
+However, only when the mixed air at the entrance of the cooling coil has a 
+higher temperature than the required supply air temperature, the mixed air can 
+be cooled to the required supply air temperature. Otherwise, the cooling coil 
+should be turned off.
 If the cooling coil controller has a fixed setpoint temperature, the cooling 
 coil is always turned off when the mass flow rate of supply air is at its 
 minimum limit, whatever the temperature of the mixed air might be.
@@ -200,16 +201,23 @@ temperature, the cooling coil controller keeps the cooled air state fixed at its
 normal setpoint (both temperature and humidity ratio) and the mixed air leaving 
 the mixing chamber is cooled to this setpoint.
 If the mixed air temperature is already lower than or equal to the cooling coil 
-setpoint temperature, there is no need to cool the air and the cooling coil is
+setpoint temperature, there is no need to cool the air, so the cooling coil is
 turned off.
 
 ### Heating Coil Control
 If a heating coil is present in the air-cooling system, it can be turned on each
 time the cooled air leaving the cooling coil is lower than the required
 supply air temperature needed to compensate for the cooling load in the
-space and maintain the space air setpoint temperature. In the heating coil, the 
-cooled and dehumidified air is heated to the required supply air temperature.
+space and maintain the zone air setpoint temperature. In the heating coil, the 
+cooled and dehumidified air is heated up to the required supply air temperature.
 
+It follows that there might be hours during the selected day that neither the 
+cooling coil nor the heating coil is active. On these hours the space air is
+uncontrolled or floating. For these hours in which both the cooling and the 
+heating coil are off, the zone and return air temperature are set equal to the 
+outdoor air temperature. In reality, it can be expected that the actual zone and
+return air temperature will be fluctuating between the outside air and zone air
+setpoint temperature.
 
 ## Running the Python script
 
@@ -242,7 +250,7 @@ heating coil load = 14.121 kW
 ```
 The outdoor air temperature is between the cooling coil setpoint temperature 
 (14 °C) and the space air setpoint temperature (26 °C). This implies that
-mixing control cannot be active. To not unnecessarily increase the mixed air 
+mixing control cannot be active. To avoid an unnecessary increase in the mixed air 
 temperature at the entry of the cooling coil, the RA damper is closed, so that
 the mass flow rate of recirculation air is (theoretically) zero. All the supply 
 air to the zone is taken from outdoors (the mixed air state is the same as the 
