@@ -55,7 +55,11 @@ class EnergyEstimator:
         df.loc[:, 'TOTAL'] = df.sum(axis=1)
         return df
 
-    def _estimate_with_heat_pump(self, T_unit: str = 'degC', E_unit: str = 'kWh') -> pd.DataFrame:
+    def _estimate_with_heat_pump(
+        self,
+        T_unit: str = 'degC',
+        E_unit: str = 'kWh'
+    ) -> pd.DataFrame:
         for T_bin in self.bin_table.index:
             To = T_bin.mid
             r = []
@@ -72,26 +76,32 @@ class EnergyEstimator:
             self._E_load_table.append(r)
         day_periods = self.bin_table.columns
         consumption = ['HP', 'Aux.', 'Total']
-        columns = pd.MultiIndex.from_product([day_periods, consumption], names=['Day Period', 'Consumption'])
+        columns = pd.MultiIndex.from_product(
+            [day_periods, consumption],
+            names=['Day Period', 'Consumption']
+        )
         df = pd.DataFrame(
             data=self._E_load_table,
             index=self.bin_table.index,
             columns=columns
         )
-        # take the sum of all the columns and add them in a new row TOTAL at the bottom of the dataframe
+        # take the sum of all the columns and add them in a new row TOTAL at the
+        # bottom of the dataframe
         df.loc['TOTAL'] = df.sum()
         # take the sum of all the rows
         df_tmp = df.groupby(level=1, axis=1, sort=False).sum()
-        # give the temporary dataframe the same multi-column index as the original dataframe
+        # give the temporary dataframe the same multi-column index as the
+        # original dataframe
         df_tmp.columns = pd.MultiIndex.from_product([['TOTAL'], df_tmp.columns])
         # join the temporary dataframe with the original one
         df = df.join(df_tmp)
         return df
 
     def estimate(self, T_unit: str = 'degC', E_unit: str = 'kWh') -> pd.DataFrame:
-        """Returns a Pandas-DataFrame that is based on the given bin table with the
-        estimated required thermal energy for the building or with the consumed
-        electric energy of the heat pump filled in."""
+        """Returns a Pandas-DataFrame that is based on the given bin table with
+        the estimated required thermal energy for the building or with the
+        consumed electric energy of the heat pump filled in.
+        """
         if self.heat_pump is not None:
             return self._estimate_with_heat_pump(T_unit, E_unit)
         else:

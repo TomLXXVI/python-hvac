@@ -91,6 +91,8 @@ class HeatExchangerCore:
         self.h_ext = self.external.heat_transfer_coeff(self.T_wall)
         self.R_ext = self.external.thermal_resistance(self.h_ext)
         self.R_tot = self.R_int + self.R_ext
+        # Note: The thermal conduction resistance of the heat exchanger body
+        # is ignored, and fouling is not being taken into account.
         self.UA = 1 / self.R_tot
         self.dP_ext = self.external.pressure_drop(air_in.rho, air_out.rho, self.T_wall)
         self.eta_surf = self.external.eta_surf(self.h_ext)
@@ -107,18 +109,18 @@ class HeatExchangerCore:
 
     def __find_wall_temperature(self) -> Quantity:
 
-        def __eq__(T_wall: float) -> float:
-            T_wall = Q_(T_wall, 'K')
-            h_int = self.internal.heat_transfer_coeff(T_wall)
+        def __eq__(T_wall_: float) -> float:
+            T_wall_ = Q_(T_wall_, 'K')
+            h_int = self.internal.heat_transfer_coeff(T_wall_)
             R_int = self.internal.thermal_resistance(h_int)
-            h_ext = self.external.heat_transfer_coeff(T_wall)
+            h_ext = self.external.heat_transfer_coeff(T_wall_)
             R_ext = self.external.thermal_resistance(h_ext)
-            T_int = self.internal.rfg.T.to('K')
-            T_ext = self.external.air.Tdb.to('K')
-            n = T_int / R_int + T_ext / R_ext
+            T_int_ = self.internal.rfg.T.to('K')
+            T_ext_ = self.external.air.Tdb.to('K')
+            n = T_int_ / R_int + T_ext_ / R_ext
             d = 1 / R_int + 1 / R_ext
             T_wall_new = n / d
-            dev = (T_wall_new - T_wall).to('K').m
+            dev = (T_wall_new - T_wall_).to('K').m
             return dev
 
         T_int = self.internal.rfg.T.to('K').m   # hot fluid

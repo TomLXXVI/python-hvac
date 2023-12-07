@@ -32,7 +32,7 @@ class SpaceConditionLine:
         Q: Quantity, optional
             total load of the space
         SHR: Quantity, optional
-            sensible heat ratio of load
+            sensible heat ratio of the load
         """
         self.space_air = space_air
 
@@ -79,7 +79,7 @@ class SpaceConditionLine:
         )
 
     def W_ai(self, T_ai: Quantity) -> Quantity:
-        """Solve space condition line for humidity ratio `W_ai` if temperature
+        """Solve space condition line for the humidity ratio `W_ai` if temperature
         `T_ai` of supply air to the space is given, so that the desired space
         air state is maintained under the given sensible and latent space load.
         """
@@ -89,8 +89,8 @@ class SpaceConditionLine:
         return W_ai.value
 
     def T_ai(self, W_ai: Quantity) -> Quantity:
-        """Solve space condition line for temperature `T_ai` if humidity ratio
-        `W_ai` of supply air to air is given, so that the desired space
+        """Solve space condition line for temperature `T_ai` if the humidity ratio
+        `W_ai` of supply air-to-air is given, so that the desired space
         air state is maintained under the given sensible and latent space load.
         """
         self.equation['W_ai'] = W_ai

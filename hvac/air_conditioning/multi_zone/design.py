@@ -1,7 +1,8 @@
 from typing import List, Optional, Dict
+import math
 from dataclasses import dataclass, field
 from hvac import Quantity
-from hvac.fluids import HumidAir, FluidState
+from hvac.fluids import HumidAir, Fluid, FluidState
 from hvac.air_conditioning import (
     AirConditioningProcess,
     Fan,
@@ -11,15 +12,18 @@ from hvac.air_conditioning import (
 )
 
 Q_ = Quantity
+Water = Fluid('Water')
+Air = Fluid('Air')
+ntp_air = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 
 
 @dataclass
 class Season:
-    """Dataclass that holds the design day data and calculation results of a
+    """Dataclass that holds the design-day data and calculation results of a
     zone for, either the cooling season (summer), or the heating season
     (winter).
 
-    Attributes
+    Parameters
     ----------
     Q_sen:
         Sensible cooling or heating load of the zone.
@@ -29,22 +33,25 @@ class Season:
         Desired zone air state for the design of the system.
     m_exhaust: default 0.0 kg/s
         Mass flow rate of air that is locally exhausted from the zone.
-    m_supply:
-        Required mass flow rate of supply air to the zone (calculation result).
-    supply_air:
-        Required state of supply air (calculation result).
-    return_air:
-        Resulting state of return air (calculation result).
-    m_return:
-        Resulting mass flow rate of return air (calculation result)
-    V_supply:
-        Required volume flow rate of supply air to the zone (calculation
-        result).
+    ----------------------------------------------------------------------------
+    Other attributes
+    ----------------
+    m_supply: read-only (calculation result)
+        Required mass flow rate of supply air to the zone.
+    supply_air: read-only (calculation result)
+        Required state of supply air.
+    return_air: read-only (calculation result)
+        Resulting state of return air.
+    m_return: read-only (calculation result)
+        Resulting mass flow rate of return air.
+    V_supply: read-only (calculation result)
+        Required volume flow rate of supply air to the zone.
     """
     Q_sen: Quantity
     Q_lat: Quantity
     zone_air: HumidAir
     m_exhaust: Quantity = Q_(0.0, 'kg / s')
+
     m_supply: Quantity = Q_(float('nan'), 'kg / s')
     supply_air: Optional[HumidAir] = field(init=False, default=None)
     return_air: Optional[HumidAir] = field(init=False, default=None)
@@ -62,7 +69,7 @@ class Season:
 class Zone:
     """Dataclass that represents a temperature zone of a building.
 
-    Attributes
+    Parameters
     ----------
     name:
         Identifier for the zone.
@@ -72,8 +79,11 @@ class Zone:
     winter: optional
         `Season` object that holds the winter design data and calculation
         results of the zone.
-    reheat_coil: optional.
-        Reference to the sensible heating process in the reheat coil of the
+    ----------------------------------------------------------------------------
+    Other attributes
+    ----------------
+    reheat_coil: read-only (calculation result)
+        Reference to the sensible heating process in the reheat-coil of the
         zone.
     """
     name: str
@@ -130,9 +140,9 @@ class VAVSystem:
             Refers to the cooling and dehumidification process in the cooling
             coil (instance of `AirConditioningProcess`).
         m_supply_part_load:
-            Mass flow rate of supply air to the zones at part load.
+            Mass flow rate of supply air to the zones at part-load.
         V_supply_part_load:
-            Volume flow rate of supply air to the zones at part load.
+            Volume flow rate of supply air to the zones at part-load.
         """
         dT_sup = Q_(12.0, 'K')
 
@@ -155,37 +165,50 @@ class VAVSystem:
             """
             self.outdoor_air = outdoor_air
             self.V_vent = V_vent
-            self.m_vent = V_vent * outdoor_air.rho
             self.system = system
+
+            if self.outdoor_air is not None:
+                self.m_vent = V_vent * outdoor_air.rho
+            else:
+                self.m_vent = None
 
             self.T_supply: Quantity = Q_(float('nan'), 'degC')
             self.supply_air: Optional[HumidAir] = None
-            self.m_supply: Quantity = Q_(float('nan'), 'kg /s')
-            self.V_supply: Quantity = Q_(float('nan'), 'kg /s')
+            self.m_supply: Quantity = Q_(float('nan'), 'kg / s')
+            self.V_supply: Quantity = Q_(float('nan'), 'm**3 / s')
             self.T_cold: Quantity = Q_(float('nan'), 'degC')
             self.cooled_air: Optional[HumidAir] = None
-            self.m_return: Quantity = Q_(float('nan'), 'kg /s')
-            self.V_return: Quantity = Q_(float('nan'), 'kg /s')
+            self.m_return: Quantity = Q_(float('nan'), 'kg / s')
+            self.V_return: Quantity = Q_(float('nan'), 'kg / s')
             self.return_air: Optional[HumidAir] = None
             self.recirculated_air: Optional[HumidAir] = None
             self.mixed_air: Optional[HumidAir] = None
             self.cooling_coil: Optional[AirConditioningProcess] = None
-            self.m_supply_part_load: Quantity = Q_(float('nan'), 'kg /s')
-            self.V_supply_part_load: Quantity = Q_(float('nan'), 'kg /s')
+            self.supply_fan: Optional[Fan] = None
+            self.return_fan: Optional[Fan] = None
+            self.m_supply_part_load: Quantity = Q_(float('nan'), 'kg / s')
+            self.V_supply_part_load: Quantity = Q_(float('nan'), 'kg / s')
 
         def determine_supply_air(self) -> None:
-            """Calculates the wanted state of system supply air to all zones.
+            """Calculates the required state of system supply air to all zones.
+
             The system supply air temperature is determined by taking the
-            average of the desired zone air temperatures from which a
-            predetermined temperature difference (that still ensures proper
-            mixing) is subtracted.
-            The average humidity ratio of all zones is calculated. The average
-            zone air temperature and humidity ratio determine the average state
-            of the zone air in the building.
-            The totals of the sensible and the latent zone loads are calculated.
-            Applying the space condition line equation to the average zone air,
-            delivers the humidity ratio of the system supply air that goes with
-            the system supply air temperature.
+            average of the desired zone air temperatures and from which a
+            predetermined temperature difference (see parameter `dT_sup` of
+            `VAVSystem.design_summer()`, default value is 12 K) is subtracted.
+            It must be ensured that the supplied air will properly mix with the
+            air in the zone.
+
+            Also, the average humidity ratio of all zones is calculated.
+
+            The average zone air temperature and humidity ratio determine the
+            average state of the zone air in the building.
+
+            The totals of the sensible and latent zone loads are calculated.
+
+            Applying the equation of the space condition line to the average
+            state of the zone air, delivers the humidity ratio that goes with
+            the system's supply air temperature.
             """
             # Average zone air temperature:
             T_zone_avg = sum(
@@ -229,7 +252,7 @@ class VAVSystem:
             air temperature previously determined.
             Any local exhaust air mass flow rate is added to get at the total
             mass flow rate of air that must be supplied to each zone.
-            By taking the sum, the total mass and volume flow rate of system
+            By taking the sum, the total mass and volume flow rate of the system
             supply air to the zones is determined.
             """
             for zone in self.system.zones:
@@ -239,8 +262,8 @@ class VAVSystem:
                     Q_sen=zone.summer.Q_sen,
                 )
                 zone.summer.m_supply = p.m_da
-                # Any air that is exhausted locally in a zone must also be
-                # supplied to the zone:
+                # Any air exhausted locally in a zone must
+                # also be supplied to the zone:
                 zone.summer.m_supply += zone.summer.m_exhaust
 
             self.m_supply = sum(
@@ -256,35 +279,36 @@ class VAVSystem:
             Q_duct_sup: Optional[Quantity] = None
         ) -> None:
             """Determines the required state of air leaving the cooling coil of
-            the VAV system, possibly taking the temperature rise of air through
-            the supply fan and any heat gain along the supply duct into account.
+            the VAV system, taking any temperature rise of air through the
+            supply fan and any heat gain along the supply duct into account.
 
             Parameters
             ----------
-            dP_fan_sup: optional, default None
+            dP_fan_sup: optional, default `None`
                 The required pressure gain of the supply fan needed to deliver
                 the required mass flow rate of supply air to the zones,
                 determined by a pressure loss calculation of the air supply duct
                 system.
-            eta_fan_sup: optional, default None
+            eta_fan_sup: optional, default `None`
                 The efficiency of the supply fan at the required operating
                 point of the fan.
-            Q_duct_sup: optional, default None
+            Q_duct_sup: optional, default `None`
                 Any heat added from the environment to the supply air along the
                 supply duct between the cooling coil and the zones.
             """
             # Temperature rise due to fan heating:
             if dP_fan_sup is not None:
-                fan = Fan(
+                self.supply_fan = Fan(
                     air_out=self.supply_air,
                     eta_fan=(
                         eta_fan_sup
                         if eta_fan_sup is not None
                         else Q_(100, 'pct')
                     ),
-                    dP_fan=dP_fan_sup
+                    dP_fan=dP_fan_sup,
+                    m_da=self.m_supply
                 )
-                dT_supply_fan = fan.air_out.Tdb - fan.air_in.Tdb
+                dT_supply_fan = self.supply_fan.air_out.Tdb - self.supply_fan.air_in.Tdb
             else:
                 dT_supply_fan = Q_(0.0, 'K')
             # Temperature rise due to duct heat gain:
@@ -297,7 +321,7 @@ class VAVSystem:
                 dT_supply_duct = supply_duct.T_ao - supply_duct.T_ai
             else:
                 dT_supply_duct = Q_(0.0, 'K')
-            # Determine required air state at the cooling coil exit:
+            # Determine the required air state at the cooling coil exit:
             self.T_cold = self.T_supply - dT_supply_fan - dT_supply_duct
             self.cooled_air = HumidAir(Tdb=self.T_cold, W=self.supply_air.W)
         
@@ -309,22 +333,22 @@ class VAVSystem:
         ) -> None:
             """Determines the global state of air returning from the zones and
             the state of air that is recirculated to the cooling coil, taking
-            possible increase of the return air temperature into account due to
+            any increase of the return air temperature into account due to
             additional heating in the return fan (if present) or due to
             additional heat taken up from the environment along the return air
             duct system.
 
             Parameters
             ----------
-            dP_fan_ret: optional, default None
+            dP_fan_ret: optional, default `None`
                 The required pressure gain of the return fan needed to deliver
                 the required mass flow rate of return air to the zones,
                 determined by a pressure loss calculation of the air return duct
                 system.
-            eta_fan_ret: optional, default None
+            eta_fan_ret: optional, default `None`
                 The efficiency of the return fan at the required operating
                 point of the fan.
-            Q_duct_ret: optional, default None
+            Q_duct_ret: optional, default `None`
                 Any heat added from the environment to the return air along the
                 return duct between the zones and the recirculation section of
                 the VAV system.
@@ -340,7 +364,7 @@ class VAVSystem:
                     )
                 )
                 zone.summer.return_air = p.air_out
-            # Determine mass flow rate of return air from all zones:
+            # Determine the mass flow rate of return air from all zones:
             self.m_return = sum(
                 zone.summer.m_return
                 for zone in self.system.zones
@@ -359,16 +383,17 @@ class VAVSystem:
             self.V_return = self.m_return * self.return_air.v
             # Determine the temperature rise due to fan heating:
             if dP_fan_ret is not None:
-                fan = Fan(
+                self.return_fan = Fan(
                     air_in=self.return_air,
                     eta_fan=(
                         eta_fan_ret
                         if eta_fan_ret is not None
                         else Q_(100, 'pct')
                     ),
-                    dP_fan=dP_fan_ret
+                    dP_fan=dP_fan_ret,
+                    m_da=self.m_return
                 )
-                dT_return_fan = fan.air_out.Tdb - fan.air_in.Tdb
+                dT_return_fan = self.return_fan.air_out.Tdb - self.return_fan.air_in.Tdb
             else:
                 dT_return_fan = Q_(0.0, 'K')
             # Determine the additional temperature rise due to duct heat gain:
@@ -394,14 +419,15 @@ class VAVSystem:
 
         def determine_mixed_air(self) -> None:
             """Determines the state of air leaving the mixing chamber and
-            entering the cooling coil of the VAV system. In the mixing chamber
-            recirculated return air is mixed with outdoor ventilation air.
+            entering the cooling coil of the VAV system.
+            In the mixing chamber, recirculated return air is mixed with outdoor
+            ventilation air.
             """
-            # Determine mass flow rate of recirculated return air:
+            # Determine the mass flow rate of recirculated return air:
             m_recirculated = self.m_return - self.m_vent
-            # Determine mass flow rate of air that is exhausted locally in the
+            # Determine the mass flow rate of air that is exhausted locally in the
             # zones. This air is also taken from outdoors and must be added to
-            # required mass flow rate for ventilation:
+            # the required mass flow rate for ventilation:
             m_exhaust = sum(
                 z.summer.m_exhaust
                 for z in self.system.zones
@@ -436,6 +462,9 @@ class VAVSystem:
         ----------
         T_sup_max: default 40 °C
             Maximum allowable supply air temperature to avoid stratification.
+        dT_sup: default is equal to the summer value
+            Allowable temperature difference between zone air and supply air
+            to the zones in case a zone requires also cooling in winter.
         outdoor_air:
             State of outdoor air on the winter peak design day.
         V_vent:
@@ -443,18 +472,17 @@ class VAVSystem:
         m_vent:
             Required ventilation air mass flow rate of the building.
         preheat_coil:
-            Refers to the sensible heating process in the preheat coil of the
-            VAV system (instance of `AirConditioningProcess`).
-        Q_ph_peak:
-            Peak load on the preheat coil for sizing the preheat coil.
+            Refers to the sensible heating process in the preheat-coil of the
+            VAV system (instance of `AirConditioningProcess`). Will be `None`
+            if no preheat-coil is needed under the given design-conditions.
         m_supply:
             Required mass flow rate of supply air to the zones.
         V_supply:
             Required volume flow rate of supply air to the zones.
         T_supply:
-            Selected supply air temperature.
+            Required supply air temperature.
         supply_air:
-            State of supply air to the zones.
+            Required state of supply air to the zones.
         m_return:
             Total mass flow rate of return air from the zones.
         V_return:
@@ -467,31 +495,35 @@ class VAVSystem:
             Mass flow rate of air recirculated to the mixing chamber of the
             VAV system.
         mixed_air:
-            State of air leaving the mixing chamber and entering the preheat
-            coil.
+            State of air leaving the mixing chamber and entering the
+            preheat-coil.
         preheated_air:
-            State of air leaving the preheat coil.
+            State of air leaving the preheat-coil.
         T_cold:
             Required temperature of air leaving the cooling coil.
         cooled_air:
-            State of air leaving the cooling coil.
+            Required state of air leaving the cooling coil.
         cooling_coil:
             Refers to the cooling and dehumidification process in the cooling
             coil of the VAV system (instance of `AirConditioningProcess`).
+            Will be `None` if no cooling coil is needed under the given
+            design conditions.
         Q_rh_tot:
-            Total heating load of the reheat coils in the zones.
+            Total heating load of the reheat-coils in the zones.
         humidifier:
             Refers to the humidification process in the humidifier of the VAV
-            system (instance of `AirConditioningProcess`).
+            system (instance of `AirConditioningProcess`). Will be `None` if no
+            humidifier is needed under the given design conditions.
         humidified air:
             State of air at the humidifier exit = cooling coil entry.
+        steam:
+            State of injected steam for humidification of supply air.
         """
         T_sup_max = Q_(40.0, 'degC')
 
         def __init__(
             self,
             outdoor_air: HumidAir,
-            steam: FluidState,
             V_vent: Quantity,
             system: 'VAVSystem'
         ) -> None:
@@ -501,9 +533,6 @@ class VAVSystem:
             ----------
             outdoor_air:
                 State of outdoor air on the winter peak design day.
-            steam:
-                State of steam injected in the air humidifier to humidify the
-                supply air to the zones.
             V_vent:
                 Required ventilation air volume flow rate of the building.
             system:
@@ -512,14 +541,20 @@ class VAVSystem:
             self.system = system
             self.outdoor_air = outdoor_air
             self.V_vent = V_vent
-            self.steam = steam
 
-            self.m_vent = V_vent * self.outdoor_air.rho
+            if self.outdoor_air is not None:
+                self.m_vent = V_vent * self.outdoor_air.rho
+            else:
+                self.m_vent = None
+
+            self.T_cold: Quantity | None = None
+            self.steam: FluidState | None = None
             self.preheat_coil: Optional[AirConditioningProcess] = None
             self.Q_ph_peak: Quantity = Q_(float('nan'), 'W')
             self.m_supply: Quantity = Q_(float('nan'), 'kg / s')
             self.V_supply: Quantity = Q_(float('nan'), 'kg / s')
             self.T_supply: Quantity = Q_(float('nan'), 'degC')
+            self.dT_sup = self.system.summer.dT_sup
             self.supply_air: Optional[HumidAir] = None
             self.m_return: Quantity = Q_(float('nan'), 'kg /s')
             self.V_return: Quantity = Q_(float('nan'), 'kg / s')
@@ -528,31 +563,18 @@ class VAVSystem:
             self.m_recirculated: Quantity = Q_(float('nan'), 'kg /s')
             self.mixed_air: Optional[HumidAir] = None
             self.preheated_air: Optional[HumidAir] = None
-            self.T_cold: Quantity = Q_(float('nan'), 'degC')
             self.cooled_air: Optional[HumidAir] = None
             self.cooling_coil: Optional[AirConditioningProcess] = None
             self.Q_rh_tot: Quantity = Q_(float('nan'), 'W')
             self.humidifier: Optional[AirConditioningProcess] = None
             self.humidified_air: Optional[HumidAir] = None
-
-        def determine_preheat_peak_load(self) -> None:
-            """Determines the peak load of the preheat coil, being the heat rate
-            needed to heat only the ventilation air mass flow rate to the
-            required temperature of air leaving the cooling coil.
-            """
-            preheat_coil = AirConditioningProcess(
-                T_ai=self.outdoor_air.Tdb,
-                T_ao=self.system.summer.T_cold,
-                m_da=self.m_vent
-            )
-            self.Q_ph_peak = max(
-                Q_(0.0, 'W'),
-                preheat_coil.Q_sen
-            )
+            self.supply_fan: Optional[Fan] = None
+            self.return_fan: Optional[Fan] = None
 
         def determine_m_supply(self) -> None:
             """Determines the required mass flow rate of supply air to each zone.
-            Any air that is exhausted locally to the outdoor in a zone is also
+
+            Any air exhausted locally to the outdoor in a zone is also
             added the required mass flow rate of supply air of this zone.
             """
             for zone in self.system.zones:
@@ -569,7 +591,13 @@ class VAVSystem:
                 else:
                     # Zone requires cooling.
                     # Supply air temperature to the zone:
-                    T_supply = zone.winter.zone_air.Tdb - self.system.summer.dT_sup
+                    T_supply = zone.winter.zone_air.Tdb - self.dT_sup
+                    # Check if the supply air temperature is not below the
+                    # dew point temperature of the zone air; otherwise, limit
+                    # the supply air temperature to the dew point temperature
+                    # plus a safety margin of 2 K:
+                    if T_supply < zone.winter.zone_air.Tdp + Q_(2, 'K'):
+                        T_supply = zone.winter.zone_air.Tdp + Q_(2, 'K')
                     p = AirConditioningProcess(
                         T_ai=T_supply,
                         T_ao=zone.winter.zone_air.Tdb,
@@ -578,10 +606,11 @@ class VAVSystem:
                 zone.winter.m_supply = p.m_da + zone.winter.m_exhaust
                 # The mass flow rate of supply air to a zone cannot be reduced
                 # below 60 % of the peak summer flow rate:
-                zone.winter.m_supply = max(
-                    zone.winter.m_supply,
-                    0.6 * zone.summer.m_supply
-                )
+                if not math.isnan(zone.summer.m_supply.magnitude):
+                    zone.winter.m_supply = max(
+                        zone.winter.m_supply,
+                        0.6 * zone.summer.m_supply
+                    )
             # Total mass flow rate of supply air to the zones:
             self.m_supply = sum(
                 z.winter.m_supply
@@ -632,8 +661,8 @@ class VAVSystem:
                 z.winter.supply_air.Tdb
                 for z in self.system.zones
             )
-            # Determine the humidity ratio of the system supply air based on the
-            # global space condition line:
+            # Determine the humidity ratio of the system's supply air based on
+            # the global or average space condition line:
             W_supply = SCL.W_ai(self.T_supply)
             # Determine the state of the system supply air:
             self.supply_air = HumidAir(
@@ -645,7 +674,7 @@ class VAVSystem:
             self.V_supply = self.m_supply * self.supply_air.v
             # Determine the actual state of supply air to each zone (as the
             # humidity ratio of the system supply air cannot change in the
-            # reheat coils of the zones):
+            # reheat-coils of the zones):
             for zone in self.system.zones:
                 zone.winter.supply_air = HumidAir(
                     Tdb=zone.winter.supply_air.Tdb,
@@ -664,15 +693,15 @@ class VAVSystem:
 
             Parameters
             ----------
-            dP_fan_ret: optional, default None
+            dP_fan_ret: optional, default `None`
                 The required pressure gain of the return fan needed to deliver
                 the required mass flow rate of return air to the zones,
                 determined by a pressure loss calculation of the air return duct
                 system.
-            eta_fan_ret: optional, default None
+            eta_fan_ret: optional, default `None`
                 The efficiency of the return fan at the required operating
                 point of the fan.
-            Q_duct_ret: optional, default None
+            Q_duct_ret: optional, default `None`
                 Any heat added from the environment to the return air along the
                 return duct between the zones and the recirculation section of
                 the VAV system.
@@ -707,16 +736,17 @@ class VAVSystem:
             self.V_return = self.m_return * self.return_air.v
             # Determine the temperature rise of return air due to fan heating:
             if dP_fan_ret is not None:
-                fan = Fan(
+                self.return_fan = Fan(
                     air_out=self.return_air,
                     eta_fan=(
                         eta_fan_ret
                         if eta_fan_ret is not None
                         else Q_(100, 'pct')
                     ),
-                    dP_fan=dP_fan_ret
+                    dP_fan=dP_fan_ret,
+                    m_da=self.m_return
                 )
-                dT_return_fan = fan.air_out.Tdb - fan.air_in.Tdb
+                dT_return_fan = self.return_fan.air_out.Tdb - self.return_fan.air_in.Tdb
             else:
                 dT_return_fan = Q_(0.0, 'K')
             # Determine the additional temperature rise due to duct heat gain:
@@ -777,30 +807,31 @@ class VAVSystem:
 
             Parameters
             ----------
-            dP_fan_sup: optional, default None
+            dP_fan_sup: optional, default `None`
                 The required pressure gain of the supply fan needed to deliver
                 the required mass flow rate of supply air to the zones,
                 determined by a pressure loss calculation of the air supply duct
                 system.
-            eta_fan_sup: optional, default None
+            eta_fan_sup: optional, default `None`
                 The efficiency of the supply fan at the required operating
                 point of the fan.
-            Q_duct_sup: optional, default None
+            Q_duct_sup: optional, default `None`
                 Any heat added from the environment to the supply air along the
                 supply duct between the cooling coil and the zones.
             """
             # Determine the temperature rise of supply air due to fan heating:
             if dP_fan_sup is not None:
-                fan = Fan(
+                self.supply_fan = Fan(
                     air_out=self.supply_air,
                     eta_fan=(
                         eta_fan_sup
                         if eta_fan_sup is not None
                         else Q_(100, 'pct')
                     ),
-                    dP_fan=dP_fan_sup
+                    dP_fan=dP_fan_sup,
+                    m_da=self.m_supply
                 )
-                dT_supply_fan = fan.air_out.Tdb - fan.air_in.Tdb
+                dT_supply_fan = self.supply_fan.air_out.Tdb - self.supply_fan.air_in.Tdb
             else:
                 dT_supply_fan = Q_(0.0, 'K')
             # Determine the additional temperature rise due to duct heat gain:
@@ -825,11 +856,12 @@ class VAVSystem:
             )
 
         def determine_preheated_air(self) -> None:
-            """Determines the required state of air leaving the preheat coil.
+            """Determines the required state of air leaving the preheat-coil.
+
             If the required temperature at the cooling coil exit is greater
             than the mixed air temperature at the preheat coil entry, the air is
-            heated by the preheat coil to the required air temperature at the
-            cooling coil exit.
+            heated by the preheat-coil to the required air temperature at the
+            cooling coil exit. Otherwise, `self.preheat_coil` is set to `None`.
             """
             if self.cooled_air.Tdb > self.mixed_air.Tdb:
                 self.preheat_coil = AirConditioningProcess(
@@ -847,11 +879,13 @@ class VAVSystem:
 
         def determine_humidified_air(self) -> None:
             """Determines the required state of air leaving the humidifier.
+
             If the required humidity ratio at the cooling coil exit is greater
             than the humidity ratio of mixed air, the air is humidified by the
             humidifier to the required state at the cooling coil exit.
+            Otherwise, `self.humidifier` is set to `None`.
             """
-            if self.cooled_air.W > self.mixed_air.W:
+            if self.cooled_air.W > self.mixed_air.W and self.steam is not None:
                 self.humidifier = AirConditioningProcess(
                     air_in=self.preheated_air,
                     air_out=HumidAir(
@@ -865,20 +899,29 @@ class VAVSystem:
                 self.humidified_air = self.humidifier.air_out
             else:
                 self.humidifier = None
-                self.humidified_air = self.mixed_air
+                self.humidified_air = self.preheated_air
 
         def determine_cooling_coil(self) -> None:
-            """Determines the cooling coil load."""
-            self.cooling_coil = AirConditioningProcess(
-                air_in=self.humidified_air,
-                air_out=self.cooled_air,
-                m_da=self.m_supply,
-                h_w=Q_(0.0, 'J / kg')
-            )
+            """Determines the cooling coil load.
+
+            If the temperature of air leaving the humidifier is higher than the
+            required temperature leaving the cooling coil, the cooling coil will
+            need to be activated. Otherwise, `self.cooling_coil` is set to
+            `None`.
+            """
+            if self.humidified_air.Tdb > self.cooled_air.Tdb:
+                self.cooling_coil = AirConditioningProcess(
+                    air_in=self.humidified_air,
+                    air_out=self.cooled_air,
+                    m_da=self.m_supply,
+                    h_w=Q_(0.0, 'J / kg')
+                )
+            else:
+                self.cooling_coil = None
 
         def determine_reheat_coils(self) -> None:
-            """Determines the load of the reheat coil in each zone and the
-            total load on all reheat coils.
+            """Determines the load of the reheat-coil in each zone and the
+            total load on all reheat-coils.
             """
             for zone in self.system.zones:
                 zone.reheat_coil = AirConditioningProcess(
@@ -894,31 +937,30 @@ class VAVSystem:
     def __init__(
         self,
         zones: List[Zone],
-        outdoor_air_summer: HumidAir,
-        outdoor_air_winter: HumidAir,
-        steam_winter: FluidState,
-        V_vent: Quantity
+        V_vent: Quantity,
+        outdoor_air_summer: HumidAir | None = None,
+        outdoor_air_winter: HumidAir | None = None
     ) -> None:
         """Creates a `VAVSystem` instance.
 
         Parameters
         ----------
         zones:
-            list of `Zone` objects that represent the temperature zones of the
+            List of `Zone` objects that represent the temperature zones of the
             building served by the VAV system.
-        outdoor_air_summer:
+        outdoor_air_summer: optional, default None.
             State of outdoor air on the peak summer design day.
+            Must be set when designing the VAV-system for the summer peak day.
         outdoor_air_winter:
             State of outdoor air on the peak winter design day.
-        steam_winter:
-            State of steam for humidification of supply air.
+            Must be set when designing the VAV-system for the winter peak day.
         V_vent:
             Minimum required outdoor air volume flow rate for ventilating the
             building.
         """
         self.zones = zones
         self.summer = VAVSystem.Summer(outdoor_air_summer, V_vent, self)
-        self.winter = VAVSystem.Winter(outdoor_air_winter, steam_winter, V_vent, self)
+        self.winter = VAVSystem.Winter(outdoor_air_winter, V_vent, self)
 
     def design_summer(self, **kwargs) -> Dict[str, Quantity]:
         """Designs the VAV system for peak summer conditions.
@@ -931,16 +973,16 @@ class VAVSystem:
         eta_fan_sup:
             Efficiency of the supply fan.
         dP_fan_sup:
-            Feed pressure the supply fan needs to create to produce the required
-            flow rate of supply air.
+            Pressure difference the supply fan needs to develop to produce the
+            required flow rate of supply air.
         Q_duct_sup:
-            Heat transfer rate from the environment to the supply air along the
-            air supply duct system.
+            Heat gain from the environment to the supply air along the air
+            supply duct system.
         eta_fan_ret:
             Efficiency of the return fan.
         dP_fan_ret:
-            Feed pressure the return fan needs to create to produce the required
-            flow rate of return air.
+            Pressure difference the return fan needs to develop to produce the
+            required flow rate of return air.
         Q_duct_ret:
             Heat transfer rate from the environment to the return air along the
             air return duct system.
@@ -948,26 +990,28 @@ class VAVSystem:
         Returns
         -------
         Dictionary with calculation results:
-        - 'Q_cc_tot'
-        - 'Q_cc_sen'
-        - 'Q_cc_lat'
-        - 'V_sup'
-        - 'V_ret'
-        - 'T_sup'
-        - 'T_ret'
+        'Q_cc_tot':
+            Total cooling coil load
+        'Q_cc_sen':
+            Sensible cooling coil load
+        'Q_cc_lat':
+            Latent cooling coil load
+        'V_sup'
+            Volume flow rate of supply air
+        'V_ret'
+            Volume flow rate of return air
+        'T_sup'
+            Supply air temperature
+        'T_ret'
+            Return air temperature
         """
-        dT_supply = kwargs.get('dT_sup')
-
+        self.summer.dT_sup = kwargs.get('dT_sup', VAVSystem.Summer.dT_sup)
         eta_supply_fan = kwargs.get('eta_fan_sup')
         dP_supply_fan = kwargs.get('dP_fan_sup')
         Q_supply_duct = kwargs.get('Q_duct_sup')
-
         eta_return_fan = kwargs.get('eta_fan_ret')
         dP_return_fan = kwargs.get('dP_fan_ret')
         Q_return_duct = kwargs.get('Q_duct_ret')
-
-        if dT_supply is not None:
-            self.summer.dT_sup = dT_supply
 
         self.summer.determine_supply_air()
         self.summer.determine_m_supply()
@@ -1016,46 +1060,88 @@ class VAVSystem:
         Q_duct_ret:
             Heat transfer rate from the environment to the return air along the
             air return duct system.
+        dT_sup:
+            Allowable temperature difference between zone air and supply air
+            to the zones in case a zone requires also cooling in winter.
+            The default value is the same as for summer.
+        T_cold:
+            Setpoint temperature of air leaving cooling coil.
+            Only used for determining the peak heating load of the preheat-coil.
+            The default value is 16 °C, but if a value for summer operation
+            is available, this value will be taken.
+        steam:
+            State of steam for humidification of supply air in winter.
+            The default value is saturated steam of 100 °C.
 
         Returns
         -------
         Dictionary with calculation results:
-        - 'Q_ph_peak'
-        - 'Q_ph'
-        - 'm_steam'
-        - 'Q_cc_tot'
-        - 'Q_cc_sen'
-        - 'Q_cc_lat'
-        - 'Q_rh_tot'
-        - 'V_sup'
-        - 'V_ret'
-        - 'T_sup'
-        - 'T_ret'
+        - 'Q_ph_peak':
+            The peak load on the preheat-coil, determined as the load needed
+            to heat the cold outdoor ventilation air on the winter design-day
+            to the nominal coil outlet temperature, i.e., when no mixing of
+            outdoor with recirculated air should occur.
+        - 'Q_ph':
+            The actual design load on the preheat-coil, i.e., the load needed to
+            heat the mixed air leaving the mixing chamber to the required
+            temperature at the cooling coil exit.
+        - 'm_steam':
+            The mass flow rate of steam to humidify the air.
+        - 'Q_cc_tot':
+            Total load on the cooling coil.
+        - 'Q_cc_sen':
+            Sensible load on the cooling coil.
+        - 'Q_cc_lat':
+            Latent load on the cooling coil.
+        - 'Q_rh_tot':
+            Total load on the reheat coils of the zones.
+        - 'V_sup':
+            Volume flow rate of supply air to the zones.
+        - 'V_ret':
+            Volume flow rate of return air from the zones.
+        - 'T_sup':
+            System supply air temperature to the zones.
+        - 'T_ret':
+            Global return air temperature from the zones.
+
+        Notes
+        -----
+        The design calculations for peak winter operation depend on results
+        from the design calculations for peak summer conditions: The minimum
+        supply air mass flow rate to a zone should not be less than 60 % of the
+        required mass flow rate for summer operation.
+        So, it is recommended to run the design calculations for peak summer
+        operation first (by calling method `design_summer()`), and next run the
+        design calculations for peak winter operation (by calling method
+        `design_winter()`).
         """
-        T_sup_max = kwargs.get('T_sup_max')
+        self.winter.T_sup_max = kwargs.get('T_sup_max', VAVSystem.Winter.T_sup_max)
+        self.winter.dT_sup = kwargs.get('dT_sup', VAVSystem.Summer.dT_sup)
+        self.winter.T_cold = kwargs.get('T_cold')
+        if not math.isnan(self.summer.T_cold.magnitude):
+            self.winter.T_cold = self.summer.T_cold
+        else:
+            self.winter.T_cold = Q_(16.0, 'degC')
+        self.winter.steam = kwargs.get('steam', Water(T=Q_(100, 'degC'), x=Q_(1, 'frac')))
 
         eta_supply_fan = kwargs.get('eta_fan_sup')
         dP_supply_fan = kwargs.get('dP_fan_sup')
         Q_supply_duct = kwargs.get('Q_duct_sup')
-
         eta_return_fan = kwargs.get('eta_fan_ret')
         dP_return_fan = kwargs.get('dP_fan_ret')
         Q_return_duct = kwargs.get('Q_duct_ret')
 
-        if T_sup_max is not None: self.winter.T_sup_max = T_sup_max
-
-        self.winter.determine_preheat_peak_load()
         self.winter.determine_m_supply()
         self.winter.determine_supply_air()
+        self.winter.determine_cooled_air(
+            dP_supply_fan, eta_supply_fan,
+            Q_supply_duct
+        )
         self.winter.determine_return_air(
             dP_return_fan, eta_return_fan,
             Q_return_duct
         )
         self.winter.determine_mixed_air()
-        self.winter.determine_cooled_air(
-            dP_supply_fan, eta_supply_fan,
-            Q_supply_duct
-        )
         self.winter.determine_preheated_air()
         self.winter.determine_humidified_air()
         self.winter.determine_cooling_coil()
@@ -1073,9 +1159,21 @@ class VAVSystem:
                 if self.winter.humidifier is not None
                 else Q_(0.0, 'kg / s')
             ),
-            'Q_cc_tot': self.winter.cooling_coil.Q,
-            'Q_cc_sen': self.winter.cooling_coil.Q_sen,
-            'Q_cc_lat': self.winter.cooling_coil.Q_lat,
+            'Q_cc_tot': (
+                self.winter.cooling_coil.Q
+                if self.winter.cooling_coil is not None
+                else Q_(0.0, 'kW')
+            ),
+            'Q_cc_sen': (
+                self.winter.cooling_coil.Q_sen
+                if self.winter.cooling_coil is not None
+                else Q_(0.0, 'kW')
+            ),
+            'Q_cc_lat': (
+                self.winter.cooling_coil.Q_lat
+                if self.winter.cooling_coil is not None
+                else Q_(0.0, 'kW')
+            ),
             'Q_rh_tot': self.winter.Q_rh_tot,
             'V_sup': self.winter.V_supply,
             'V_ret': self.winter.V_return,

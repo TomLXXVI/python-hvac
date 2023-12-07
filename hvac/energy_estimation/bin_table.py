@@ -41,9 +41,10 @@ class TimeSegment:
 
 
 class BinTableCreator:
-    """Create monthly temperature bin tables from TMY-file (csv) containing
+    """Create monthly temperature bin tables from a TMY-file (csv) containing
     the hourly average outside air temperature of each hour of every day of the
-    year."""
+    year.
+    """
     _default_time_segments: Dict[str, TimeSegment] = {
         '0 - 3 h': TimeSegment('0 - 3 h', (0, 4)),
         '4 - 7 h': TimeSegment('4 - 7 h', (4, 8)),
@@ -174,7 +175,7 @@ class BinTableCreator:
         dT_bin = self._bin_width.m
         T_bins = np.arange(T_start, T_end, dT_bin)
 
-        # for each time segment put the temperature values into bins and count
+        # for each time segment, put the temperature values into bins and count
         # how many temperature values are in each bin; put the bin series of
         # each time segment in a list
         bin_table = []

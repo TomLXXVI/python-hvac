@@ -7,13 +7,13 @@ import numpy as np
 from matplotlib.patches import ConnectionPatch
 from matplotlib.ticker import MultipleLocator
 from .. import Quantity as Qty
-from ..fluids import STANDARD_PRESSURE
+from ..fluids import HumidAir, STANDARD_PRESSURE
 from .matplotlibwrapper import LineChart
 
 
 @dataclass
 class StatePoint:
-    T_db: Qty
+    Tdb: Qty
     W: Qty
 
 
@@ -68,15 +68,15 @@ class PsychrometricChart:
     def plot_process(
         self,
         name: str,
-        start_point: StatePoint,
-        end_point: StatePoint,
-        mix_point: Optional[StatePoint] = None,
+        start_point: StatePoint | HumidAir,
+        end_point: StatePoint | HumidAir,
+        mix_point: Optional[StatePoint | HumidAir] = None,
     ):
         if mix_point is not None:
-            x_data = [start_point.T_db.to('degC').m, mix_point.T_db.to('degC').m, end_point.T_db.to('degC').m]
+            x_data = [start_point.Tdb.to('degC').m, mix_point.Tdb.to('degC').m, end_point.Tdb.to('degC').m]
             y_data = [start_point.W.to('kg/kg').m, mix_point.W.to('kg/kg').m, end_point.W.to('kg/kg').m]
         else:
-            x_data = [start_point.T_db.to('degC').m, end_point.T_db.to('degC').m]
+            x_data = [start_point.Tdb.to('degC').m, end_point.Tdb.to('degC').m]
             y_data = [start_point.W.to('kg/kg').m, end_point.W.to('kg/kg').m]
 
         self.chart.add_xy_data(
@@ -88,8 +88,8 @@ class PsychrometricChart:
 
         if mix_point is None:
             # add arrow to process line to show the direction of the process
-            xyA = (start_point.T_db.to('degC').m, start_point.W.to('kg/kg').m)
-            xyB = (end_point.T_db.to('degC').m, end_point.W.to('kg/kg').m)
+            xyA = (start_point.Tdb.to('degC').m, start_point.W.to('kg/kg').m)
+            xyB = (end_point.Tdb.to('degC').m, end_point.W.to('kg/kg').m)
             coordsA = "data"
             coordsB = "data"
             con = ConnectionPatch(
@@ -98,10 +98,10 @@ class PsychrometricChart:
             )
             self.chart.axes.add_artist(con)
 
-    def plot_point(self, name: str, point: StatePoint):
+    def plot_point(self, name: str, point: StatePoint | HumidAir):
         self.chart.add_xy_data(
             label=name,
-            x1_values=[point.T_db.to('degC').m],
+            x1_values=[point.Tdb.to('degC').m],
             y1_values=[point.W.to('kg/kg').m],
             style_props={'marker': 'o', 'color': 'orange', 'lw': 2.0}
         )
@@ -109,10 +109,10 @@ class PsychrometricChart:
     def plot_line(
         self,
         name: str,
-        start_point: StatePoint,
-        end_point: StatePoint
+        start_point: StatePoint | HumidAir,
+        end_point: StatePoint | HumidAir
     ):
-        x_data = [start_point.T_db.to('degC').m, end_point.T_db.to('degC').m]
+        x_data = [start_point.Tdb.to('degC').m, end_point.Tdb.to('degC').m]
         y_data = [start_point.W.to('kg/kg').m, end_point.W.to('kg/kg').m]
 
         self.chart.add_xy_data(
@@ -124,20 +124,20 @@ class PsychrometricChart:
 
     def plot_space_condition_line(
         self,
-        start_point: StatePoint,
-        end_point: StatePoint,
-        space_point: Optional[StatePoint] = None,
+        start_point: StatePoint | HumidAir,
+        end_point: StatePoint | HumidAir,
+        space_point: Optional[StatePoint | HumidAir] = None,
     ):
         self.plot_line('space condition line', start_point, end_point)
         self.chart.add_xy_data(
             label='space point',
-            x1_values=[space_point.T_db.to('degC').m],
+            x1_values=[space_point.Tdb.to('degC').m],
             y1_values=[space_point.W.to('kg/kg').m],
             style_props={'marker': 'o', 'color': 'orange'}
         )
 
-    def plot_curve(self, name: str, state_points: List[StatePoint]):
-        x_data = [p.T_db.to('degC').m for p in state_points]
+    def plot_curve(self, name: str, state_points: List[StatePoint | HumidAir]):
+        x_data = [p.Tdb.to('degC').m for p in state_points]
         y_data = [p.W.to('kg/kg').m for p in state_points]
 
         self.chart.add_xy_data(

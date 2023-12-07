@@ -1,15 +1,13 @@
 from typing import Any
-import math
 import warnings
+import numpy as np
 from scipy import optimize
 from hvac import Quantity
 from hvac.fluids import Fluid, HumidAir, CoolPropWarning, FluidState
 from hvac.heat_transfer.forced_convection.internal_flow import CircularTube
 from hvac.heat_transfer.finned_surface.fins import Fin, PlainContinuousFin
-from hvac.heat_exchanger.general.eps_ntu_wet import (
-    CounterFlowHeatExchanger,
-    # CrossFlowHeatExchanger
-)
+import hvac.heat_exchanger.general.eps_ntu_wet as wet
+import hvac.heat_exchanger.general.eps_ntu as dry
 from hvac.heat_exchanger.general import corrections
 from .geometry import ContinuousFinStaggeredTubeBank
 from .correlations import PlainContinuousFinStaggeredTubeBank as correlations
@@ -79,6 +77,8 @@ class HeatExchangerCore:
         self.h_ext = self.external.heat_transfer_coeff(self.T_wall)
         self.R_ext = self.external.thermal_resistance(self.h_ext)
         self.R_tot = self.R_int + self.R_ext
+        # Note: The thermal conduction resistance of the heat exchanger body
+        # is ignored, and fouling is not being taken into account.
         self.UA = 1 / self.R_tot
         self.dP_int = self.internal.pressure_drop(self.T_wall)
         self.dP_ext = self.external.pressure_drop(air_in.rho, air_out.rho, self.T_wall)
@@ -97,18 +97,18 @@ class HeatExchangerCore:
 
     def __find_wall_temperature(self) -> Quantity:
 
-        def __eq__(T_wall: float) -> float:
-            T_wall = Q_(T_wall, 'K')
+        def __eq__(T_wall_: float) -> float:
+            T_wall_ = Q_(T_wall_, 'K')
             h_int = self.internal.heat_transfer_coeff()
             R_int = self.internal.thermal_resistance(h_int)
-            h_ext = self.external.heat_transfer_coeff(T_wall)
+            h_ext = self.external.heat_transfer_coeff(T_wall_)
             R_ext = self.external.thermal_resistance(h_ext)
-            T_int = self.internal.water.T.to('K')
-            T_ext = self.external.air.Tdb.to('K')
-            n = T_int / R_int + T_ext / R_ext
+            T_int_ = self.internal.water.T.to('K')
+            T_ext_ = self.external.air.Tdb.to('K')
+            n = T_int_ / R_int + T_ext_ / R_ext
             d = 1 / R_int + 1 / R_ext
             T_wall_new = n / d
-            dev = (T_wall_new - T_wall).to('K').m
+            dev = (T_wall_new - T_wall_).to('K').m
             return dev
 
         T_int = self.internal.water.T.to('K').m  # cold fluid (water)
@@ -139,7 +139,7 @@ class InternalSurface:
         # first row):
         A_min_row = A_min / n_r  # min. free flow area of 1 row
         G = self.m_dot / A_min_row
-        A_tube = math.pi * d_i ** 2 / 4
+        A_tube = np.pi * d_i ** 2 / 4
         m_dot_circuit = G * A_tube
         # If the number of parallel water circuits has been specified, the mass
         # flow rate through a single tube is multiplied with the number of
@@ -315,9 +315,9 @@ class ExternalSurface:
         return dP.to('Pa')
 
 
-class PlainFinAirToWaterCounterFlowHeatExchanger:
+class PlainFinTubeAirToWaterCounterFlowHeatExchanger:
     """
-    Models a counterflow heat exchanger with continuous plain fins for
+    Models a counterflow fin-tube heat exchanger with continuous, plain fins for
     cooling humid air by water. The model assumes the air-side heat transfer
     surface is fully wet.
     """
@@ -337,7 +337,7 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         num_circuits: int | None = None
     ) -> None:
         """
-        Creates a `PlainFinAirToWaterCounterFlowHeatExchanger` object.
+        Creates a `PlainFinTubeAirToWaterCounterFlowHeatExchanger` object.
 
         Parameters
         ----------
@@ -383,6 +383,7 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         self.water_in: FluidState | None = None
         self.air_m_dot: Quantity | None = None
         self.water_m_dot: Quantity | None = None
+        self.air_surface_condition: str | None = None
         self.Q_dot_max: Quantity | None = None
 
     def set_operating_conditions(
@@ -390,7 +391,7 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         air_in: HumidAir,
         water_in: FluidState,
         air_m_dot: Quantity,
-        water_m_dot: Quantity
+        water_m_dot: Quantity,
     ) -> None:
         """Sets the operating conditions of the heat exchanger.
 
@@ -418,8 +419,7 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         i_max: int = 5,
         tol: Quantity = Q_(0.1, 'K')
     ) -> dict[str, Any]:
-        """
-        Determines the performance of the heat exchanger under the current
+        """Determines the performance of the heat exchanger under the current
         set of operating conditions.
 
         The method uses an iterative solving technique, starting with an initial
@@ -441,18 +441,21 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         Returns
         -------
         Dictionary with keys (strings):
-        'air_out':
+        'air_out': HumidAir
             State of humid air leaving the coil.
-        'water_out':
+        'water_out': Fluid('Water')
             State of water leaving the coil.
-        'Q_dot':
+        'Q_dot': Quantity
             Heat transfer rate from air to water.
-        'eps':
+        'eps': Quantity
             Heat exchanger effectiveness.
-        'dP_air':
+        'dP_air': Quantity
             Air-side drop of pressure.
-        'dP_water':
+        'dP_water': Quantity
             Water-side drop of pressure.
+        'air_surface_condition': str
+            The condition of the air-side heat transfer surface: either fully
+            wet ('wet'), or partially wet ('partially_wet'), or fully dry.
         """
         Q_dot = eps_ini * self.Q_dot_max
         water_out = self.__init_guess_water_out(Q_dot)
@@ -469,40 +472,46 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
             A_ext = self.core.geometry.external.A_tot.to('m ** 2')
             A_int = self.core.geometry.internal.A_tot.to('m ** 2')
 
-            # heX = CrossFlowHeatExchanger(
-            #     m_dot_r=self.water_m_dot,
-            #     m_dot_a=self.air_m_dot,
-            #     T_r_in=self.water_in.T,
-            #     T_r_out=None,
-            #     T_r_out_ini=water_out.T,
-            #     P_r=water_mean.P,
-            #     refrigerant=Water,
-            #     air_in=self.air_in,
-            #     h_ext=hex_props['h_ext'],
-            #     h_int=hex_props['h_int'],
-            #     eta_surf_wet=hex_props['eta_surf'],
-            #     A_ext_to_A_int=A_ext.m / A_int.m,
-            #     A_ext=A_ext,
-            #     type_=CrossFlowHeatExchanger.Type.C_max_MIXED_C_min_UNMIXED
-            # )
-
-            heX = CounterFlowHeatExchanger(
-                m_dot_r=self.water_m_dot,
-                m_dot_a=self.air_m_dot,
-                T_r_in=self.water_in.T,
-                T_r_out=None,
-                T_r_out_ini=water_out.T,
-                P_r=water_mean.P,
-                refrigerant=Water,
-                air_in=self.air_in,
-                h_ext=hex_props['h_ext'],
-                h_int=hex_props['h_int'],
-                eta_surf_wet=hex_props['eta_surf'],
-                A_ext_to_A_int=A_ext.m / A_int.m,
-                A_ext=A_ext
+            air_surf_condition = self.__get_air_side_surface_condition(
+                hex_props, A_ext, A_int,
+                air_mean, water_mean,
+                water_out, air_out
             )
+            if air_surf_condition == 'wet':
+                air_out_new, T_water_out_new, heX = self.__hex_wet(
+                    water_out, water_mean,
+                    hex_props,
+                    A_ext, A_int
+                )
+            elif air_surf_condition == 'dry':
+                air_out_new, T_water_out_new, heX = self.__hex_dry(
+                    water_mean, air_mean, hex_props
+                )
+            else:
+                # air_surf_condition == 'partially_wet'
+                # If the air-side heat transfer surface is partially dry and
+                # partially wet, we take the higher heat transfer rate for a
+                # totally wet and a totally dry coil to provide a good estimate
+                # for a partially wet coil (J.W. Mitchell & J. E. Braun,
+                # "Principles of Heating, Ventilation, and Air Conditioning in
+                # Buildings" (2013), John Wiley & Sons).
+                air_out_new_1, T_water_out_new_1, heX_1 = self.__hex_wet(
+                    water_out, water_mean,
+                    hex_props,
+                    A_ext, A_int
+                )
+                air_out_new_2, T_water_out_new_2, heX_2 = self.__hex_dry(
+                    water_mean, air_mean, hex_props
+                )
+                if heX_1.Q >= heX_2.Q:
+                    air_out_new = air_out_new_1
+                    T_water_out_new = T_water_out_new_1
+                    heX = heX_1
+                else:
+                    air_out_new = air_out_new_2
+                    T_water_out_new = T_water_out_new_2
+                    heX = heX_2
 
-            air_out_new = heX.air_out
             dP_air = hex_props['dP_ext']
             P_air_out_new = self.air_in.P - dP_air
             air_out_new = HumidAir(
@@ -510,7 +519,7 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
                 W=air_out_new.W,
                 P=P_air_out_new
             )
-            T_water_out_new = heX.T_r_out
+
             dP_water = hex_props['dP_int']
             P_water_out_new = self.water_in.P - dP_water
             water_out_new = Water(
@@ -524,9 +533,10 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
                     'air_out': air_out,
                     'water_out': water_out,
                     'Q_dot': heX.Q,
-                    'eps': heX.eps,
+                    'eps': Q_(heX.eps, 'frac'),
                     'dP_air': dP_air,
-                    'dP_water': dP_water
+                    'dP_water': dP_water,
+                    'air_surface_condition': air_surf_condition
                 }
             air_out = air_out_new
             water_out = water_out_new
@@ -572,7 +582,7 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         dh_min = min(dh_in, dh_out)
         if dh_min.m <= 0.0:
             dh_min = Q_(1.e-12, 'kJ / kg')
-        lmed = (dh_max - dh_min) / math.log(dh_max / dh_min)
+        lmed = (dh_max - dh_min) / np.log(dh_max / dh_min)
         return lmed
 
     def __lmtd(self, air_out: HumidAir, water_out: FluidState):
@@ -582,7 +592,7 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         dT_min = min(dT_in, dT_out)
         if dT_min <= 0.0:
             dT_min = Q_(1.e-12, 'K')
-        lmtd = (dT_max - dT_min) / math.log(dT_max / dT_min)
+        lmtd = (dT_max - dT_min) / np.log(dT_max / dT_min)
         return lmtd
 
     def __water_mean(self, water_out: FluidState):
@@ -590,3 +600,108 @@ class PlainFinAirToWaterCounterFlowHeatExchanger:
         P_water_avg = (self.water_in.P + water_out.P) / 2
         water_mean = Water(T=T_water_avg, P=P_water_avg)
         return water_mean
+
+    def __get_air_side_surface_condition(
+        self,
+        hex_props: dict[str, Quantity | float],
+        A_ext: Quantity,
+        A_int: Quantity,
+        air_mean: HumidAir,
+        water_mean: FluidState,
+        water_out: FluidState,
+        air_out: HumidAir
+    ) -> str:
+        """Condensation of air starts where the surface temperature equals the
+        dew point temperature of the entering air. In this function, the air
+        temperature and water temperature are determined that correspond with a
+        surface temperature equal to the dew point temperature of the entering
+        air. Then, we can also calculate the enthalpy that belongs to this air
+        temperature. If this enthalpy value is greater than the enthalpy of the
+        entering air, the surface is fully wet. If this enthalpy value is
+        between the enthalpy of the entering air and the leaving air, the
+        surface is partially dry and partially wet. Otherwise, if this enthalpy
+        value is less than the enthalpy of the leaving air, the surface is
+        fully dry. (W.F. Stoecker & J.W. Jones, "Refrigeration & Air
+        Conditioning" Second Ed. (1982), McGraw-Hill)
+        """
+        h_ext = hex_props['h_ext'].to('W / (m**2 * K)').magnitude
+        h_int = hex_props['h_int'].to('W / (m**2 * K)').magnitude
+        A_ext = A_ext.to('m**2').magnitude
+        A_int = A_int.to('m**2').magnitude
+        Tdp_air_in = self.air_in.Tdp.to('K').magnitude
+        air_m_dot = self.air_m_dot.to('kg / s').magnitude
+        water_m_dot = self.water_m_dot.to('kg / s').magnitude
+        cp_air = air_mean.cp.to('J / (kg * K)').magnitude
+        cp_water = water_mean.cp.to('J / (kg * K)').magnitude
+        T_water_out = water_out.T.to('K').magnitude
+        T_air_in = self.air_in.Tdb.to('K').magnitude
+        air_dp = HumidAir(Tdb=self.air_in.Tdp, RH=Q_(100, 'pct'))
+        h_air_dp = air_dp.h.to('J / kg').magnitude
+        h_air_in = self.air_in.h.to('J / kg').magnitude
+        h_air_out = air_out.h.to('J / kg').magnitude
+        a11 = h_ext * (A_ext / A_int)
+        a12 = h_int
+        b11 = (h_int + h_ext * (A_ext / A_int)) * Tdp_air_in
+        a21 = -air_m_dot * cp_air
+        a22 = water_m_dot * cp_water
+        b21 = water_m_dot * cp_water * T_water_out - air_m_dot * cp_air * T_air_in
+        A = np.array([
+            [a11, a12],
+            [a21, a22]
+        ])
+        B = np.array([b11, b21])
+        X = np.linalg.solve(A, B)
+        T_air_star, T_water_star = X[0], X[1]
+        c = h_ext * A_ext / (cp_air * A_int)
+        h_air_star = (h_int * (Tdp_air_in - T_water_star) + c * h_air_dp) / c
+        if h_air_star >= h_air_in:
+            return 'wet'
+        elif h_air_in > h_air_star > h_air_out:
+            return 'partially_wet'
+        else:
+            # h_air_star <= h_air_out
+            return 'dry'
+
+    def __hex_wet(
+        self,
+        water_out: FluidState,
+        water_mean: FluidState,
+        hex_props: dict,
+        A_ext: Quantity,
+        A_int: Quantity
+    ) -> tuple[HumidAir, Quantity, wet.CounterFlowHeatExchanger]:
+        heX = wet.CounterFlowHeatExchanger(
+            m_dot_r=self.water_m_dot,
+            m_dot_a=self.air_m_dot,
+            T_r_in=self.water_in.T,
+            T_r_out=None,
+            T_r_out_ini=water_out.T,
+            P_r=water_mean.P,
+            refrigerant=Water,
+            air_in=self.air_in,
+            h_ext=hex_props['h_ext'],
+            h_int=hex_props['h_int'],
+            eta_surf_wet=hex_props['eta_surf'],
+            A_ext_to_A_int=A_ext.m / A_int.m,
+            A_ext=A_ext
+        )
+        air_out_new = heX.air_out
+        T_water_out_new = heX.T_r_out
+        return air_out_new, T_water_out_new, heX
+
+    def __hex_dry(
+        self,
+        water_mean: FluidState,
+        air_mean: HumidAir,
+        hex_props: dict
+    ) -> tuple[HumidAir, Quantity, dry.CounterFlowHeatExchanger]:
+        heX = dry.CounterFlowHeatExchanger(
+            C_cold=water_mean.cp * self.water_m_dot,
+            C_hot=air_mean.cp * self.air_m_dot,
+            T_cold_in=self.water_in.T,
+            T_hot_in=self.air_in.Tdb,
+            UA=hex_props['UA']
+        )
+        air_out_new = HumidAir(Tdb=heX.T_hot_out, W=self.air_in.W)
+        T_water_out_new = heX.T_cold_out
+        return air_out_new, T_water_out_new, heX

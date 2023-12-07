@@ -11,9 +11,9 @@ Air = Fluid('Air')
 air_ntp = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 
 
-class AircoSystem:
-    """Class for designing a single-zone air conditioning system used for
-    cooling and dehumidifying air with a DX air cooler.
+class DxAirCoolingCoilSizer:
+    """Class for sizing a DX air-cooling coil used for cooling and dehumidifying
+     air in a single-zone air-cooling system.
 
     The DX air cooler is selected from a catalog, and it has a known set of
     operating conditions taken from its datasheet.
@@ -24,7 +24,7 @@ class AircoSystem:
     be assumed to remain identical to the values that are valid for the given
     set of operating conditions in the datasheet.
     """
-    class WetDXAirCooler:
+    class WetDxAirCooler:
 
         def __init__(
             self,
@@ -35,8 +35,9 @@ class AircoSystem:
             dP_ntp: Quantity
         ) -> None:
             """
-            Class that represents a DX air cooler with a known set of operating
-            conditions and having a wetted air-side surface.
+            Class that represents a DX air-cooler selected from a catalog with
+            a known set of operating conditions. A fully wetted air-side heat
+            transfer surface is assumed.
 
             Parameters
             ----------
@@ -124,12 +125,14 @@ class AircoSystem:
         Q_zone: Quantity,
         SHR_zone: Quantity,
         f_vent: Quantity,
-        air_cooler: WetDXAirCooler,
+        air_cooler: WetDxAirCooler,
         i_max: int = 20,
         W_tol: Quantity = Q_(5.e-4, 'g / kg')
     ) -> None:
-        """Collects the input data needed to run the design procedure of the
-        airco system.
+        """Creates an instance of `DxAirCoolingCoilSizer` initialized with the
+        design information for the single-zone air-cooling system. All the
+        calculations are done on instantiation of the object. Method `info()`
+        returns a string with the calculation results.
 
         Parameters
         ----------
@@ -145,7 +148,8 @@ class AircoSystem:
             Ventilation air flow rate expressed as a fraction of the supply
             air mass flow rate to the zone.
         air_cooler:
-            The air cooler that will be used to cool and dehumidify the supply
+            Instance of class `WetDxAirCooler`. The air cooler selected from
+            the catalog that will be used to cool and dehumidify the supply
             air to the zone.
         i_max:
             Maximum number of iterations to find the final zone air state.
@@ -153,6 +157,36 @@ class AircoSystem:
             Allowable tolerance or deviation for the final zone air humidity
             ratio. If after the maximum number of iterations, the humidity ratio
             falls outside the tolerance margin, a warning will be given.
+
+        Attributes
+        ----------
+        self.A_fa:
+            The required face area of the air-cooling coil.
+        self.Q_cc:
+            The resulting cooling coil load.
+        self.W_fan_min:
+            Aeraulic power to be delivered to the supply air needed to establish
+            the required mass flow rate of supply air to the zone.
+        self.m_supply:
+            The required mass flow rate of supply air to the zone.
+        self.V_supply_ntp:
+            The required volume flow rate of supply air referred to NTP.
+        self.m_vent:
+            The resulting mass flow rate of outdoor ventilation air.
+        self.V_vent_ntp:
+            The resulting volume flow rate of outdoor ventilation air referred
+            to NTP.
+        self.m_recir:
+            The resulting mass flow rate of recirculation air.
+        self.V_recir_ntp:
+            The resulting volume flow rate of recirculation air referred to NTP.
+        self.supply_air:
+            The required state of the supply air to the zone.
+        self.zone_air:
+            The resulting state of the air in the zone.
+        self.mixed_air:
+            The resulting state of air entering the cooling coil after adiabatic
+            mixing of recirculated zone air and outdoor air.
         """
         self.zone_air = zone_air
         self.outdoor_air = outdoor_air
@@ -205,7 +239,7 @@ class AircoSystem:
     def _determine_supply_air(self) -> HumidAir:
         # The mixed air goes to the inlet of the air cooler. The state of the
         # supply air at the outlet of the air cooler is determined by the
-        # air cooler property `air_out` (see class `WetDXAirCooler`).
+        # air cooler property `air_out` (see class `WetDxAirCooler`).
         self.air_cooler.air_in = self.mixed_air
         return self.air_cooler.air_out
 

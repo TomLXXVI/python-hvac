@@ -21,7 +21,7 @@ import numpy as np
 from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid, STANDARD_TEMPERATURE, STANDARD_PRESSURE
 from hvac.heat_exchanger.fintube.continuous_fin import (
-    PlainFinAirToWaterCounterFlowHeatExchanger as AirCoil
+    PlainFinTubeAirToWaterCounterFlowHeatExchanger as AirCoil
 )
 from hvac.air_conditioning import AirConditioningProcess
 from hvac.charts import LineChart

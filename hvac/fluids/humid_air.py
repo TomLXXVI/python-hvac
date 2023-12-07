@@ -1,3 +1,4 @@
+import math
 from typing import Dict, Tuple
 import warnings
 from CoolProp.HumidAirProp import HAPropsSI
@@ -36,21 +37,33 @@ class HumidAir:
         # Only the first 2 input quantities are considered,
         # should there be more than 2 given:
         self._inputs = {keys[0]: values[0], keys[1]: values[1]}
-        # Check the validity boundaries of input quantities:
+        # Check the validity of input quantities:
         self._validate_inputs()
 
     def _validate_inputs(self):
+        for k, v in self._inputs.items():
+            if math.isnan(v) or v is None:
+                raise ValueError(
+                    f"Humid air state cannot be determined: "
+                    f"parameter {k} is NaN or None."
+                )
         RH = self._inputs.get('RH')
         if RH is not None and RH < 0.0:
             warnings.warn(
-                message="Negative value for RH detected. RH has been reset to 0 %.",
+                message=(
+                    "Negative value for RH detected. "
+                    "RH has been reset to 0 %."
+                ),
                 category=RuntimeWarning
             )
             self._inputs['RH'] = 0.0
         W = self._inputs.get('W')
         if W is not None and W < 0.0:
             warnings.warn(
-                message="Negative value for W detected. W has been reset to 0 kg/kg.",
+                message=(
+                    "Negative value for W detected. "
+                    "W has been reset to 0 kg/kg."
+                ),
                 category=RuntimeWarning
             )
             self._inputs['W'] = 0.0

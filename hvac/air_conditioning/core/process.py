@@ -814,7 +814,8 @@ class Fan(Process):
         """The air state at the fan outlet."""
         if self._air_out is None:
             T_ao = self['T_ao']
-            W_ao = self._air_in.W   # fan heating is sensible process: humidity ratio = cst.
+            W_ao = self._air_in.W
+            # fan heating is a sensible process: humidity ratio = cst.
             self._air_out = HumidAir(Tdb=T_ao, W=W_ao)
         return self._air_out
 
@@ -838,3 +839,15 @@ class Fan(Process):
         cp = (cp_ai + cp_ao) / 2
         Q = self.m_da * cp * dT
         return Q
+
+    @property
+    def W_input(self) -> Quantity:
+        """The input power taken up by the fan."""
+        dP = self['dp'].to('Pa')
+        rho_ai = self.air_in.rho.to('kg / m ** 3')
+        rho_ao = self.air_out.rho.to('kg / m ** 3')
+        rho = (rho_ai + rho_ao) / 2
+        W_fluid = self.m_da.to('kg / s') * dP / rho
+        eta = self['eta_m'].to('frac') * self['eta_f'].to('frac')
+        W_input = W_fluid / eta
+        return W_input

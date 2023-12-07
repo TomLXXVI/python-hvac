@@ -2,6 +2,7 @@ from hvac import Quantity
 from hvac.fluids import HumidAir
 from .bin_table import TimeSegment
 
+
 Q_ = Quantity
 
 
@@ -17,20 +18,21 @@ class Load:
         outdoor_air: HumidAir = HumidAir(Tdb=Q_(0, 'degC'), RH=Q_(0, 'pct')),
         To_min: Quantity | None = None,
         time_segment: TimeSegment | None = None
-    ):
+    ) -> None:
         """
         Create a `Load` object.
 
         Parameters
         ----------
-        Ti: Quantity
+        Ti: PlainQuantity
             Indoor air temperature.
         K_tr: Quantity
             Building heat loss coefficient by transmission that results
             from the heat load calculation of the building.
         V_vi: Quantity
-            Ventilation volume flow rate and/or infiltration air volume flow rate.
-        Qig: Quantity
+            Ventilation volume flow rate and/or infiltration air volume flow
+            rate.
+        Qig: PlainQuantity
             Internal heat gains.
         eta_inst: Quantity
             Installation efficiency.
@@ -88,7 +90,8 @@ class Load:
     def K(self) -> Quantity:
         """Get the total heat loss coefficient of the building including heat loss
         due to transmission through the building envelope and heat loss due
-        to air ventilation/infiltration."""
+        to air ventilation/infiltration.
+        """
         K = self.K_tr + self.K_vi
         return K
 
@@ -102,21 +105,24 @@ class Load:
     def Qe(self) -> Quantity:
         """Get the required thermal power that must be emitted in the building
         to maintain the desired indoor air temperature at the set outdoor
-        air temperature."""
+        air temperature.
+        """
         Qe = self.K * (self.T_bal - self.To)
         return Qe
 
     @property
     def Q_loss_tr(self) -> Quantity:
         """Get the heat loss due to transmission through the building
-        envelope at the set outdoor air temperature."""
+        envelope at the set outdoor air temperature.
+        """
         Ql_tr = self.K_tr * (self.Ti - self.To)
         return Ql_tr
 
     @property
     def Q_loss_vi(self) -> Quantity:
         """Get the heat loss due to air ventilation and/or air infiltration at
-        the set outdoor air temperature."""
+        the set outdoor air temperature.
+        """
         Ql_vi = self.K_vi * (self.Ti - self.To)
         return Ql_vi
 
@@ -124,7 +130,8 @@ class Load:
     def Q(self) -> Quantity:
         """Get the required thermal power that the heating system must deliver
         to maintain the desired indoor air temperature at the set outdoor
-        air temperature."""
+        air temperature.
+        """
         Q = self.Qe / self.eta_inst
         return Q
 
@@ -132,6 +139,7 @@ class Load:
     def E(self) -> Quantity:
         """Get the required amount of thermal energy that the heating system must
         deliver to maintain the desired indoor air temperature at the set outdoor
-        air temperature and the set number of hours that the load is present."""
+        air temperature and the set number of hours that the load is present.
+        """
         E = self._num_hours * self.Q
         return E

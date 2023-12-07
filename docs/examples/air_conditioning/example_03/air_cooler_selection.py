@@ -36,7 +36,7 @@ fulfilled, we can try with a higher fraction.
 """
 from hvac import Quantity
 from hvac.fluids import HumidAir
-from hvac.air_conditioning.single_zone.cooling_coil_sizing import AircoSystem
+from hvac.air_conditioning.single_zone.cooling_coil_sizing import DxAirCoolingCoilSizer
 
 
 Q_ = Quantity
@@ -69,11 +69,20 @@ class Specs:
     dP_ntp = Q_(50, 'Pa')
 
 
+air_cooler = DxAirCoolingCoilSizer.WetDxAirCooler(
+    air_in_ref=Specs.air_in,
+    air_out_ref=Specs.air_out,
+    T_rfg=Specs.T_rfg,
+    v_fa_ntp=Specs.v_fa_ntp,
+    dP_ntp=Specs.dP_ntp
+)
+
+
 # SUMMARY OF THE ZONE'S COOLING-LOAD CALCULATION
 # ==============================================
 # From the cooling load calculation of the zone, it follows that under summer
-# peak design conditions the sensible cooling load of the zone is 30.514 kW and
-# the latent cooling load is 12.967 kW.
+# peak design conditions the sensible cooling load of the zone is 31.126 kW and
+# the latent cooling load is 17.936 kW.
 
 Q_sen_zone = Q_(31.126, 'kW')
 Q_lat_zone = Q_(17.936, 'kW')
@@ -83,7 +92,7 @@ SHR_zone = Q_sen_zone / Q_zone
 # The cooling load calculation was based on this zone air state:
 zone_air = HumidAir(Tdb=Q_(26.0, 'degC'), RH=Q_(50.0, 'pct'))
 
-# At summer peak design conditions, the outdoor air state is:
+# At peak summer design conditions, the outdoor air state is:
 outdoor_air = HumidAir(Tdb=Q_(26.7, 'degC'), Twb=Q_(19.2, 'degC'))
 
 
@@ -98,21 +107,12 @@ outdoor_air = HumidAir(Tdb=Q_(26.7, 'degC'), Twb=Q_(19.2, 'degC'))
 #   to the zone
 # - configure the air-cooling coil using the known specs from the datasheet
 
-
-air_cooler = AircoSystem.WetDXAirCooler(
-    air_in_ref=Specs.air_in,
-    air_out_ref=Specs.air_out,
-    T_rfg=Specs.T_rfg,
-    v_fa_ntp=Specs.v_fa_ntp,
-    dP_ntp=Specs.dP_ntp
-)
-
 # Assume a fraction of the supply air mass flow rate that is outdoor ventilation
 # air:
 f_vent = Q_(40, 'pct')
 
 
-airco_system = AircoSystem(
+airco_system = DxAirCoolingCoilSizer(
     zone_air=zone_air,
     outdoor_air=outdoor_air,
     Q_zone=Q_zone,

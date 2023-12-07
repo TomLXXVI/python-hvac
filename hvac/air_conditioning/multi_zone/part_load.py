@@ -9,17 +9,17 @@ Q_ = Quantity
 
 
 class VAVSystem:
-    """Class that incorporates the analysis routines of a VAV system under
-    part-load conditions. Only part load analysis during summer (cooling season)
-    is possible.
+    """Class that implements the analysis of a VAV system under part-load
+    conditions. Only part-load analysis during summer (cooling season)
+    has been implemented.
     """
 
     class Summer:
-        """Represents VAV operation under summer part load conditions.
+        """Represents VAV system operation under summer part-load conditions.
 
         Attributes
         ----------
-        T_supply
+        T_supply_des
         outdoor_air
         m_vent
         m_supply
@@ -37,7 +37,7 @@ class VAVSystem:
         def __init__(
             self,
             system: 'VAVSystem',
-            T_supply: Quantity,
+            T_supply_des: Quantity,
             outdoor_air: HumidAir,
             V_vent: Quantity
         ) -> None:
@@ -47,16 +47,16 @@ class VAVSystem:
             ----------
             system:
                 Reference to the parent `VAVSystem` object.
-            T_supply:
+            T_supply_des:
                 Supply air temperature to the zones (design value).
             outdoor_air:
-                State of outdoor air at part-load conditions.
+                State of outdoor air under part-load conditions.
             V_vent:
                 Minimum required outdoor air volume flow rate for ventilating
                 the building (design value).
             """
             self.system = system
-            self.T_supply = T_supply
+            self.T_supply_des = T_supply_des
             self.outdoor_air = outdoor_air
             self.m_vent = V_vent * outdoor_air.rho
             self.m_supply: Optional[Quantity] = None
@@ -79,11 +79,11 @@ class VAVSystem:
             """
             for zone in self.system.zones:
                 p = AirConditioningProcess(
-                    T_ai=self.T_supply,  # fixed system supply air temperature
+                    T_ai=self.T_supply_des,  # fixed system supply air temperature
                     T_ao=zone.summer.zone_air.Tdb,
                     Q_sen=zone.summer.Q_sen
                 )
-                # Mass flow rate supplied to a zone at part load cannot be
+                # Mass flow rate supplied to a zone at part-load cannot be
                 # reduced below 60 % of the full-load design value:
                 zone.summer.m_supply = max(
                     0.6 * zone.summer.m_supply,  # --> full-load design value
@@ -96,12 +96,12 @@ class VAVSystem:
             )
 
         def determine_supply_air(self) -> None:
-            """Determines the wanted state of supply air to each zone in order
-            to offset both the sensible and latent load of the zone, so that
-            the desired state of zone air is maintained. Then, determines the
-            state of the system supply air by keeping the system supply air
-            temperature fixed, while taking the average of the required humidity
-            ratios in the zones.
+            """Determines the required state of supply air to each zone to offset
+            both the sensible and latent load of the zone, so that the desired
+            state of zone air is maintained. Then, determines the global state
+            of the system's supply air by keeping its temperature fixed to the
+            design value given by the user and taking the average of the
+            required humidity ratios in the zones.
             """
             # Determine the state of supply air that each zone would require:
             for zone in self.system.zones:
@@ -112,16 +112,16 @@ class VAVSystem:
                     m_da=zone.summer.m_supply
                 )
                 zone.summer.supply_air = p.air_in
-            # Determine the needed humidity ratio of the system air supplied to
-            # all zones:
-            W_supply = sum(
+            # Determine the required humidity ratio of the system air supplied to
+            # all zones by averaging the zone air humidities:
+            W_supply_avg = sum(
                 z.summer.supply_air.W * z.summer.m_supply
                 for z in self.system.zones
             ) / self.m_supply
-            # Determine the needed state of system supply air to all zones:
+            # Determine the required state of system supply air to all zones:
             self.supply_air = HumidAir(
-                Tdb=self.T_supply,  # --> fixed system value
-                W=W_supply
+                Tdb=self.T_supply_des,  # --> fixed system value
+                W=W_supply_avg
             )
             # Determine the volume flow rate of supply air to all the zones:
             self.V_supply = self.m_supply * self.supply_air.v
@@ -163,10 +163,14 @@ class VAVSystem:
             else:
                 dT_supply_duct = Q_(0.0, 'K')
             # Determine the required state of air at the cooling coil exit:
-            T_cold = self.T_supply - dT_supply_fan - dT_supply_duct
+            T_cold = self.T_supply_des - dT_supply_fan - dT_supply_duct
             self.cooled_air = HumidAir(
                 Tdb=T_cold,
-                RH=self.supply_air.RH
+                W=self.supply_air.W
+                #  For simplicity, it is assumed that the operating conditions
+                #  of the cooling coil will be such that the calculated
+                #  required state of the air leaving the cooling coil
+                #  is always achieved.
             )
 
         def determine_return_air(
@@ -177,7 +181,7 @@ class VAVSystem:
         ) -> None:
             """Determines the actual state of return air from each zone, being
             supplied with air of which the temperature is controlled by the
-            zone's reheat coil. The humidity level of the supply air to a zone
+            zone's reheat coil. The humidity level of the air supplied to a zone
             cannot be controlled.
             """
             # For each zone, determine the actual state of zone air which is
@@ -185,7 +189,7 @@ class VAVSystem:
             for zone in self.system.zones:
                 p = AirConditioningProcess(
                     air_in=HumidAir(
-                        Tdb=zone.summer.supply_air.Tdb,  # downstream reheat coil
+                        Tdb=zone.summer.supply_air.Tdb,  # downstream of reheat-coil
                         W=self.supply_air.W  # remains fixed
                     ),
                     T_ao=zone.summer.zone_air.Tdb,
@@ -278,10 +282,10 @@ class VAVSystem:
             )
 
         def determine_reheat_coils(self):
-            """Determines the load on the reheat coils of the zones."""
+            """Determines the load on the reheat-coils of the zones."""
             for zone in self.system.zones:
                 zone.reheat_coil = AirConditioningProcess(
-                    T_ai=self.T_supply,
+                    T_ai=self.T_supply_des,
                     T_ao=zone.summer.supply_air.Tdb,
                     m_da=zone.summer.m_supply
                 )
@@ -293,7 +297,7 @@ class VAVSystem:
     def __init__(
         self,
         zones: List[Zone],
-        T_supply: Quantity,
+        T_supply_des: Quantity,
         outdoor_air: HumidAir,
         V_vent: Quantity
     ) -> None:
@@ -302,21 +306,21 @@ class VAVSystem:
         Parameters
         ----------
         zones:
-            list of `Zone` objects that represent the temperature zones of the
+            List of `Zone` objects that represent the temperature zones of the
             building served by the VAV system.
-        T_supply:
-            Supply air temperature to the zones (design value).
+        T_supply_des:
+            The design value of the supply air temperature to the zones.
         outdoor_air:
-            State of outdoor air at part-load conditions.
+            State of outdoor air under part-load conditions.
         V_vent:
             Minimum required outdoor air volume flow rate for ventilating the
             building (design value).
         """
         self.zones = zones
-        self.summer = VAVSystem.Summer(self, T_supply, outdoor_air, V_vent)
+        self.summer = VAVSystem.Summer(self, T_supply_des, outdoor_air, V_vent)
 
     def part_load_summer(self, **kwargs) -> Dict[str, Quantity]:
-        """Determine VAV system operation under part-load conditions.
+        """Determine VAV system operation under summer part-load conditions.
 
         Optional keyword arguments
         --------------------------
