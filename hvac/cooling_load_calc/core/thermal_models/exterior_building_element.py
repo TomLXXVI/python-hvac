@@ -1,4 +1,4 @@
-"""Linear thermal network of an opaque exterior building element.
+"""LINEAR THERMAL NETWORK OF AN OPAQUE EXTERIOR BUILDING ELEMENT.
 
 Implementation of a linear thermal network (lumped capacitance model) using
 a 2nd-order non-central backward finite difference approximation [1] for the

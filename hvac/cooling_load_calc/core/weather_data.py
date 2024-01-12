@@ -578,7 +578,7 @@ class ExteriorSurface(Surface):
         t_sol_sec: float
             Solar time in seconds from midnight (= 0 s).
         """
-        return Q_(self.weather_data.T_db(t_sol_sec / 3600), 'degC')
+        return self.weather_data.T_db(t_sol_sec)
 
     def theta_i(self, t_sol_sec: float) -> Quantity:
         """Returns the solar incidence angle of the exterior surface at the

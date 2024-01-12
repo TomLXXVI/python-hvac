@@ -1,4 +1,6 @@
-"""Implementation of a linear thermal network (lumped capacitance model) using
+"""LINEAR THERMAL NETWORK OF AN OPAQUE EXTERIOR BUILDING ELEMENT.
+
+Implementation of a linear thermal network (lumped capacitance model) using
 `scipy.solve_ivp` to solve the system of differential node equations.
 """
 from collections.abc import Callable, Sequence

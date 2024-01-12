@@ -28,7 +28,8 @@ class UnconditionedZone:
     """Represents a space or a group of spaces in a building of which the zone
     air temperature is free-floating. This class can be used to solve for the
     zone air temperature as a function of time if the heat gains in the zone and
-    the heat extraction rate of the cooling system are given.
+    the heat extraction rate of the cooling system can be calculated and/or are
+    given.
     """
     def __init__(self):
         self.ID: str = ''
@@ -55,7 +56,7 @@ class UnconditionedZone:
         A_tsn: Quantity = Q_(1.0, 'm**2'),
         R_tsn: Quantity = Q_(float('inf'), 'K * m**2 / W')
     ) -> UnconditionedZone:
-        """Creates a `Unconditioned` object.
+        """Creates a `UnconditionedZone` object.
 
         Parameters
         ----------
