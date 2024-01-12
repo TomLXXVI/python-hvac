@@ -1,3 +1,3 @@
-from .materials import MaterialsShelf
-from .construction_assemblies import ConstructionAssembliesShelf
-from .window_properties import WindowPropertiesShelf
+from .construction_assembly_shelf import ConstructionAssemblyShelf
+from .material_shelf import MaterialShelf
+from .window_shelf import WindowPropertiesShelf

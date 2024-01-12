@@ -12,4 +12,3 @@ for ud in unit_definitions:
     UNITS.define(ud)
 
 pint.set_application_registry(UNITS)
-

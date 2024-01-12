@@ -1,532 +1,593 @@
+from __future__ import annotations
 from typing import Callable
 import pandas as pd
 from hvac import Quantity
-from hvac.climate import ClimateData
-from hvac.climate.sun.solar_time import time_from_decimal_hour
-from .construction_assembly import (
-    ThermalComponent,
-    ConstructionAssembly
+from .weather_data import WeatherData, ExteriorSurface
+from .construction_assembly import ConstructionAssembly
+from .thermal_models import (
+    ExteriorBuildingElementLTN,
+    ExteriorBuildingElementLTNBuilder
 )
-from .thermal_network import (
-    AbstractNode,
-    ExteriorSurfaceNode,
-    BuildingMassNode,
-    InteriorSurfaceNode,
-    ThermalNetwork,
-    ThermalNetworkSolver
-)
-from .exterior_surface import ExteriorSurface
 from .fenestration import (
     WindowThermalProperties,
+    Window,
     ExteriorShadingDevice,
-    InteriorShadingDevice,
-    Window
+    InteriorShadingDevice
 )
-
 
 Q_ = Quantity
 
 
-class ThermalNetworkBuilder:
-    """Builds the linear thermal network of a construction assembly."""
-
-    @classmethod
-    def build(cls, construction_assembly: ConstructionAssembly) -> ThermalNetwork | None:
-        """
-        Get the linear thermal network of the construction assembly.
-
-        Returns
-        -------
-        `ThermalNetwork` object.
-
-        Notes
-        -----
-        The layers of the construction assembly must be arranged from
-        the exterior surface towards the interior surface.
-        """
-        thermal_network = cls._compose(list(construction_assembly.layers.values()))
-        reduced_thermal_network = cls._reduce(thermal_network)
-        nodes = cls._transform(reduced_thermal_network)
-        return ThermalNetwork(nodes)
-
-    @staticmethod
-    def _compose(layers: list[ThermalComponent]) -> list[Quantity]:
-        # create a list of resistors and capacitors
-        thermal_network = []
-        for layer in layers:
-            n = layer.slices
-            R_slice = layer.R / (2 * n)
-            C_slice = layer.C / n
-            slices = [R_slice, C_slice, R_slice] * n
-            thermal_network.extend(slices)
-        return thermal_network
-
-    @staticmethod
-    def _reduce(thermal_network: list[Quantity]) -> list[Quantity]:
-        # sum adjacent resistors between capacitors
-        R_dummy = Q_(0, 'm ** 2 * K / W')
-        reduced_thermal_network = []
-        R = thermal_network[0]
-        for i in range(1, len(thermal_network)):
-            if R_dummy.check(thermal_network[i].dimensionality):
-                # thermal_network[i] is a resistance
-                R += thermal_network[i]
-            else:
-                # thermal_network[i] is a capacitance: only keep C
-                # if it is > 0, unless for the last C (to set the interior
-                # surface node, see _transform)
-                if thermal_network[i].m > 0 or i == len(thermal_network) - 2:
-                    reduced_thermal_network.append(R)
-                    reduced_thermal_network.append(thermal_network[i])
-                    R = Q_(0.0, 'm ** 2 * K / W')
-        if R.m > 0:
-            reduced_thermal_network.append(R)
-        return reduced_thermal_network
-
-    @staticmethod
-    def _transform(reduced_thermal_network: list[Quantity]) -> list[AbstractNode] | None:
-        # create a list of nodes, starting at the exterior surface towards the interior surface
-        if len(reduced_thermal_network) >= 5:
-            i = 1
-            node_index = 1
-            nodes = []
-            while True:
-                if i == 1:
-                    node = ExteriorSurfaceNode(
-                        ID=f'N{node_index}',
-                        R_unit_lst=[
-                            reduced_thermal_network[i - 1],
-                            reduced_thermal_network[i + 1]
-                        ],
-                        C=reduced_thermal_network[i]
-                    )
-                    nodes.append(node)
-                    i += 2
-                    node_index += 1
-                elif i == len(reduced_thermal_network) - 2:
-                    node = InteriorSurfaceNode(
-                        ID=f'N{node_index}',
-                        R_unit_lst=[
-                            reduced_thermal_network[i - 1],
-                            reduced_thermal_network[i + 1]
-                        ]
-                    )
-                    nodes.append(node)
-                    break
-                else:
-                    node = BuildingMassNode(
-                        ID=f'N{node_index}',
-                        R_unit_lst=[
-                            reduced_thermal_network[i - 1],
-                            reduced_thermal_network[i + 1]
-                        ],
-                        C=reduced_thermal_network[i]
-                    )
-                    nodes.append(node)
-                    i += 2
-                    node_index += 1
-            return nodes
-        return None
-
-
 class ExteriorBuildingElement:
-    """
-    An `ExteriorBuildingElement` is composed of:
-    - an `ExteriorSurface` that defines the orientation and size of the
-    building element and that is responsible for calculating the sol-air
-    temperature under clear-sky conditions (based on `ClimateData`).
-    - a `ConstructionAssembly` that defines the layered material composition of
-    the building element and knows about the thermal resistance and thermal
-    capacity of the building element.
-    - a `ThermalNetwork` model of the construction assembly that is used to
-    calculate the dynamic and steady heat transfer through the building element.
-    """
+    """Models an opaque exterior building element of a zone.
 
+    An exterior building element of a zone is on one side exposed to the outdoor
+    environment. The temperature on this exterior surface is the sol-air
+    temperature, which is determined from the climatic design information valid
+    for the selected design day and on the specified geographic location. The
+    location, the design day and all the climatic design information are
+    encapsulated in an instance of the `WeatherData` class.
+    The construction of an exterior building element is defined by its
+    construction assembly, which is modeled by an instance of the
+    `ConstructionAssembly` class.
+    The conductive heat transfer through an exterior building element will
+    depend on its thermal mass (thermal inertia). To model this dynamic behavior
+    the exterior building element is modeled as a linear thermal network
+    consisting of temperature nodes having a thermal capacitor
+    (a "heat reservoir") and which are interconnected by thermal resistors
+    (see module `thermal_model.linear_thermal_network_2.py).
+    """
     def __init__(self):
         self.ID: str = ''
-        self._exterior_surface: ExteriorSurface | None = None
-        self.construction_assembly: ConstructionAssembly | None = None
-        self._thermal_network: ThermalNetwork | None = None
-        self.T_int_fun: Callable[[float], float] | None = None
-        self.F_rad: float | None = None
-        self._heat_transfer: dict[str, list[Quantity]] | None = None
+        self.T_zone: Callable[[float], Quantity] | None = None
+        self._ext_surf: ExteriorSurface | None = None
+        self.constr_assem: ConstructionAssembly | None = None
+        self.ltn: ExteriorBuildingElementLTN | None = None
+        self.gross_area: Quantity | None = None
+        self.net_area: Quantity | None = None
+        self.F_rad: float = 0.46
         self.windows: dict[str, Window] = {}
-        self.doors: dict[str, 'ExteriorBuildingElement'] = {}
+        self.doors: dict[str, ExteriorBuildingElement] = {}
 
     @classmethod
     def create(
         cls,
         ID: str,
-        azimuth: Quantity,
-        tilt: Quantity,
-        width: Quantity,
-        height: Quantity,
-        climate_data: ClimateData,
-        construction_assembly: ConstructionAssembly,
-        T_int_fun: Callable[[float], float],
-        F_rad: float = 0.46,
-        surface_absorptance: Quantity | None = None,
-        surface_color: str = 'dark-colored'
-    ) -> 'ExteriorBuildingElement':
-        """
-        Create an `ExteriorBuildingElement` object.
+        T_zone: Callable[[float], float],
+        constr_assem: ConstructionAssembly,
+        gross_area: Quantity,
+        weather_data: WeatherData,
+        gamma: Quantity,
+        beta: Quantity,
+        surface_color: str = 'dark',
+        R_surf: Quantity | None = None,
+        a_surf: Quantity | None = None,
+        rho_g: Quantity = Q_(0.2, 'frac'),
+        sky_model: str = '',
+        F_rad: float = 0.46
+    ) -> ExteriorBuildingElement:
+        """Creates an `ExteriorBuildingElement` object.
 
         Parameters
         ----------
-        ID: str
-            Identifier for the building element.
-        azimuth: Quantity
-            The azimuth angle of the exterior building element measured clockwise
-            from North (East = 90°, South = 180°, West = 270 °, North = 0°)
-        tilt: Quantity
-            The tilt angle of the exterior surface with respect to the horizontal
-            surface. A vertical wall has a tilt angle of 90°.
-        width: Quantity
-            The width of the exterior surface.
-        height: Quantity
-            The height of the exterior surface.
-        climate_data: ClimateData
-            Object that determines the outdoor dry- and wet-bulb temperature and
-            solar radiation for each hour of the design day. See class
-            ClimateData.
-        construction_assembly: ConstructionAssembly
-            Object that defines the construction of the building element. See
-            class ConstructionAssembly.
-        T_int_fun: Callable
-            Function that returns the indoor air temperature at time t expressed
-            in seconds from 00:00:00. May also be an instance of `TemperatureSchedule`.
-        F_rad: float, default 0.46
-            Fraction of conductive heat flow that is transferred by radiation
-            to the internal mass of the space (ASHRAE Fundamentals 2017, Ch. 18,
-            Table 14).
-        surface_absorptance: Quantity | None (default)
-            The absorptance of the exterior surface of the building element.
-        surface_color: ['dark-colored' (default), 'light-colored']
-            Indicate if the surface is either dark-colored or light-colored. You
-            can use this instead of specifying `surface_absorptance`.
+        ID:
+            Identifies the exterior building element.
+        T_zone:
+            The zone air temperature, being a function with signature
+            `f(t_sol_sec: float) -> Quantity` which takes the solar time in
+            seconds and returns the temperature in the zone as a `Quantity`
+            object. This may allow a time-variable temperature in the zone.
+        constr_assem:
+            The construction assembly the exterior building element is made off.
+        gross_area:
+            The gross surface area of the exterior building element, i.e.
+            including any large openings such as doors and windows.
+        weather_data:
+            `WeatherData` instance that encapsulates the climatic design
+            information needed to determine the solar radiation incident on the
+            exterior surface of the building element and its sol-air temperature
+            during the design day, which was specified on instantiation of the
+            `WeatherData` object.
+        gamma:
+            The azimuth angle of the exterior building element. South = 0°,
+            West = +90° and East = -90°.
+        beta:
+            The slope angle of the exterior building element. E.g., a vertical
+            exterior wall has a slope angle of 90°.
+        surface_color: optional
+            Either a 'dark' (default) or 'light' colored surface.
+        R_surf: optional
+            Thermal resistance of the exterior surface film.
+        a_surf: optional
+            Absorption factor of the exterior surface.
+        rho_g: Quantity, default 0.2 frac
+            ground reflectance
+        sky_model: str, {'anisotropic.hdkr, 'isotropic'}, optional
+            sky model to be used for calculating the irradiation on the tilted
+            surface. By default, the anisotropic sky model according to Perez
+            is used.
+        F_rad: default 0.46
+            Radiative fraction of the conduction heat gain through the exterior
+            building element, taken up by the interior thermal mass of the
+            space. (see ASHRAE Fundamentals 2017, chapter 18, table 14).
+
+        Notes
+        -----
+        If `R_surf` and `a_surf` are specified, parameter `surface_color` is
+        ignored.
 
         Returns
         -------
-        ExteriorBuildingElement
+        `ExteriorBuildingElement` object.
         """
-        ext_building_element = cls()
-        ext_building_element.ID = ID
-        ext_building_element.construction_assembly = construction_assembly
-        ext_building_element._exterior_surface = ExteriorSurface(
-            azimuth=azimuth,
-            tilt=tilt,
-            width=width,
-            height=height,
-            climate_data=climate_data,
-            surface_resistance=construction_assembly.R_surf_ext,
-            surface_absorptance=surface_absorptance,
-            surface_color=surface_color
+        ebe = cls()
+        ebe.ID = ID
+        ebe.T_zone = T_zone
+        ebe.gross_area = gross_area
+        ebe.net_area = gross_area
+        ebe.constr_assem = constr_assem
+        ebe.F_rad = F_rad
+        ebe._ext_surf = ExteriorSurface(
+            weather_data=weather_data,
+            gamma=gamma,
+            beta=beta,
+            surface_color=surface_color,
+            R_surf=R_surf,
+            a_surf=a_surf,
+            rho_g=rho_g,
+            sky_model=sky_model
         )
-        ext_building_element.T_int_fun = T_int_fun
-        ext_building_element.F_rad = F_rad
-        return ext_building_element
+        # Create the linear thermal network model of the exterior building element:
+        ebe.ltn = ExteriorBuildingElementLTNBuilder.build(constr_assem, gross_area)
+        return ebe
 
-    @property
-    def thermal_network(self) -> ThermalNetwork:
+    def solve(
+        self,
+        dt_hr: float = 1.0,
+        num_cycles: int | None = 5,
+        units: dict[str, str] | None = None
+    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+        """Solves for the node temperatures and the conductive heat transfer
+        through the exterior building element on the specified design day using
+        the linear thermal network model of the exterior building element.
+
+        Parameters
+        ----------
+        dt_hr:
+            Time step expressed as a fraction of 1 hour, e.g., `dt_hr` = 1/4
+            means the time step for the calculations is one quarter of an hour.
+            The default value is 1 hour.
+        num_cycles:
+            Number of diurnal calculation cycles before the results need to be
+            returned.
+        units: optional
+            Dictionary with the units in which node temperatures and heat flows
+            should be expressed. If None, default units are:
+            {'T': 'degC', 'Q_dot': 'W'}
+
+        Returns
+        -------
+        Either 2-tuple or None.
+
+        The 2-tuple has the following items:
+        - A table (Pandas `DataFrame` object) with the node temperatures at each
+        time step of the last calculation cycle.
+        - A table (Pandas `DataFrame` object) with the heat flows between nodes
+        at each time step of the last calculation cycle.
+
+        Returns None if the exterior building element has no linear thermal
+        network.
+
+        Notes
+        -----
+        To determine the heat transfer through the exterior building element
+        the linear thermal network model of the exterior building element is
+        solved as function of time.
+        At the exterior side of the building element, the known input function
+        is the sol-air temperature, being a function of time.
+        At the interior side of the building element, the known input function
+        is the controlled zone air temperature. It is assumed that temperature
+        control of the zone keeps the zone air temperature constant in time.
+        The calculations with the linear thermal network model, being a linear
+        system of first order differential equations, start at time t = 0
+        seconds, which is at midnight of the design day. The second time the
+        system of differential equations is solved, is at `dt_hr` * 3600
+        seconds. The third time is at 2 * `dt_hr` * 3600 seconds, and so on.
+        The total number of calculation steps is determined as 24 hr / `dt_hr`,
+        rounded to the nearest integer. So the duration of the design day is
+        divided in (24 hr / `dt_hr`) equal time intervals. When the last
+        calculation step at t = (n - 1) * `dt_hr` * 3600 seconds is finished,
+        one diurnal calculation cycle is finished.
+        To solve the linear thermal network for the node temperatures, it is
+        necessary to enter the initial values of the node temperatures at
+        t = 0 s. The initial values of the node temperatures are set internally
+        and all equal to the sol-air temperature at the exterior surface of the
+        building element at t = 0 s. As the values of the node temperatures at
+        t > 0 s will depend on these first initial values, multiple diurnal
+        calculation cycles should be performed to reduce the influence of these
+        arbitrary chosen initial values; the number of cycles to be repeated
+        can be set through parameter `num_cycles`. The final results from the
+        previous cycle are then used as the initial values for the next cycle.
+        As such, it basically means that the same diurnal weather cycle of
+        the design day is repeated several consecutive days in a row.
         """
-        Get thermal network.
+        if self.ltn is not None and num_cycles is not None:
+            self.ltn.solve(
+                num_steps=int(round(24 / dt_hr)),
+                dt_hr=dt_hr,
+                T_ext=self._ext_surf.T_sa,
+                T_zone=self.T_zone,
+                init_values=[[self._ext_surf.T_sa(0)] * len(self.ltn) for _ in range(2)],
+                num_cycles=num_cycles
+            )
+            if units is None:
+                units = {'T': 'degC', 'Q_dot': 'W'}
+            T_node_table = self.ltn.get_node_temperatures(units['T'])
+            Q_dot_table = self.ltn.get_heat_flows(units['Q_dot'])
+            return T_node_table, Q_dot_table
+        return None
+
+    def conductive_heat_gain(
+        self,
+        dt_hr: float = 1.0,
+        num_cycles: int | None = 5
+    ) -> tuple[Quantity, Quantity, Quantity]:
+        """Returns the conductive heat output at the interior side of the
+        exterior building element, and also its convective and radiative
+        component, at each time index k of the design day.
+
+        Parameters
+        ----------
+        dt_hr:
+            Time step expressed as a fraction of 1 hour, e.g., `dt_hr` = 1/4
+            means the time step for the calculations is one quarter of an hour.
+            The default value is 1 hour.
+        num_cycles:
+            Number of diurnal calculation cycles before the results of the last
+            diurnal cycle are returned. If `None`, the static heat conduction
+            through the building element is calculated.
+
+        Returns
+        -------
+        3-tuple with:
+        - a `Quantity`-array with the conductive heat gains at each time index
+        - a `Quantity`-array with the convective components
+        - a `Quantity`-array with the radiative components
+
+        Notes
+        -----
+        The conductive heat gain to the zone is the heat that flows from the
+        interior surface node to the zone air. It is the last column, titled
+        'ISN', in the heat flow table returned by method `solve()`.
+
+        The time in decimal hours from midnight that corresponds with a given
+        time index depends on the time step `dt_hr` (`t_hr_dec = k * `dt_hr`).
         """
-        if self._thermal_network is None:
-            self._thermal_network = ThermalNetworkBuilder.build(self.construction_assembly)
-            self._thermal_network.T_ext = self._exterior_surface.T_sol
-            self._thermal_network.T_int = self.T_int_fun
-            for node in self._thermal_network.nodes: node.A = self.area_net
-        return self._thermal_network
-
-    @property
-    def area_net(self) -> Quantity:
-        A_net = self._exterior_surface.area
-        if self.windows:
-            A_wnd = sum(window.area for window in self.windows.values())
-            A_net -= A_wnd
-        if self.doors:
-            A_drs = sum(door.area_gross for door in self.doors.values())
-            A_net -= A_drs
-        return A_net
-
-    @property
-    def area_gross(self) -> Quantity:
-        return self._exterior_surface.area
-
-    def irr_profile(self, unit_theta_i: str = 'deg', unit_I: str = 'W / m ** 2') -> pd.DataFrame:
-        d = self._exterior_surface.irr_profile
-        time = [dt.time() for dt in d['t']]
-        theta_i = [theta_i.to(unit_theta_i).m for theta_i in d['theta_i']]
-        glo_sur = [glo_sur.to(unit_I).m for glo_sur in d['glo_sur']]
-        dir_sur = [dir_sur.to(unit_I).m for dir_sur in d['dir_sur']]
-        dif_sur = [dif_sur.to(unit_I).m for dif_sur in d['dif_sur']]
-        d = {
-            'theta_i': theta_i,
-            'glo_sur': glo_sur,
-            'dir_sur': dir_sur,
-            'dif_sur': dif_sur
-        }
-        df = pd.DataFrame(data=d, index=time)
-        return df
-
-    def temp_profile(self, unit_T: str = 'degC') -> pd.DataFrame:
-        d_T_sol = self._exterior_surface.T_sol_profile
-        d_T_db = self._exterior_surface.climate_data.Tdb_profile
-        d_T_wb = self._exterior_surface.climate_data.Twb_profile
-        time = [dt.time() for dt in d_T_sol['t']]
-        T_sol = [T_sol.to(unit_T).m for T_sol in d_T_sol['T']]
-        T_db = [T_db.to(unit_T).m for T_db in d_T_db['T']]
-        T_wb = [T_wb.to(unit_T).m for T_wb in d_T_wb['T']]
-        d = {
-            'T_db': T_db,
-            'T_wb': T_wb,
-            'T_sol': T_sol
-        }
-        df = pd.DataFrame(data=d, index=time)
-        return df
+        res = self.solve(dt_hr, num_cycles)
+        if res is not None:
+            _, Q_dot_table = res
+            Q_dot_cond = Q_(Q_dot_table['ISN'].values, 'W')
+            Q_dot_rad = self.F_rad * Q_dot_cond
+            Q_dot_conv = (1.0 - self.F_rad) * Q_dot_cond
+        else:
+            # The exterior building element has no thermal linear network.
+            # Fall back on a steady-state -only thermal resistance- calculation:
+            num_steps = int(round(24 / dt_hr))
+            dt_sec = dt_hr * 3600
+            U = self.constr_assem.U.to('W / (m**2 * K)')
+            A = self.net_area.to('m**2')
+            dT = Quantity.from_list([
+                self._ext_surf.T_sa(k * dt_sec).to('K') - self.T_zone(k * dt_sec).to('K')
+                for k in range(num_steps)
+            ])
+            Q_dot_cond = U * A * dT
+            Q_dot_rad = self.F_rad * Q_dot_cond
+            Q_dot_conv = (1.0 - self.F_rad) * Q_dot_cond
+        return Q_dot_cond, Q_dot_conv, Q_dot_rad
 
     def add_window(
         self,
         ID: str,
         width: Quantity,
         height: Quantity,
-        therm_props: WindowThermalProperties,
+        props: WindowThermalProperties,
         F_rad: float = 0.46,
-        ext_shading_dev: ExteriorShadingDevice | None = None,
-        int_shading_dev: InteriorShadingDevice | None = None
-    ) -> None:
-        """
-        Add a window to the exterior building element.
+        ext_shading: ExteriorShadingDevice | None = None,
+        int_shading: InteriorShadingDevice | None = None
+    ) -> Window:
+        """Adds a window to the exterior building element.
 
         Parameters
         ----------
         ID:
-            Identifier for the window.
+            Identifies the window.
+            `Window` objects are hold in a dictionary `self.windows`. The ID
+            of the window is used as the key in the dictionary.
         width:
             The width of the window.
         height:
-            The height (or length) of the window.
-        therm_props:
-            Instance of class `WindowThermalProperties` containing the U-value
-            of the entire window, the center-of-glass SHGCs for direct solar
-            radiation at different solar incidence angles, the center-of-glass
-            SHGC for diffuse solar radiation, and an overall SHGC for the
-            entire window at normal incidence.
+            The height of the window.
+        props:
+            A `WindowsThermalProperties` object that holds the thermal
+            and solar properties of the window.
         F_rad: default 0.46
-            The fraction of conductive and diffuse solar heat gain that is
-            transferred by radiation to the interior thermal mass of the space.
-            (see ASHRAE Fundamentals 2017, chapter 18, table 14).
-        ext_shading_dev: default None
-            See class `ExternalShadingDevice`. E.g., overhang or recessed window.
-            In case a window is equipped with an external shading device, or in
-            case of a recessed window, part of the window may be shaded depending
-            on the position of the sun during the course of the day.
-        int_shading_dev: default None
-            See class `InteriorShadingDevice`. E.g., louvered shades, roller
-            shades, draperies, insect screens.
+            Radiative fraction of solar heat gain through window to the interior
+            thermal mass of the space. (see ASHRAE Fundamentals 2017, chapter 18,
+            table 14).
+        ext_shading: default None
+            E.g. an overhang or recessed window. See: class `ExternalShadingDevice`.
+            If a window has an external shading device, or if the window is
+            recessed, part of the window may be shaded depending on the position
+            of the sun during the day.
+        int_shading: default None
+            E.g. a louvered shade, roller shade, drapery, or insect screen.
+            See: class `InteriorShadingDevice`.
+
+        Returns
+        -------
+        The `Window` object that was added to the `ExteriorBuildingElement`
+        object.
         """
         window = Window.create(
             ID=ID,
-            azimuth=self._exterior_surface.azimuth,
-            tilt=self._exterior_surface.tilt,
+            T_zone=self.T_zone,
+            gamma=self._ext_surf.gamma,
+            beta=self._ext_surf.beta,
             width=width,
             height=height,
-            climate_data=self._exterior_surface.climate_data,
-            therm_props=therm_props,
+            weather_data=self._ext_surf.weather_data,
+            props=props,
             F_rad=F_rad,
-            ext_shading_dev=ext_shading_dev,
-            int_shading_dev=int_shading_dev
+            ext_shading=ext_shading,
+            int_shading=int_shading
         )
-        self.windows[window.ID] = window
+        self.windows[ID] = window
+        # As a window is added to the exterior building element, the opaque
+        # surface area of the exterior building element, which is exposed to
+        # conduction heat transfer, is reduced. Therefore, it is needed to
+        # recreate the linear thermal network model of the exterior building
+        # element with the net surface area of the exterior building element.
+        self.net_area -= window.area
+        self.ltn = ExteriorBuildingElementLTNBuilder.build(self.constr_assem, self.net_area)
+        return window
 
     def add_door(
         self,
         ID: str,
         width: Quantity,
         height: Quantity,
-        construction_assembly: ConstructionAssembly,
-        F_rad: float = 0.46,
-        surface_absorptance: Quantity | None = None,
-        surface_color: str = 'dark-colored'
-    ) -> None:
-        """
-        Add a door to the exterior building element. An exterior door is also
-        regarded as an exterior building element. See class method `create(...)`
-        for more explanation about the parameters.
-        """
-        door = ExteriorBuildingElement.create(
-            ID=ID,
-            azimuth=self._exterior_surface.azimuth,
-            tilt=self._exterior_surface.tilt,
-            width=width,
-            height=height,
-            climate_data=self._exterior_surface.climate_data,
-            construction_assembly=construction_assembly,
-            T_int_fun=self.T_int_fun,
-            F_rad=F_rad,
-            surface_absorptance=surface_absorptance,
-            surface_color=surface_color
-        )
-        self.doors[door.ID] = door
+        constr_assem: ConstructionAssembly,
+        surface_color: str = 'dark',
+        R_surf: Quantity | None = None,
+        a_surf: Quantity | None = None,
+        rho_g: Quantity = Q_(0.2, 'frac'),
+        sky_model: str = '',
+        F_rad: float = 0.46
+    ) -> ExteriorBuildingElement:
+        """Adds a door to the exterior building element.
 
-    @property
-    def UA(self) -> float:
-        # for internal use only
-        U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
-        A = self.area_net.to('m ** 2').m
-        return U * A
-
-    def T_sol(self, t: float) -> float:
-        # for internal use only
-        return self._exterior_surface.T_sol(t)
-
-    def get_conductive_heat_gain(self, t: float, T_int: float) -> dict[str, float]:
-        # for internal use only
-        # note: the **steady-state** conductive heat gain is calculated.
-        U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
-        A = self.area_net.to('m ** 2').m
-        T_sol = self._exterior_surface.T_sol(t)
-        Q = U * A * (T_sol - T_int)
-        Q_rad = self.F_rad * Q
-        Q_conv = Q - Q_rad
-        return {'rad': Q_rad, 'conv': Q_conv}
-
-    def get_heat_transfer(
-        self,
-        dt_hr: float = 1.0,
-        n_cycles: int = 6,
-        unit: str = 'W'
-    ) -> pd.DataFrame:
-        """
-        Get the diurnal heat transfer cycle through the exterior building
-        element.
+        A door is also represented as an `ExteriorBuildingElement` object.
 
         Parameters
         ----------
-        dt_hr:
-            The time step of the calculations in decimal hours.
-        n_cycles:
-            The number of repeated cycles before returning the result.
-        unit: default 'W'
-            The desired unit in which thermal power is to be expressed.
+        ID:
+            Identifies the door.
+            Doors are hold in a dictionary `self.doors`. The ID of the door is
+            used as the key in the dictionary.
+        width:
+            The width of the door.
+        height:
+            The height of the door.
+        constr_assem:
+            The construction assembly the door is made off.
+        surface_color: optional
+            Either a 'dark' (default) or 'light' colored surface.
+        R_surf: optional
+            Thermal resistance of the exterior surface film.
+        a_surf: optional
+            Absorption factor of the exterior surface.
+        rho_g: Quantity, default 0.2 frac
+            ground reflectance
+        sky_model: str, {'anisotropic.hdkr, 'isotropic'}, optional
+            sky model to be used for calculating the irradiation on the tilted
+            surface. By default, the anisotropic sky model according to Perez
+            is used.
+        F_rad: default 0.46
+            Radiative fraction of the conduction heat gain through the exterior
+            building element, taken up by the interior thermal mass of the
+            space. (see ASHRAE Fundamentals 2017, chapter 18, table 14).
 
-        Returns
-        -------
-        A Pandas DataFrame with the dynamic heat flows at the exterior side (key
-        `Q_ext`) and interior side (key `Q_int`) of the building element, and
-        also the calculated steady-state value (based on the temperature
-        difference between exterior, sol-air temperature and indoor temperature
-        and the thermal resistance of the building element) (key `Q_steady`).
+        Notes
+        -----
+        If `R_surf` and `a_surf` are specified, parameter `surface_color` is
+        ignored.
         """
-        if self._heat_transfer is None:
-            tnw_solved = ThermalNetworkSolver.solve(
-                (self.thermal_network, None),
-                None,
-                dt_hr,
-                n_cycles
-            )
-            dt = dt_hr * 3600
-            self._heat_transfer = {
-                'Q_ext': [],
-                'Q_int': [],
-                'Q_steady': []
-            }
-            t_ax = []
-            for k, T_node_list in enumerate(tnw_solved.T_node_table):
-                t_ax.append(time_from_decimal_hour(k * dt_hr))
-                T_sol = Q_(self._exterior_surface.T_sol(k * dt), 'degC').to('K')
-                T_esn = T_node_list[0].to('K')
-                R_ext = tnw_solved.R_ext
-                Q_ext = (T_sol - T_esn) / R_ext
-                T_int = Q_(self.T_int_fun(k * dt), 'degC').to('K')
-                T_node_int = T_node_list[-1].to('K')
-                R_int = tnw_solved.R_int
-                Q_int = (T_node_int - T_int) / R_int
-                R_tot = self.construction_assembly.R.to('m ** 2 * K / W')
-                A = self.area_net.to('m ** 2')
-                q_steady = (T_sol - T_int) / R_tot
-                Q_steady = q_steady * A
-                self._heat_transfer['Q_ext'].append(Q_ext.to(unit).m)
-                self._heat_transfer['Q_int'].append(Q_int.to(unit).m)
-                self._heat_transfer['Q_steady'].append(Q_steady.to(unit).m)
-            self._heat_transfer = pd.DataFrame(data=self._heat_transfer, index=t_ax)
-        return self._heat_transfer
+        door = ExteriorBuildingElement.create(
+            ID=ID,
+            T_zone=self.T_zone,
+            constr_assem=constr_assem,
+            gross_area=width * height,
+            weather_data=self._ext_surf.weather_data,
+            gamma=self._ext_surf.gamma,
+            beta=self._ext_surf.beta,
+            surface_color=surface_color,
+            R_surf=R_surf,
+            a_surf=a_surf,
+            rho_g=rho_g,
+            sky_model=sky_model,
+            F_rad=F_rad
+        )
+        self.doors[door.ID] = door
+        # As a door is added to the exterior building element, the opaque
+        # surface area of the exterior building element, which is exposed to
+        # conduction heat transfer, is reduced. Therefore, it is needed to
+        # recreate the linear thermal network model of the exterior building
+        # element with the net surface area of the exterior building element.
+        self.net_area -= door.gross_area
+        self.ltn = ExteriorBuildingElementLTNBuilder.build(self.constr_assem, self.net_area)
+        return door
+
+    @property
+    def UA(self) -> Quantity:
+        """Returns the total transmittance of the exterior building element."""
+        U = self.constr_assem.U.to('W / (m**2 * K)')
+        A = self.net_area.to('m**2')
+        return U * A
 
 
 class InteriorBuildingElement:
-
+    """Represents a building element inside the building (e.g., interior walls,
+    ceilings).
+    """
     def __init__(self):
         self.ID: str = ''
-        self.width: Quantity | None = None
-        self.height: Quantity | None = None
-        self.construction_assembly: Quantity | None = None
-        self.T_adj_fun: Callable[[float], float] | None = None
+        self.T_zone: Callable[[float], Quantity] | None = None
+        self.T_adj: Callable[[float], Quantity] | None = None
+        self.constr_assem: ConstructionAssembly | None = None
+        self.gross_area: Quantity | None = None
+        self.net_area: Quantity | None = None
         self.F_rad: float = 0.46
-        self.doors: dict[str, 'InteriorBuildingElement'] = {}
+        self.doors: dict[str, InteriorBuildingElement] = {}
 
     @classmethod
     def create(
         cls,
         ID: str,
-        width: Quantity,
-        height: Quantity,
-        construction_assembly: Quantity,
-        T_adj_fun: Callable[[float], float],
+        T_zone: Callable[[float], Quantity],
+        T_adj: Callable[[float], Quantity],
+        constr_assem: ConstructionAssembly,
+        gross_area: Quantity,
         F_rad: float = 0.46
-    ) -> 'InteriorBuildingElement':
-        int_build_elem = cls()
-        int_build_elem.ID = ID
-        int_build_elem.width = width
-        int_build_elem.height = height
-        int_build_elem.construction_assembly = construction_assembly
-        int_build_elem.T_adj_fun = T_adj_fun
-        int_build_elem.F_rad = F_rad
-        return int_build_elem
+    ) -> InteriorBuildingElement:
+        """Creates an `InteriorBuildingElement` object.
 
-    @property
-    def area_net(self) -> Quantity:
-        A_net = self.area_gross
-        if self.doors:
-            A_drs = sum(door.area_gross for door in self.doors.values())
-            A_net -= A_drs
-        return A_net
+        Parameters
+        ----------
+        ID:
+            Identifies the interior building element.
+        T_zone:
+            The zone air temperature, being a function with signature
+            `f(t_sol_sec: float) -> Quantity` which takes the solar time in
+            seconds and returns the temperature in the zone as a `Quantity`
+            object. This may allow a time-variable temperature in the zone.
+        T_adj:
+            The temperature in the adjacent space, being a function with
+            signature `f(t_sol_sec: float) -> Quantity` which takes the solar
+            time in seconds and returns the temperature in the adjacent space
+            as a `Quantity` object. This allows a time-variable temperature in
+            the adjacent space that may be an unconditioned space.
+        constr_assem:
+            The construction assembly the interior building element is made of.
+        gross_area:
+            The gross surface area of the interior building element, i.e.
+            including any large openings such as doors and windows.
+        F_rad: default 0.46
+            Radiative fraction of the conduction heat gain through the interior
+            building element, taken up by the interior thermal mass of the
+            space. (see ASHRAE Fundamentals 2017, chapter 18, table 14).
 
-    @property
-    def area_gross(self) -> Quantity:
-        return self.width * self.height
+        Returns
+        -------
+        `InteriorBuildingElement` object.
+        """
+        ibe = cls()
+        ibe.ID = ID
+        ibe.T_zone = T_zone
+        ibe.T_adj = T_adj
+        ibe.constr_assem = constr_assem
+        ibe.gross_area = gross_area
+        ibe.net_area = gross_area
+        ibe.F_rad = F_rad
+        return ibe
 
-    @property
-    def UA(self) -> float:
-        U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
-        A = self.area_net.to('m ** 2').m
-        return U * A
+    def conductive_heat_gain(
+        self,
+        dt_hr: float = 1.0
+    ) -> tuple[Quantity, Quantity, Quantity]:
+        """Returns the conductive heat output at the interior side of the
+        interior building element, and also its convective and radiative
+        component, at each time index k of the design day.
 
-    def T_adj(self, t: float) -> float:
-        return self.T_adj_fun(t)
+        Parameters
+        ----------
+        dt_hr:
+            Time step expressed as a fraction of 1 hour, e.g., `dt_hr` = 1/4
+            means the time step for the calculations is one quarter of an hour.
+            The default value is 1 hour.
 
-    def get_conductive_heat_gain(self, t: float, T_int: float) -> dict[str, float]:
-        U = self.construction_assembly.U.to('W / (m ** 2 * K)').m
-        A = self.area_net.to('m ** 2').m
-        T_adj = self.T_adj_fun(t)
-        Q = U * A * (T_adj - T_int)
-        Q_rad = self.F_rad * Q
-        Q_conv = Q - Q_rad
-        return {'rad': Q_rad, 'conv': Q_conv}
+        Returns
+        -------
+        3-tuple with:
+        - a `Quantity`-array with the conductive heat gains at each time index
+        - a `Quantity`-array with the convective components
+        - a `Quantity`-array with the radiative components
+
+        Notes
+        -----
+        The time in decimal hours from midnight of the design day that
+        corresponds with a given time index depends on the time step `dt_hr`
+        (`t_hr_dec = k * `dt_hr`).
+        """
+        num_steps = int(round(24 / dt_hr))
+        dt_sec = dt_hr * 3600
+        U = self.constr_assem.U.to('W / (m**2 * K)')
+        A = self.net_area.to('m**2')
+        dT = Quantity.from_list([
+            self.T_adj(k * dt_sec).to('K') - self.T_zone(k * dt_sec).to('K')
+            for k in range(num_steps)
+        ])
+        Q_dot_cond = U * A * dT
+        Q_dot_rad = self.F_rad * Q_dot_cond
+        Q_dot_conv = (1.0 - self.F_rad) * Q_dot_cond
+        return Q_dot_cond, Q_dot_conv, Q_dot_rad
 
     def add_door(
         self,
         ID: str,
         width: Quantity,
         height: Quantity,
-        construction_assembly: ConstructionAssembly,
+        constr_assem: ConstructionAssembly,
         F_rad: float = 0.46
-    ) -> None:
+    ) -> InteriorBuildingElement:
+        """Adds a door to the interior building element.
+
+        A door is also represented as an `InteriorBuildingElement` object.
+
+        Parameters
+        ----------
+        ID:
+            Identifies the door.
+            Doors are hold in a dictionary `self.doors`. The ID of the door is
+            used as the key in the dictionary.
+        width:
+            The width of the door.
+        height:
+            The height of the door.
+        constr_assem:
+            The construction assembly the door is made off.
+        F_rad: default 0.46
+            Radiative fraction of the conduction heat gain through the door,
+            taken up by the interior thermal mass of the space. (see ASHRAE
+            Fundamentals 2017, chapter 18, table 14).
+        """
         door = InteriorBuildingElement.create(
             ID=ID,
-            width=width,
-            height=height,
-            construction_assembly=construction_assembly,
-            F_rad=F_rad,
-            T_adj_fun=self.T_adj_fun
+            T_zone=self.T_zone,
+            T_adj=self.T_adj,
+            constr_assem=constr_assem,
+            gross_area=width * height,
+            F_rad=F_rad
         )
         self.doors[door.ID] = door
+        # As a door is added to the exterior building element, the opaque
+        # surface area of the interior building element, which is exposed to
+        # conduction heat transfer, is reduced.
+        self.net_area -= door.gross_area
+        return door
+
+    @property
+    def UA(self) -> Quantity:
+        """Returns the total transmittance of the interior building element."""
+        U = self.constr_assem.U.to('W / (m**2 * K)')
+        A = self.net_area.to('m**2')
+        return U * A

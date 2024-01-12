@@ -86,7 +86,7 @@ class VAVSystem:
                 # Mass flow rate supplied to a zone at part-load cannot be
                 # reduced below 60 % of the full-load design value:
                 zone.summer.m_supply = max(
-                    0.6 * zone.summer.m_supply,  # --> full-load design value
+                    0.6 * zone.summer.m_supply_des,  # --> full-load design value
                     p.m_da + zone.summer.m_exhaust
                 )
             # Total mass flow rate of system supply air:
@@ -298,7 +298,7 @@ class VAVSystem:
         self,
         zones: List[Zone],
         T_supply_des: Quantity,
-        outdoor_air: HumidAir,
+        outdoor_air_summer: HumidAir,
         V_vent: Quantity
     ) -> None:
         """Creates a `VAVSystem` instance.
@@ -310,14 +310,14 @@ class VAVSystem:
             building served by the VAV system.
         T_supply_des:
             The design value of the supply air temperature to the zones.
-        outdoor_air:
+        outdoor_air_summer:
             State of outdoor air under part-load conditions.
         V_vent:
             Minimum required outdoor air volume flow rate for ventilating the
             building (design value).
         """
         self.zones = zones
-        self.summer = VAVSystem.Summer(self, T_supply_des, outdoor_air, V_vent)
+        self.summer = VAVSystem.Summer(self, T_supply_des, outdoor_air_summer, V_vent)
 
     def part_load_summer(self, **kwargs) -> Dict[str, Quantity]:
         """Determine VAV system operation under summer part-load conditions.

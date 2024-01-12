@@ -33,6 +33,10 @@ class Season:
         Desired zone air state for the design of the system.
     m_exhaust: default 0.0 kg/s
         Mass flow rate of air that is locally exhausted from the zone.
+    m_supply_des: optional, default None
+        The mass flow rate of supply air at peak summer design conditions.
+        This parameter is only needed for part-load analysis (see module
+        `part_load` of this subpackage).
     ----------------------------------------------------------------------------
     Other attributes
     ----------------
@@ -51,6 +55,7 @@ class Season:
     Q_lat: Quantity
     zone_air: HumidAir
     m_exhaust: Quantity = Q_(0.0, 'kg / s')
+    m_supply_des: Quantity | None = None
 
     m_supply: Quantity = Q_(float('nan'), 'kg / s')
     supply_air: Optional[HumidAir] = field(init=False, default=None)
@@ -96,7 +101,7 @@ class Zone:
 
 
 class VAVSystem:
-    """Class that incorporates the design routines of a VAV system."""
+    """Class that incorporates the design routines for a VAV system."""
 
     class Summer:
         """Class for designing the VAV system for the peak summer day.

@@ -501,6 +501,7 @@ class Conduit(AbstractConduit):
     @property
     def volume_flow_rate(self) -> Quantity:
         """Get the volume flow rate through the conduit."""
+        self._calculate_volume_flow_rate()
         return self._volume_flow_rate
 
     @volume_flow_rate.setter

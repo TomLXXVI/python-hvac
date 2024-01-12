@@ -1,4 +1,3 @@
-from .building import Building
-from .building_entity import BuildingEntity
+from .conditioned_zone import ConditionedZone, SpaceVentilation
 from .ventilation_zone import VentilationZone
-from .space import Space
+from .unconditioned_zone import UnconditionedZone

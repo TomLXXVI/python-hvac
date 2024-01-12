@@ -1,12 +1,9 @@
-from typing import cast
+from typing import cast, Callable
 from dataclasses import dataclass
 import shelve
 import numpy as np
-import pandas as pd
 from hvac import Quantity
-from hvac.climate import ClimateData
-from hvac.climate.sun.solar_time import time_from_decimal_hour
-from hvac.cooling_load_calc.core.exterior_surface import ExteriorSurface
+from hvac.cooling_load_calc.core.weather_data import WeatherData, ExteriorSurface
 
 
 Q_ = Quantity
@@ -16,18 +13,38 @@ class WindowThermalProperties:
     db_path: str
 
     class SolarHeatGainCoefficient:
-        """The solar heat gain coefficient (SHGC) takes into account the solar
-        radiation that is transmitted directly through the window and the
+        """The solar heat gain coefficient (SHGC) takes the solar radiation into
+        account that is transmitted directly through the window and also the
         solar radiation that is first absorbed by the window and then released
-        to the interior.
+        by convection to the interior.
         """
+        def __init__(
+            self,
+            cog_dir: dict[float, float],
+            cog_dif: float,
+            wnd: float
+        ) -> None:
+            """Creates a `SolarHeatGainCoefficient` object.
 
-        def __init__(self, cog_dir: dict[float, float], cog_dif: float, wnd: float):
+            Parameters
+            ----------
+            cog_dir:
+                Dictionary of which the keys are the incidence angles of direct
+                sunlight in degrees and the values are the corresponding SHGC
+                values of the window glazing.
+            cog_dif:
+                The SHGC that applies to incident diffuse solar radiation.
+            wnd:
+                The SHGC of the entire window at normal incidence.
+            """
             self._cog_dir = (list(cog_dir.keys()), list(cog_dir.values()))
             self.cog_dif = cog_dif
             self.wnd = wnd
 
         def cog_dir(self, theta_i: float) -> float:
+            """Returns the SHGC value for any incidence angle `theta_i` in
+            degrees determined by linear interpolation.
+            """
             SHGC_dir = np.interp(theta_i, self._cog_dir[0], self._cog_dir[1])
             return SHGC_dir
 
@@ -39,19 +56,19 @@ class WindowThermalProperties:
         SHGC_cog_dif: float,
         SHGC_wnd: float
     ) -> None:
-        """Initialize a `WindowThermalProperties` instance.
+        """Creates a `WindowThermalProperties` object.
 
         Parameters
         ----------
         ID:
-            Identifier for the type of window
+            Identifier for the type of window.
         U:
-            Overall U value of the entire window, including edge effects and frame
-            (see ASHRAE Fundamentals 2017, Ch. 15, Table 4).
+            Overall U value of the entire window, including edge effects and
+            window frame (see ASHRAE Fundamentals 2017, Ch. 15, Table 4).
         SHGC_cog_dir:
-            Dictionary of which the keys are solar incidence angles and the
-            values the corresponding SHGC value (see ASHRAE Fundamentals 2017,
-            Ch. 15, Table 10).
+            Dictionary of which the keys are solar incidence angles in degrees
+            and the values the corresponding SHGC values (see ASHRAE
+            Fundamentals 2017, Ch. 15, Table 10).
         SHGC_cog_dif:
             The SHGC for diffuse solar radiation (see ASHRAE Fundamentals 2017,
             Ch. 15, Table 10).
@@ -61,20 +78,34 @@ class WindowThermalProperties:
         """
         self.ID = ID
         self.U = U
-        self.SHGC = self.SolarHeatGainCoefficient(SHGC_cog_dir, SHGC_cog_dif, SHGC_wnd)
+        self.SHGC = self.SolarHeatGainCoefficient(
+            SHGC_cog_dir,
+            SHGC_cog_dif,
+            SHGC_wnd
+        )
 
     def save(self):
+        """Saves the `WindowThermalProperties` object to a shelf on disk.
+        The file path to the shelf must be set through class attribute
+        `db_path` (str).
+        """
         with shelve.open(self.db_path) as shelf:
             shelf[self.ID] = self
 
     @classmethod
     def load(cls, ID: str) -> 'WindowThermalProperties':
+        """Loads the `WindowThermalProperties` object with the given ID
+        from the shelf, whose file path was set through class attribute
+        `db_path` (str).
+        """
         with shelve.open(cls.db_path) as shelf:
             return cast('WindowThermalProperties', shelf[ID])
 
     @classmethod
     def overview(cls) -> list[str]:
-        """Returns a list with all the ID's of objects stored in the shelf."""
+        """Returns a list with all the ID's of objects stored in the shelf,
+        whose file path was set through class attribute `db_path` (str).
+        """
         with shelve.open(cls.db_path) as shelf:
             return list(shelf.keys())
 
@@ -90,30 +121,30 @@ class WindowThermalProperties:
 
 @dataclass
 class ExteriorShadingDevice:
-    """Overhang over window or a recessed window.
+    """Represents an overhang above a window or a recessed window.
 
     Parameters
     ----------
-    vertical_projection: default 0 m
-        Projection distance of vertical part of exterior shading device.
-    horizontal_projection: default 0 m
-        Projection distance of horizontal part of exterior shading device.
-    width_offset : default 0 m
-        Distance between vertical window edge and vertical side of exterior
-        shading device.
-    height_offset : default 0 m
-        Distance between window's upper edge and the horizontal underside of
+    vert_proj_dist: default 0 m
+        Projection distance of the vertical part of the exterior shading device.
+    hor_proj_dist: default 0 m
+        Projection distance of the horizontal part of exterior shading device.
+    hor_offset : default 0 m
+        Distance between the vertical window edge and the vertical side of the
+        exterior shading device.
+    vert_offset : default 0 m
+        Distance between the window's upper edge and the horizontal underside of
         exterior shading device.
     """
-    vertical_projection: Quantity = Q_(0, 'm')
-    horizontal_projection: Quantity = Q_(0, 'm')
-    width_offset: Quantity = Q_(0, 'm')
-    height_offset: Quantity = Q_(0, 'm')
+    vert_proj_dist: Quantity = Q_(0, 'm')
+    hor_proj_dist: Quantity = Q_(0, 'm')
+    hor_offset: Quantity = Q_(0, 'm')
+    vert_offset: Quantity = Q_(0, 'm')
 
 
 @dataclass
 class InteriorShadingDevice:
-    """Louvered shades, roller shades, draperies or insect screens
+    """Represents louvered shades, roller shades, draperies or insect screens
     (see ASHRAE Fundamentals 2017, Ch. 15, §5.2 and tables 14A to 14G).
 
     Parameters
@@ -127,17 +158,17 @@ class InteriorShadingDevice:
         Interior attenuation coefficient for direct solar radiation at normal
         incidence angle (0°).
     IAC_60: default None
-        Interior attenuation coefficient for direct solar radiation at 60°
-        incidence angle.
+        Interior attenuation coefficient for direct solar radiation at an
+        incidence angle of 60°.
     louver_orient: default 'horizontal'
-        Sets the orientation of the louvers: either 'horizontal', or 'vertical'.
+        Sets the orientation of the louvers: either 'horizontal' or 'vertical'.
 
     Notes
     -----
-    Only in case of louvered shades 3 IACs are considered (IAC_0, IAC_60, and
-    IAC_dif). In all other cases only 1 IAC is provided that applies both to
-    direct and diffuse solar radiation. In these cases it suffices to provide
-    only a value to parameter `IAC_dif`.
+    Only in the case of louvered shades 3 IAC values are considered (IAC_0,
+    IAC_60, and IAC_dif). In other cases only 1 IAC value is provided which
+    applies both to direct and diffuse solar radiation. In these cases it
+    suffices to provide only a value to parameter `IAC_dif`.
     """
     IAC_dif: float
     F_rad: float
@@ -147,241 +178,231 @@ class InteriorShadingDevice:
 
 
 class Window:
+    """Represents a window in an exterior building element."""
 
     def __init__(self):
         self.ID: str = ''
-        self._exterior_surface: ExteriorSurface | None = None
-        self.therm_props: WindowThermalProperties | None = None
+        self.T_zone: Callable[[float], Quantity] | None = None
+        self.props: WindowThermalProperties | None = None
+        self.width: Quantity | None = None
+        self.height: Quantity | None = None
+        self.area: Quantity | None = None
         self.F_rad: float | None = None
-        self._ext_shading_dev: ExteriorShadingDevice | None = None
-        self._int_shading_dev: InteriorShadingDevice | None = None
+        self._ext_surf: ExteriorSurface | None = None
+        self._ext_shading: ExteriorShadingDevice | None = None
+        self._int_shading: InteriorShadingDevice | None = None
 
     @classmethod
     def create(
         cls,
         ID: str,
-        azimuth: Quantity,
-        tilt: Quantity,
+        T_zone: Callable[[float], Quantity],
+        gamma: Quantity,
+        beta: Quantity,
         width: Quantity,
         height: Quantity,
-        climate_data: ClimateData,
-        therm_props: WindowThermalProperties,
+        weather_data: WeatherData,
+        props: WindowThermalProperties,
         F_rad: float = 0.46,
-        ext_shading_dev: ExteriorShadingDevice | None = None,
-        int_shading_dev: InteriorShadingDevice | None = None
+        ext_shading: ExteriorShadingDevice | None = None,
+        int_shading: InteriorShadingDevice | None = None
     ) -> 'Window':
-        """Create `Window` instance.
+        """Creates a `Window` object.
 
         Parameters
         ----------
         ID:
-            Useful name to identify the `Window` instance.
-        azimuth:
+            Useful name to identify the `Window` object.
+        T_zone:
+            The zone air temperature, being a function with signature
+            `f(t_sol_sec: float) -> Quantity` which takes the solar time in
+            seconds and returns the temperature in the zone as a `Quantity`
+            object. This may allow a time-variable temperature in the zone.
+        gamma:
             Azimuth angle of the window.
-        tilt:
+        beta:
             Tilt angle of the window.
         width:
             Width of the window opening.
         height:
             Height of the window opening.
-        climate_data:
-            Instance of `ClimateData` class, containing the climatic design data.
-        therm_props:
+        weather_data:
+            Instance of `WeatherData` class, containing the climatic design
+            information.
+        props:
             See class `WindowThermalProperties`. The thermal and solar properties
             of the window.
         F_rad: default 0.46
-            The fraction of conductive and diffuse solar heat gain that is
-            transferred by radiation to the interior thermal mass of the space.
-            (see ASHRAE Fundamentals 2017, chapter 18, table 14).
-        ext_shading_dev: default None
-            See class `ExternalShadingDevice`. E.g. overhang or recessed window.
-            In case a window is equipped with an external shading device, or in
-            case of a recessed window, part of the window may be shaded depending
-            on the position of the sun during the course of day.
-        int_shading_dev: default None
-            See class `InteriorShadingDevice`. E.g. louvered shades, roller
-            shades, draperies, insect screens.
+            Radiative fraction of solar heat gain through window to the interior
+            thermal mass of the space. (see ASHRAE Fundamentals 2017, chapter 18,
+            table 14).
+        ext_shading: default None
+            E.g. an overhang or recessed window. See: class `ExternalShadingDevice`.
+            If a window has an external shading device, or if the window is
+            recessed, part of the window may be shaded depending on the position
+            of the sun during the day.
+        int_shading: default None
+            E.g. a louvered shade, roller shade, drapery, or insect screen.
+            See: class `InteriorShadingDevice`.
         """
         window = cls()
         window.ID = ID
-        window._exterior_surface = ExteriorSurface(
-            azimuth=azimuth,
-            tilt=tilt,
-            width=width,
-            height=height,
-            climate_data=climate_data,
-            surface_resistance=None,
-            surface_absorptance=None
+        window.T_zone = T_zone
+        window._ext_surf = ExteriorSurface(
+            weather_data=weather_data,
+            gamma=gamma,
+            beta=beta,
         )
-        window.therm_props = therm_props
+        window.props = props
+        window.width = width
+        window.height = height
+        window.area = width * height
         window.F_rad = F_rad
-        window._ext_shading_dev = ext_shading_dev
-        window._int_shading_dev = int_shading_dev
+        window._ext_shading = ext_shading
+        window._int_shading = int_shading
         return window
 
-    @property
-    def area(self) -> Quantity:
-        return self._exterior_surface.area
-
-    @property
-    def UA(self) -> float:
-        U = self.therm_props.U.to('W / (m ** 2 * K)').m
-        A = self.area.to('m ** 2').m
-        return U * A
-
-    def T_ext(self, t: float) -> float:
-        return self._exterior_surface.climate_data.Tdb_ext(t)
-
-    def get_conductive_heat_gain(
+    def conductive_heat_gain(
         self,
-        t: float,
-        T_int: float
-    ) -> dict[str, float]:
-        """Get conductive heat gain through window (positive from outdoors to
-        indoors) at time t seconds from 00:00:00.
-
-        Returns a dict. The value of key `rad` is the radiative fraction of the
-        conductive heat gain in Watts. The value of key `conv` is the convective
-        fraction of the conductive heat gain in Watts.
-        """
-        U = self.therm_props.U.to('W / (m ** 2 * K)').m
-        A = self.area.to('m ** 2').m
-        T_ext = self._exterior_surface.climate_data.Tdb_ext(t)
-        Q = U * A * (T_ext - T_int)
-        F_rad = self.F_rad
-        Q_rad = F_rad * Q
-        Q_conv = Q - Q_rad
-        return {'rad': Q_rad, 'conv': Q_conv, 'T_ext': T_ext}
-
-    def _sunlit_area(self, t: float) -> float:
-        wnd_width = self._exterior_surface.width.to('m').m
-        wnd_height = self._exterior_surface.height.to('m').m
-        sunlit_area = wnd_width * wnd_height
-        if self._ext_shading_dev is not None:
-            beta = self._exterior_surface.sun_altitude(t)
-            gamma = self._exterior_surface.sun_surface_azimuth(t)
-            omega = np.arctan(np.tan(beta) / np.cos(gamma))
-            vp = self._ext_shading_dev.vertical_projection.to('m').m
-            hp = self._ext_shading_dev.horizontal_projection.to('m').m
-            wo = self._ext_shading_dev.width_offset.to('m').m
-            ho = self._ext_shading_dev.height_offset.to('m').m
-            shadow_width = vp * abs(np.tan(gamma))
-            shadow_height = hp * np.tan(omega)
-            sunlit_width = wnd_width + wo - shadow_width
-            sunlit_height = wnd_height + ho - shadow_height
-            if sunlit_width < 0.0:
-                sunlit_width = 0.0
-            elif sunlit_width > wnd_width:
-                sunlit_width = wnd_width
-            if sunlit_height < 0.0:
-                sunlit_height = 0.0
-            elif sunlit_height > wnd_height:
-                sunlit_height = wnd_height
-            sunlit_area = sunlit_width * sunlit_height
-        return sunlit_area
-
-    def _IAC_dir(self, t: float) -> float:
-        if self._int_shading_dev.IAC_60 is not None:
-            # louvred shade (slat-type sunshade)
-            IAC_x = self._int_shading_dev.IAC_60 - self._int_shading_dev.IAC_0
-            beta = self._exterior_surface.sun_altitude(t)
-            gamma = self._exterior_surface.sun_surface_azimuth(t)
-            omega = np.arctan(np.tan(beta) / np.cos(gamma))
-            if self._int_shading_dev.louver_orient == 'horizontal':
-                # horizontal louvred shade
-                IAC_dir = self._int_shading_dev.IAC_0 + IAC_x * min(1.0, 0.02 * omega)
-            else:
-                # vertical louvred shade
-                IAC_dir = self._int_shading_dev.IAC_0 + IAC_x * min(1.0, 0.02 * gamma)
-            return IAC_dir
-        else:
-            return self._int_shading_dev.IAC_dif
-
-    def get_solar_heat_gain(self, t: float) -> dict[str, float]:
-        """Get solar heat gain through window (positive from outdoors to indoors)
-        at time t seconds from 00:00:00.
-
-        Returns a dict. The value of key `rad` is the radiative fraction of the
-        conductive heat gain in Watts. The value of key `conv` is the convective
-        fraction of the conductive heat gain in Watts.
-        """
-        theta_i = self._exterior_surface.theta_i(t) * 180.0 / np.pi
-        SHGC_dir = self.therm_props.SHGC.cog_dir(theta_i)
-        SHGC_dif = self.therm_props.SHGC.cog_dif
-        SHGC_wnd = self.therm_props.SHGC.wnd
-        f = SHGC_wnd / self.therm_props.SHGC.cog_dir(0.0)
-        SHGC_dir = f * SHGC_dir
-        SHGC_dif = f * SHGC_dif
-        I_dir = self._exterior_surface.I_dir(t)
-        I_dif = self._exterior_surface.I_dif(t)
-        I_glo = self._exterior_surface.I_glo(t)
-        A = self._exterior_surface.area.to('m ** 2').m
-        A_sunlit = self._sunlit_area(t)
-
-        if self._int_shading_dev is not None:
-            IAC_dir = self._IAC_dir(t)
-            IAC_dif = self._int_shading_dev.IAC_dif
-            F_rad = self._int_shading_dev.F_rad
-        else:
-            IAC_dir = 1.0
-            IAC_dif = 1.0
-            F_rad = self.F_rad
-
-        Q_dir = max(SHGC_dir * A_sunlit * I_dir * IAC_dir, 0.0)
-        Q_dif = max(SHGC_dif * A * I_dif * IAC_dif, 0.0)
-        Q_rad = F_rad * (Q_dir + Q_dif)
-        Q_conv = (1.0 - F_rad) * (Q_dir + Q_dif)
-        return {'rad': Q_rad, 'conv': Q_conv, 'I_glo': I_glo}
-
-    def get_heat_transfer(
-        self,
-        T_int: Quantity,
-        units: dict[str, str] | None = None
-    ) -> pd.DataFrame:
-        """Get the conductive and solar heat transfers through the window at each
-        hour of the design day.
+        dt_hr: float = 1.0,
+    ) -> tuple[Quantity, Quantity, Quantity]:
+        """Returns the conductive heat output at the interior side of the
+        window, and also its convective and radiative component, for each time
+        index k of the design day.
 
         Parameters
         ----------
-        T_int
-            Space air temperature.
-        units:
-            Dictionary to specify the desired units of the returned quantities.
-            Use key 'T' to set the desired units for temperature (default
-            unit is degC). Key 'I' is for irradiance (default unit is W/m²). And
-            key 'Q' is for heat flow (default unit is W).
+        dt_hr:
+            Time step expressed as a fraction of 1 hour, e.g., `dt_hr` = 1/4
+            means the time step for the calculations is one quarter of an hour.
+            The default value is 1 hour.
+
+        Returns
+        -------
+        3-tuple with:
+        - a `Quantity`-array with the conductive heat gains at each time index
+        - a `Quantity`-array with the convective components
+        - a `Quantity`-array with the radiative components
         """
-        _units = {
-            'T': 'degC',
-            'I': 'W / m ** 2',
-            'Q': 'W'
-        }
-        if units is not None:
-            _units.update(units)
-        T_int = T_int.to('degC').m
-        time_range = range(24)
-        Q_wnd_gain = []
-        for t in time_range:
-            Q_cond = self.get_conductive_heat_gain(t * 3600.0, T_int)
-            Q_sol = self.get_solar_heat_gain(t * 3600.0)
-            Q_wnd_gain.append([
-                Q_(Q_cond['T_ext'], 'degC').to(_units['T']).m,
-                Q_(Q_cond['conv'], 'W').to(_units['Q']).m,
-                Q_(Q_cond['rad'], 'W').to(_units['Q']).m,
-                Q_(Q_cond['conv'] + Q_cond['rad'], 'W').to(_units['Q']).m,
-                Q_(Q_sol['I_glo'], 'W / m ** 2').to(_units['I']).m,
-                Q_(Q_sol['conv'], 'W').to(_units['Q']).m,
-                Q_(Q_sol['rad'], 'W').to(_units['Q']).m,
-                Q_(Q_sol['conv'] + Q_sol['rad'], 'W').to(_units['Q']).m
-            ])
-        time_range = list(time_range)
-        time_range = [time_from_decimal_hour(t) for t in time_range]
-        Q_wnd_gain = pd.DataFrame(
-            data=Q_wnd_gain,
-            columns=pd.MultiIndex.from_arrays([
-                ['Q_cond'] * 4 + ['Q_sol'] * 4,
-                ['T_ext', 'conv', 'rad', 'tot', 'I_glo', 'conv', 'rad', 'tot']
-            ]),
-            index=time_range
-        )
-        return Q_wnd_gain
+        num_steps = int(round(24 / dt_hr))
+        dt_sec = dt_hr * 3600
+        U = self.props.U.to('W / (m**2 * K)')
+        A = self.area.to('m**2')
+        dT = Quantity.from_list([
+            self._ext_surf.T_db(k * dt_sec).to('K') - self.T_zone(k * dt_sec).to('K')
+            for k in range(num_steps)
+        ])
+        Q_dot_cond = U * A * dT
+        Q_dot_rad = self.F_rad * Q_dot_cond
+        Q_dot_conv = (1.0 - self.F_rad) * Q_dot_cond
+        return Q_dot_cond, Q_dot_conv, Q_dot_rad
+
+    def solar_heat_gain(
+        self,
+        dt_hr: float = 1.0
+    ) -> tuple[Quantity, Quantity, Quantity]:
+        """Returns the solar heat gain through the window, and also its
+        radiative and convective components, for each time index k of the design
+        day.
+
+        Parameters
+        ----------
+        dt_hr:
+            Time step expressed as a fraction of 1 hour, e.g., `dt_hr` = 1/4
+            means the time step between the calculations is one quarter of an
+            hour. The default value is 1 hour.
+
+        Returns
+        -------
+        Returns
+        -------
+        3-tuple with:
+        - a `Quantity`-array with the solar heat gains at each time index
+        - a `Quantity`-array with the convective components
+        - a `Quantity`-array with the radiative components
+        """
+        num_steps = int(round(24 / dt_hr))
+        dt_sec = dt_hr * 3600
+        Q_dot_sol, Q_dot_rad, Q_dot_conv = [], [], []
+        for k in range(num_steps):
+            theta_i = self._ext_surf.theta_i(k * dt_sec)
+            SHGC_dir = self.props.SHGC.cog_dir(theta_i.to('deg').m)
+            SHGC_dif = self.props.SHGC.cog_dif
+            SHGC_wnd = self.props.SHGC.wnd
+            f = SHGC_wnd / self.props.SHGC.cog_dir(0.0)
+            SHGC_dir = f * SHGC_dir
+            SHGC_dif = f * SHGC_dif
+            G_T, G_Tb, G_Td = self._ext_surf.G_T(k * dt_sec)
+            A = self.area.to('m**2')
+            A_sunlit = self._sunlit_area(k * dt_sec)
+            if self._int_shading is not None:
+                IAC_dir = self._IAC_dir(k * dt_sec)
+                IAC_dif = self._int_shading.IAC_dif
+                F_rad = self._int_shading.F_rad
+            else:
+                IAC_dir = 1.0
+                IAC_dif = 1.0
+                F_rad = self.F_rad
+            Q_dot_dir = max(SHGC_dir * A_sunlit * G_Tb * IAC_dir, Q_(0.0, 'W'))
+            Q_dot_dif = max(SHGC_dif * A * G_Td * IAC_dif, Q_(0.0, 'W'))
+            Q_dot_sol_ = Q_dot_dir + Q_dot_dif
+            Q_dot_rad_ = F_rad * Q_dot_sol_
+            Q_dot_conv_ = (1.0 - F_rad) * Q_dot_sol_
+            Q_dot_sol.append(Q_dot_sol_.to('W'))
+            Q_dot_rad.append(Q_dot_rad_.to('W'))
+            Q_dot_conv.append(Q_dot_conv_.to('W'))
+        Q_dot_sol = Quantity.from_list(Q_dot_sol)
+        Q_dot_rad = Quantity.from_list(Q_dot_rad)
+        Q_dot_conv = Quantity.from_list(Q_dot_conv)
+        return Q_dot_sol, Q_dot_conv, Q_dot_rad
+
+    def _sunlit_area(self, t_sol_sec: float) -> Quantity:
+        A_sunlit = self.area
+        if self._ext_shading is not None:
+            w_wnd = self.width.to('m').m
+            h_wnd = self.height.to('m').m
+            beta = self._ext_surf.alpha_s(t_sol_sec).to('rad').m
+            gamma = self._ext_surf.gamma_ss(t_sol_sec).to('rad').m
+            omega = np.arctan(np.tan(beta) / np.cos(gamma))
+            vp = self._ext_shading.vert_proj_dist.to('m').m
+            hp = self._ext_shading.hor_proj_dist.to('m').m
+            wo = self._ext_shading.hor_offset.to('m').m
+            ho = self._ext_shading.vert_offset.to('m').m
+            w_shadow = vp * abs(np.tan(gamma))
+            h_shadow = hp * np.tan(omega)
+            w_sunlit = w_wnd + wo - w_shadow
+            h_sunlit = h_wnd + ho - h_shadow
+            if w_sunlit < 0.0:
+                w_sunlit = 0.0
+            elif w_sunlit > w_wnd:
+                w_sunlit = w_wnd
+            if h_sunlit < 0.0:
+                h_sunlit = 0.0
+            elif h_sunlit > h_wnd:
+                h_sunlit = h_wnd
+            A_sunlit = w_sunlit * h_sunlit
+        return Q_(A_sunlit, 'm**2')
+
+    def _IAC_dir(self, t_sol_sec: float) -> float:
+        if self._int_shading.IAC_60 is not None:
+            # louvred shade (slat-type sunshade)
+            IAC_x = self._int_shading.IAC_60 - self._int_shading.IAC_0
+            beta = self._ext_surf.alpha_s(t_sol_sec).to('rad').m
+            gamma = self._ext_surf.gamma_ss(t_sol_sec).to('rad').m
+            omega = np.arctan(np.tan(beta) / np.cos(gamma))
+            if self._int_shading.louver_orient == 'horizontal':
+                # horizontal louvred shade
+                IAC_dir = self._int_shading.IAC_0 + IAC_x * min(1.0, 0.02 * omega)
+            else:
+                # vertical louvred shade
+                IAC_dir = self._int_shading.IAC_0 + IAC_x * min(1.0, 0.02 * gamma)
+            return IAC_dir
+        else:
+            return self._int_shading.IAC_dif
+
+    @property
+    def UA(self) -> Quantity:
+        """Returns the total transmittance of the window."""
+        U = self.props.U.to('W / (m**2 * K)')
+        A = self.area.to('m**2')
+        return U * A

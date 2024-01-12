@@ -43,8 +43,7 @@ class VentilationZone:
         T_sup: Quantity | None = None,
         eff_heat_recover: Quantity = Q_(90.0, 'pct')
     ) -> 'VentilationZone':
-        """
-        Create ventilation zone.
+        """Creates a ventilation zone.
 
         Parameters
         ----------
@@ -54,35 +53,35 @@ class VentilationZone:
             Design value of outdoor air temperature.
         V_atd_d: Quantity, default None
             The design air volume flow rate of all the ATDs in the zone
-            (NBN EN 12831-1, B.2.12). Only required if ATDs are used for
+            (EN 12831-1, B.2.12). Only required if ATDs are used for
             ventilation.
         dp_atd_d: Quantity, default 4 Pa
             Design pressure difference of the ATDs in the zone
-            (NBN EN 12831-1, B.2.12)
+            (EN 12831-1, B.2.12)
         n_leak: float, default 0.67
-            Pressure exponent for air leakages (NBN EN 12831-1, B.2.13)
+            Pressure exponent for air leakages (EN 12831-1, B.2.13)
         q_env_50: Quantity, default 6 m³/hr/m²
             Air permeability of building envelope at a pressure difference of
             50 Pa between interior and exterior with any ATDs closed or sealed
-            (NBN EN 12831-1, B.2.10). The default value of 6 m³/hr/m² corresponds
+            (EN 12831-1, B.2.10). The default value of 6 m³/hr/m² corresponds
             with air tightness class III (i.e. an air tightness test has not been
             and will not be performed, while the requirement regarding air
             tightness is considered "mid-level")
         f_fac: float, default 8.0
             Adjustment factor for the number of wind exposed facades of the
-            zone (NBN EN 12831-1, B.2.15). The default value of 8 applies to more
+            zone (EN 12831-1, B.2.15). The default value of 8 applies to more
             than 1 exposed facade. In case of 1 exposed facade `f_fac` is 12.
         f_qv: float, default 0.05
-            Coefficient for the volume flow ratio of the zone (NBN EN 12831-1,
+            Coefficient for the volume flow ratio of the zone (EN 12831-1,
             B.2.11 - Table B.8). Default value applies to more than 1 exposed
             facade, height of the zone above ground level between 0 and 50
             m, normal shielding, and a zone height between 5 and 10 m.
         f_dir: float, default 2.0
-            Factor for the orientation of the zone (NBN EN 12831-1, B.2.14).
+            Factor for the orientation of the zone (EN 12831-1, B.2.14).
             Default value according to B.2.14.
         f_iz: Quantity, default 0.5 frac
             Ratio between the minimum air volume flow rates of single heated
-            spaces and the air volume flow of the entire zone (NBN EN 12831-1,
+            spaces and the air volume flow of the entire zone (EN 12831-1,
             B.2.9 - Table B.5). Default value applies to a zone with 2 or more
             spaces.
         T_sup: Quantity, default None
@@ -93,7 +92,7 @@ class VentilationZone:
             is not a space load in that case).
             If `T_sup` is None, but `V_exh` of rooms in the ventilation zone is
             specified, then `T_sup` will be estimated according to
-            NBN EN 12831-1 §6.3.3.7
+            EN 12831-1 §6.3.3.7
         eff_heat_recover: Quantity, default 90.0 pct
             Efficiency of the heat recovery of the ventilation system under
             design external conditions.
@@ -134,8 +133,7 @@ class VentilationZone:
         T_trf: Quantity | None = None,
         q_hu: Quantity | None = None
     ) -> HeatedSpace:
-        """
-        Add new heated space to the ventilation zone.
+        """Adds a new heated space to the ventilation zone.
 
         Parameters
         ----------
@@ -152,27 +150,27 @@ class VentilationZone:
             Internal design air temperature of the heated space.
         grad_T_air: Quantity, default 1 K/m
             Air temperature gradient of the heat emission system used in the room.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         height_occ_zone: Quantity, default 1 m
             Height of the occupied zone in the heated space.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         dT_surf: Quantity, default 0.0 K
             Correction term for the influence of the heat emission system on
             surface temperatures.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         dT_rad: Quantity, default 0.0 K
             Difference between air and operative temperature (which can be
             approximated as the arithmetic average of air and mean radiant
             temperature).
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         n_min: Quantity, default 0.5 1/hr
             Minimum air change rate required for the heated space for reasons of
-            air quality/hygiene and comfort (NBN EN 12831-1, B.2.10 - Table B.7).
+            air quality/hygiene and comfort (EN 12831-1, B.2.10 - Table B.7).
             Default value applies to permanent dwelling areas (living rooms,
             offices) and a ceiling height less than 3 m.
         V_atd_d: Quantity, default None
             Design air volume flow rate of the ATDs in the room
-            (NBN EN 12831-1, B.2.12).
+            (EN 12831-1, B.2.12).
             Only required if ATDs are used for ventilation.
         V_exh: Quantity, default None
             Exhaust ventilation air volume flow rate from the heated space.
@@ -189,16 +187,15 @@ class VentilationZone:
             spaces.
         V_open: Quantity, default None
             External air volume flow rate into the heated space through large
-            openings (NBN EN 12831-1, Annex G).
+            openings (EN 12831-1, Annex G).
         T_trf: Quantity, default None
             Temperature of the transfer air volume flow into the heated space
             from another space. In case the room height of the other space is
             less than 4 m, it is equal to the internal design temperature of
             the other space; otherwise, it is equal to mean air temperature of
-            the other space (see NBN EN 12831-1 §6.3.8.3).
+            the other space (see EN 12831-1 §6.3.8.3).
         q_hu: Quantity, default None
-            Additional heating-up power per unit floor area
-            (NBN EN 12831-1, Annex F).
+            Additional heating-up power per unit floor area (EN 12831-1, Annex F).
         """
         hs = HeatedSpace.create(
             ID=ID,
@@ -244,10 +241,12 @@ class VentilationZone:
         V_trf: Quantity | None = None,
         V_open: Quantity | None = None,
         T_trf: Quantity | None = None,
-    ):
+    ) -> UnheatedSpace:
         """
-        Add unheated space to ventilation zone.
-        For explanation of parameters, see docstring of `add_heated_space`.
+        Adds an unheated space to ventilation zone.
+
+        For an explanation of the parameters, see the docstring of method
+        `add_heated_space`.
         """
         uhs = UnheatedSpace.create(
             ID=ID,
@@ -275,14 +274,14 @@ class VentilationZone:
 
     @property
     def spaces(self) -> dict[str, HeatedSpace | UnheatedSpace]:
+        """Returns the heated and unheated spaces in the ventilation zone."""
         spaces = dict(self.heated_spaces)
         spaces.update(self.unheated_spaces)
         return spaces
 
     @property
     def V_atd_d(self) -> Quantity:
-        """
-        Air volume flow rate through ATDs into the ventilation zone at design
+        """Air volume flow rate through ATDs into the ventilation zone at design
         pressure difference.
         """
         if self._V_atd_d:
@@ -299,8 +298,7 @@ class VentilationZone:
 
     @property
     def V_atd_50(self) -> Quantity:
-        """
-        Air volume flow rate through ATDs into the ventilation zone at a
+        """Air volume flow rate through ATDs into the ventilation zone at a
         pressure difference of 50 Pa (F.30).
         """
         V_atd_50 = self.V_atd_d * (Q_(50, 'Pa') / self.dp_atd_d) ** self.n_leak
@@ -316,6 +314,9 @@ class VentilationZone:
 
     @property
     def V_exh(self) -> Quantity:
+        """Total volume flow rate of ventilation exhaust air in the ventilation
+        zone.
+        """
         V_exh = sum(
             sp.V_exh
             for sp in self.spaces.values()
@@ -325,6 +326,11 @@ class VentilationZone:
 
     @property
     def V_comb(self) -> Quantity:
+        """Total volume flow rate of air exhausted from the ventilation zone
+        that has not been included in the exhaust air volume flow of the
+        ventilation system (typically, but not necessarily, combustion air if an
+        open flue heater is present in the heated space).
+        """
         V_comb = sum(
             sp.V_comb
             for sp in self.spaces.values()
@@ -334,6 +340,9 @@ class VentilationZone:
 
     @property
     def V_sup(self) -> Quantity:
+        """Total volume flow rate of supply air from the ventilation system into
+        the heated space.
+        """
         V_sup = sum(
             sp.V_sup
             for sp in self.spaces.values()
@@ -343,9 +352,8 @@ class VentilationZone:
 
     @property
     def f_ez(self):
-        """
-        Adjustment factor taking into account the additional pressure difference
-        due to unbalanced ventilation.
+        """Adjustment factor taking into account the additional pressure
+        difference due to unbalanced ventilation.
         """
         V_unbal = self.V_exh + self.V_comb - self.V_sup
         # external air volume flow rate into the ventilation zone due to
@@ -358,8 +366,7 @@ class VentilationZone:
 
     @property
     def V_inf_add(self) -> Quantity:
-        """
-        Air volume flow rate through additional infiltration into the
+        """Air volume flow rate through additional infiltration into the
         ventilation zone.
         """
         V_inf_add = self.q_env_50 * self.A_env + self.V_atd_50
@@ -396,6 +403,9 @@ class VentilationZone:
 
     @property
     def T_exh(self) -> Quantity | None:
+        """Average temperature of all the air exhausted in the spaces of the
+        ventilation zone.
+        """
         if V_exh := sum(sp.V_exh for sp in self.spaces.values()):
             T_exh = sum(
                 sp.V_exh * sp.T_int_air.to('K')
@@ -406,6 +416,9 @@ class VentilationZone:
 
     @property
     def T_sup(self) -> Quantity | None:
+        """Temperature of the ventilation supply air to the spaces in the
+        ventilation zone.
+        """
         if self.T_exh is not None and self._T_sup is None:
             T_sup = self.T_ext_d.to('K') + self.eff_heat_recover * (self.T_exh - self.T_ext_d)
             return T_sup
@@ -414,6 +427,9 @@ class VentilationZone:
         return None
 
     def get_ventilation_heat_loss(self) -> Quantity:
+        """Returns the heat loss of the ventilation zone due to space
+        ventilation and outdoor air infiltration.
+        """
         rho_cp = Q_(0.34, 'W * hr / (m ** 3 * K)')
         Q_ven = rho_cp * sum(
             max(sp.V_leak_atd + sp.V_open, self.f_iz * sp.V_min - sp.V_tech) *
@@ -425,6 +441,9 @@ class VentilationZone:
         return Q_ven
 
     def get_transmission_heat_loss(self) -> Quantity:
+        """Returns the heat loss of the ventilation zone due to heat conduction
+        through the building elements.
+        """
         Q_trm = sum(
             hs.get_transmission_heat_loss()
             for hs in self.heated_spaces.values()
@@ -432,6 +451,9 @@ class VentilationZone:
         return Q_trm
 
     def get_additional_heating_up_power(self) -> Quantity:
+        """Returns the total heat rate needed to heat-up the spaces in the
+        ventilation zone after a temperature set-back period.
+        """
         Q_hu = sum(
             hs.get_additional_heating_up_power()
             for hs in self.heated_spaces.values()
@@ -439,14 +461,14 @@ class VentilationZone:
         return Q_hu
 
     def get_heat_load(self) -> Quantity:
+        """Returns the total heating load of the ventilation zone."""
         Q_trm = self.get_transmission_heat_loss()
         Q_ven = self.get_ventilation_heat_loss()
         Q_hu = self.get_additional_heating_up_power()
         return Q_trm + Q_ven + Q_hu
 
     def get_summary(self, unit: str = 'kW', n_digits: int = 3) -> pd.DataFrame:
-        """
-        Returns a pandas DataFrame with an overview of the heated spaces in the
+        """Returns a pandas DataFrame with an overview of the heated spaces in the
         ventilation zone together with their transmission heat loss, ventilation
         heat loss, additional heating up power, and total heating load.
         """

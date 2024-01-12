@@ -23,7 +23,7 @@ class AbstractBuildingElement(ABC):
     def __init__(self):
         self.ID: str = ''
         self._area: Quantity | None = None
-        self.construction_assembly: ConstructionAssembly | None = None
+        self.constr_assem: ConstructionAssembly | None = None
         self.T_int_d: Quantity | None = None
         self.T_ext_d: Quantity | None = None
         self.T_adj: Quantity | None = None
@@ -38,15 +38,14 @@ class AbstractBuildingElement(ABC):
         obj: TBuildingElement,
         ID: str,
         area: Quantity | tuple[Quantity, Quantity],
-        construction_assembly: ConstructionAssembly | WindowThermalProperties,
+        constr_assem: ConstructionAssembly | WindowThermalProperties,
         T_int_d: Quantity,
         T_int_surf: Quantity,
         T_ext_d: Quantity,
         T_adj: Quantity | None = None,
         f1: Quantity | None = None
     ) -> TBuildingElement:
-        """
-        Create building element.
+        """Creates a building element.
 
         Parameters
         ----------
@@ -59,7 +58,7 @@ class AbstractBuildingElement(ABC):
             Area of the building element. In case a tuple is given, the elements
             are considered to be the width and length or height of the building
             element.
-        construction_assembly: ConstructionAssembly
+        constr_assem: ConstructionAssembly
             The construction assembly that constitutes the building element.
         T_int_d: Quantity
             Design value of indoor air temperature of heated space.
@@ -75,22 +74,22 @@ class AbstractBuildingElement(ABC):
             --> an adjacent heated space within the same building entity:
                 T_int_d of adjacent space.
             --> an adjacent building entity within the same building:
-                T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
+                T_ext_an (acc. to EN 12831-1 ANB NA.5.4)
             --> the ground:
-                T_ext_an (acc. to NBN EN 12831-1 §6.3.2.5 - Table 7)
+                T_ext_an (acc. to EN 12831-1 §6.3.2.5 - Table 7)
             --> an adjacent unheated space:
-                set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
-                use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
+                set parameter `f1` acc. to EN 12831-1, B.2.4 - Table B.2 or
+                use EN 12831-1 ANB NA.5.5 - Table NA.4
             --> an adjacent building:
-                max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
+                max(T_ext_an, 5 °C) or use EN 12831-1 ANB NA.5.6 - Table NA.5
         f1: Quantity, default None
             Adjustment factor for differences between the temperature of an
             adjacent space and the external design temperature.
-            (NBN EN 12831-1, B.2.4 - Table B.2)
+            (EN 12831-1, B.2.4 - Table B.2)
         """
         obj.ID = ID
         obj._area = area
-        obj.construction_assembly = construction_assembly
+        obj.constr_assem = constr_assem
         obj.T_int_d = T_int_d
         obj.T_int_surf = T_int_surf
         obj.T_ext_d = T_ext_d
@@ -121,7 +120,7 @@ class AbstractBuildingElement(ABC):
     @property
     def U(self) -> Quantity:
         """Thermal transmittance of the building element."""
-        return self.construction_assembly.U
+        return self.constr_assem.U
 
     @property
     @abstractmethod
@@ -142,15 +141,14 @@ class ExteriorBuildingElement(AbstractBuildingElement):
         cls,
         ID: str,
         area: Quantity | tuple[Quantity, Quantity],
-        construction_assembly: ConstructionAssembly | WindowThermalProperties,
+        constr_assem: ConstructionAssembly | WindowThermalProperties,
         T_int_d: Quantity,
         T_int_surf: Quantity,
         T_ext_d: Quantity,
         dU_tb: Quantity = Q_(0.1, 'W / (m ** 2 * K)'),
         f_U: Quantity = Q_(1.0, 'frac')
-    ) -> 'ExteriorBuildingElement':
-        """
-        Create building element in contact with the exterior.
+    ) -> ExteriorBuildingElement:
+        """Creates a building element in contact with the exterior.
 
         Parameters
         ----------
@@ -160,7 +158,7 @@ class ExteriorBuildingElement(AbstractBuildingElement):
             Area of the building element. In case a tuple is given, the elements
             are considered to be the width and length or height of the building
             element.
-        construction_assembly: ConstructionAssembly
+        constr_assem: ConstructionAssembly
             The construction assembly that constitutes the building element.
         T_int_d: Quantity
             Design value of indoor air temperature of heated space.
@@ -170,15 +168,15 @@ class ExteriorBuildingElement(AbstractBuildingElement):
             Design value of outdoor air temperature.
         dU_tb: Quantity, default 0.1 W/(m².K)
             Blanket additional thermal transmittance for thermal bridges
-            (see NBN EN 12831-1, B.2.1 - Table B.1).
+            (see EN 12831-1, B.2.1 - Table B.1).
         f_U: Quantity, default 1.0 frac:
             Correction factor allowing for the influence of building element
-            properties and meteorological conditions (see NBN EN 12831-1, B.2.2).
+            properties and meteorological conditions (see EN 12831-1, B.2.2).
         """
         self = cls()
         self = cls._create(
             self, ID, area,
-            construction_assembly,
+            constr_assem,
             T_int_d, T_int_surf, T_ext_d
         )
         self.dU_tb = dU_tb
@@ -189,18 +187,17 @@ class ExteriorBuildingElement(AbstractBuildingElement):
         self,
         ID: str,
         area: Quantity | tuple[Quantity, Quantity],
-        construction_assembly: ConstructionAssembly | WindowThermalProperties,
+        constr_assem: ConstructionAssembly | WindowThermalProperties,
         dU_tb: Quantity = Q_(0.1, 'W / (m ** 2 * K)'),
         f_U: Quantity = Q_(1.0, 'frac')
     ) -> None:
-        """
-        Add a sub building element (window or door) to the exterior building
-        element.
+        """Adds a "sub-building element" (window or door) to the exterior
+        building element.
         """
         ext_build_elem = ExteriorBuildingElement.create(
             ID=ID,
             area=area,
-            construction_assembly=construction_assembly,
+            constr_assem=constr_assem,
             T_int_d=self.T_int_d,
             T_int_surf=self.T_int_surf,
             T_ext_d=self.T_ext_d,
@@ -227,16 +224,16 @@ class AdjacentBuildingElement(AbstractBuildingElement):
         cls,
         ID: str,
         area: Quantity | tuple[Quantity, Quantity],
-        construction_assembly: ConstructionAssembly,
+        constr_assem: ConstructionAssembly,
         T_int_d: Quantity,
         T_int_surf: Quantity,
         T_ext_d: Quantity,
         kind_of_adjacent_space: str = 'unheated',
         T_adj: Quantity | None = None,
         f1: Quantity | None = None
-    ):
-        """
-        Create building element.
+    ) -> AdjacentBuildingElement:
+        """Creates an adjacent building element, which separates the space from
+        an adjacent space.
 
         Parameters
         ----------
@@ -246,7 +243,7 @@ class AdjacentBuildingElement(AbstractBuildingElement):
             Area of the building element. In case a tuple is given, the elements
             are considered to be the width and length or height of the building
             element.
-        construction_assembly: ConstructionAssembly
+        constr_assem: ConstructionAssembly
             The construction assembly that constitutes the building element.
         T_int_d: Quantity
             Design value of indoor air temperature of heated space.
@@ -265,21 +262,21 @@ class AdjacentBuildingElement(AbstractBuildingElement):
             - an adjacent heated space within the same building entity:
                 T_int_d of adjacent space.
             - an adjacent building entity within the same building:
-                T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
+                T_ext_an (acc. to EN 12831-1 ANB NA.5.4)
             - an adjacent unheated space:
-                set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
-                use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
+                set parameter `f1` acc. to EN 12831-1, B.2.4 - Table B.2 or
+                use EN 12831-1 ANB NA.5.5 - Table NA.4
             - an adjacent building:
-                max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
+                max(T_ext_an, 5 °C) or use EN 12831-1 ANB NA.5.6 - Table NA.5
         f1: Quantity, default None
             Adjustment factor for differences between the temperature of an
             adjacent space and the external design temperature.
-            (NBN EN 12831-1, B.2.4 - Table B.2)
+            (EN 12831-1, B.2.4 - Table B.2)
         """
         self = cls()
         self = cls._create(
             self, ID, area,
-            construction_assembly,
+            constr_assem,
             T_int_d, T_int_surf,
             T_ext_d, T_adj, f1
         )
@@ -290,16 +287,15 @@ class AdjacentBuildingElement(AbstractBuildingElement):
         self,
         ID: str,
         area: Quantity | tuple[Quantity, Quantity],
-        construction_assembly: ConstructionAssembly | WindowThermalProperties,
+        constr_assem: ConstructionAssembly | WindowThermalProperties,
     ) -> None:
-        """
-        Add a sub building element (door or window) to the adjacent building
-        element.
+        """Adds a "sub-building element" (door or window) to the adjacent
+        building element.
         """
         adj_build_elem = AdjacentBuildingElement.create(
             ID=ID,
             area=area,
-            construction_assembly=construction_assembly,
+            constr_assem=constr_assem,
             T_int_d=self.T_int_d,
             T_int_surf=self.T_int_surf,
             T_ext_d=self.T_ext_d,
@@ -333,7 +329,7 @@ class GroundBuildingElement(AbstractBuildingElement):
         cls,
         ID: str,
         area: Quantity,
-        construction_assembly: ConstructionAssembly,
+        constr_assem: ConstructionAssembly,
         T_int_d: Quantity,
         T_int_surf: Quantity,
         T_ext_d: Quantity,
@@ -343,9 +339,8 @@ class GroundBuildingElement(AbstractBuildingElement):
         dU_tb: Quantity = Q_(0.1, 'W / (m ** 2 * K)'),
         f_dT_an: Quantity = Q_(1.45, 'frac'),
         f_gw: Quantity = Q_(1.15, 'frac')
-    ) -> 'GroundBuildingElement':
-        """
-        Create building element in contact with ground.
+    ) -> GroundBuildingElement:
+        """Creates a building element in contact with ground.
 
         Parameters
         ----------
@@ -353,7 +348,7 @@ class GroundBuildingElement(AbstractBuildingElement):
             Name to identify building element.
         area: Quantity
             Floor area of the heated space.
-        construction_assembly: ConstructionAssembly
+        constr_assem: ConstructionAssembly
             The construction assembly that constitutes the building element.
         T_int_d: Quantity
             Design value of indoor air temperature of heated space.
@@ -362,26 +357,26 @@ class GroundBuildingElement(AbstractBuildingElement):
         T_ext_d: Quantity
             Design value of outdoor air temperature.
         A_slab: Quantity
-            Area of the floor slab (see NBN EN 12831-1, annex E).
+            Area of the floor slab (see EN 12831-1, annex E).
         P_slab: Quantity
-            Exposed perimeter of the floor slab (see NBN EN 12831-1, annex E -
+            Exposed perimeter of the floor slab (see EN 12831-1, annex E -
             Figure E.2: examples).
         z: Quantity
             Depth of the top edge of the floor slab below ground level.
         dU_tb: Quantity
             Blanket additional thermal transmittance for thermal bridges
-            (see NBN EN 12831-1, B.2.1 - Table B.1).
+            (see EN 12831-1, B.2.1 - Table B.1).
         f_dT_an: Quantity
             Correction factor taking into account the annual variation of the
-            external temperature (see NBN EN 12831-1, B.2.3).
+            external temperature (see EN 12831-1, B.2.3).
         f_gw: Quantity
             Correction factor taking into account the influence of groundwater
-            (see NBN EN 12831-1, B.2.3).
+            (see EN 12831-1, B.2.3).
         """
         self = cls()
         self = cls._create(
             self, ID, area,
-            construction_assembly,
+            constr_assem,
             T_int_d, T_int_surf, T_ext_d
         )
         self.A_slab = A_slab

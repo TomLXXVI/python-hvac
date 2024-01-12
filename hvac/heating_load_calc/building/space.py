@@ -69,8 +69,7 @@ class UnheatedSpace:
         T_trf: Quantity | None = None,
         vz: VentilationZone | None = None
     ) -> UnheatedSpace:
-        """
-        Create unheated space.
+        """Creates an unheated space.
 
         Parameters
         ----------
@@ -89,27 +88,27 @@ class UnheatedSpace:
             Design value of outdoor air temperature.
         grad_T_air: Quantity, default 1 K/m
             Air temperature gradient of the heat emission system used in the room.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         height_occ_zone: Quantity, default 1 m
             Height of the occupied zone in the heated space.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         dT_surf: Quantity, default 0.0 K
             Correction term for the influence of the heat emission system on
             surface temperatures.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         dT_rad: Quantity, default 0.0 K
             Difference between air and operative temperature (which can be
             approximated as the arithmetic average of air and mean radiant
             temperature).
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         n_min: Quantity, default 0.5 1/hr
             Minimum air change rate required for the heated space for reasons of
-            air quality/hygiene and comfort (NBN EN 12831-1, B.2.10 - Table B.7).
+            air quality/hygiene and comfort (EN 12831-1, B.2.10 - Table B.7).
             Default value applies to permanent dwelling areas (living rooms,
             offices) and a ceiling height less than 3 m.
         V_atd_d: Quantity, default None
             Design air volume flow rate of the ATDs in the room
-            (NBN EN 12831-1, B.2.12).
+            (EN 12831-1, B.2.12).
             Only required if ATDs are used for ventilation.
         V_exh: Quantity, default None
             Exhaust ventilation air volume flow rate from the heated space.
@@ -126,13 +125,13 @@ class UnheatedSpace:
             spaces.
         V_open: Quantity, default None
             External air volume flow rate into the heated space through large
-            openings (NBN EN 12831-1, Annex G).
+            openings (EN 12831-1, Annex G).
         T_trf: Quantity, default None
             Temperature of the transfer air volume flow into the heated space
             from another space. In case the room height of the other space is
             less than 4 m, it is equal to the internal design temperature of
             the other space; otherwise, it is equal to mean air temperature of
-            the other space (see NBN EN 12831-1 §6.3.8.3).
+            the other space (see EN 12831-1 §6.3.8.3).
         vz: VentilationZone, default None
             The ventilation zone of which the heated space is part of.
         """
@@ -165,8 +164,7 @@ class UnheatedSpace:
         area: Quantity | tuple[Quantity, Quantity],
         _, **kwargs
     ) -> ExteriorBuildingElement:
-        """
-        Add new exterior building element to the heated space.
+        """Adds a new exterior building element to the heated space.
 
         Parameters
         ----------
@@ -185,7 +183,7 @@ class UnheatedSpace:
         ext_build_elem = ExteriorBuildingElement.create(
             ID=ID,
             area=area,
-            construction_assembly=ConstructionAssembly(),
+            constr_assem=ConstructionAssembly(),
             T_int_d=self.T_int_d,
             T_int_surf=self.T_int_surf,
             T_ext_d=self.T_ext_d,
@@ -231,7 +229,8 @@ class UnheatedSpace:
     @property
     def V_leak_atd(self) -> Quantity:
         """External air volume flow rate into the heated space through leakages
-        and ATDs."""
+        and ATDs.
+        """
         if self.vz.V_atd_d:
             V_leak_atd = (
                 self.vz.V_leak * (self.A_env / self.vz.A_env) +
@@ -244,7 +243,8 @@ class UnheatedSpace:
     @property
     def V_env(self) -> Quantity:
         """External air volume flow rate into the heated space through the
-        building envelope."""
+        building envelope.
+        """
         V_env = (
             (self.vz.V_inf_add / self.vz.V_env) *
             min(self.vz.V_env, self.V_leak_atd * self.vz.f_dir) +
@@ -262,7 +262,8 @@ class UnheatedSpace:
     @property
     def V_min(self) -> Quantity:
         """Minimum air volume flow required for reasons of air quality/hygiene
-        and comfort."""
+        and comfort.
+        """
         V_min = self.n_min * self.volume
         return V_min
 
@@ -271,7 +272,9 @@ class UnheatedSpace:
         return self.vz.T_sup or self.T_int_air
 
     def get_ventilation_heat_loss(self) -> Quantity:
-        """Get ventilation heat loss of the heated space."""
+        """Get ventilation heat loss of the heated space (including outdoor
+        air infiltration).
+        """
         rho_cp = Q_(0.34, 'W * hr / (m ** 3 * K)')
         Q_ven = rho_cp * (
             max(self.V_env + self.V_open, self.V_min - self.V_tech) *
@@ -311,9 +314,8 @@ class HeatedSpace(UnheatedSpace):
         T_trf: Quantity | None = None,
         q_hu: Quantity | None = None,
         vz: VentilationZone | None = None
-    ) -> 'HeatedSpace':
-        """
-        Create heated space.
+    ) -> HeatedSpace:
+        """Creates a heated space.
 
         Parameters
         ----------
@@ -332,27 +334,27 @@ class HeatedSpace(UnheatedSpace):
             Design value of outdoor air temperature.
         grad_T_air: Quantity, default 1 K/m
             Air temperature gradient of the heat emission system used in the room.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         height_occ_zone: Quantity, default 1 m
             Height of the occupied zone in the heated space.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         dT_surf: Quantity, default 0.0 K
             Correction term for the influence of the heat emission system on
             surface temperatures.
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         dT_rad: Quantity, default 0.0 K
             Difference between air and operative temperature (which can be
             approximated as the arithmetic average of air and mean radiant
             temperature).
-            Only relevant if `height` >= 4 m (see NBN EN 12831-1, B.2.6).
+            Only relevant if `height` >= 4 m (see EN 12831-1, B.2.6).
         n_min: Quantity, default 0.5 1/hr
             Minimum air change rate required for the heated space for reasons of
-            air quality/hygiene and comfort (NBN EN 12831-1, B.2.10 - Table B.7).
+            air quality/hygiene and comfort (EN 12831-1, B.2.10 - Table B.7).
             Default value applies to permanent dwelling areas (living rooms,
             offices) and a ceiling height less than 3 m.
         V_atd_d: Quantity, default None
             Design air volume flow rate of the ATDs in the room
-            (NBN EN 12831-1, B.2.12).
+            (EN 12831-1, B.2.12).
             Only required if ATDs are used for ventilation.
         V_exh: Quantity, default None
             Exhaust ventilation air volume flow rate from the heated space.
@@ -369,16 +371,16 @@ class HeatedSpace(UnheatedSpace):
             spaces.
         V_open: Quantity, default None
             External air volume flow rate into the heated space through large
-            openings (NBN EN 12831-1, Annex G).
+            openings (EN 12831-1, Annex G).
         T_trf: Quantity, default None
             Temperature of the transfer air volume flow into the heated space
             from another space. In case the room height of the other space is
             less than 4 m, it is equal to the internal design temperature of
             the other space; otherwise, it is equal to mean air temperature of
-            the other space (see NBN EN 12831-1 §6.3.8.3).
+            the other space (see EN 12831-1 §6.3.8.3).
         q_hu: Quantity, default None
             Additional heating-up power per unit floor area
-            (NBN EN 12831-1, Annex F).
+            (EN 12831-1, Annex F).
         vz: VentilationZone, default None
             The ventilation zone of which the heated space is part of.
         """
@@ -409,12 +411,11 @@ class HeatedSpace(UnheatedSpace):
         self,
         ID: str,
         area: Quantity | tuple[Quantity, Quantity],
-        construction_assembly: ConstructionAssembly,
+        constr_assem: ConstructionAssembly,
         dU_tb: Quantity = Q_(0.1, 'W / (m ** 2 * K)'),
         f_U: Quantity = Q_(1.0, 'frac')
     ) -> ExteriorBuildingElement:
-        """
-        Add new exterior building element to the heated space.
+        """Adds a new exterior building element to the heated space.
 
         Parameters
         ----------
@@ -424,14 +425,14 @@ class HeatedSpace(UnheatedSpace):
             Area of the building element. In case a tuple is given, the elements
             are considered to be the width and length or height of the building
             element.
-        construction_assembly: ConstructionAssembly
+        constr_assem: ConstructionAssembly
             The construction assembly that constitutes the building element.
         dU_tb: Quantity, default 0.1 W/(m².K)
             Blanket additional thermal transmittance for thermal bridges
-            (see NBN EN 12831-1, B.2.1 - Table B.1).
+            (see EN 12831-1, B.2.1 - Table B.1).
         f_U: Quantity, default 1.0 frac:
             Correction factor allowing for the influence of building element
-            properties and meteorological conditions (see NBN EN 12831-1, B.2.2).
+            properties and meteorological conditions (see EN 12831-1, B.2.2).
 
         Returns
         -------
@@ -441,7 +442,7 @@ class HeatedSpace(UnheatedSpace):
         ext_build_elem = ExteriorBuildingElement.create(
             ID=ID,
             area=area,
-            construction_assembly=construction_assembly,
+            constr_assem=constr_assem,
             T_int_d=self.T_int_d,
             T_int_surf=self.T_int_surf,
             T_ext_d=self.T_ext_d,
@@ -455,13 +456,12 @@ class HeatedSpace(UnheatedSpace):
         self,
         ID: str,
         area: Quantity | tuple[Quantity, Quantity],
-        construction_assembly: ConstructionAssembly,
+        constr_assem: ConstructionAssembly,
         kind_of_adjacent_space: str = 'unheated',
         T_adj: Quantity | None = None,
         f1: Quantity | None = None
     ) -> AdjacentBuildingElement:
-        """
-        Add new adjacent building element to heated space.
+        """Adds a new adjacent building element to the heated space.
 
         Parameters
         ----------
@@ -471,7 +471,7 @@ class HeatedSpace(UnheatedSpace):
             Area of the building element. In case a tuple is given, the elements
             are considered to be the width and length or height of the building
             element.
-        construction_assembly: ConstructionAssembly
+        constr_assem: ConstructionAssembly
             The construction assembly that constitutes the building element.
         kind_of_adjacent_space: {'heated', 'unheated', 'building_entity'},
             default 'unheated'
@@ -484,16 +484,16 @@ class HeatedSpace(UnheatedSpace):
             - an adjacent heated space within the same building entity:
                 T_int_d of adjacent space.
             - an adjacent building entity within the same building:
-                T_ext_an (acc. to NBN EN 12831-1 ANB NA.5.4)
+                T_ext_an (acc. to EN 12831-1 ANB NA.5.4)
             - an adjacent unheated space:
-                set parameter `f1` acc. to NBN EN 12831-1, B.2.4 - Table B.2 or
-                use NBN EN 12831-1 ANB NA.5.5 - Table NA.4
+                set parameter `f1` acc. to EN 12831-1, B.2.4 - Table B.2 or
+                use EN 12831-1 ANB NA.5.5 - Table NA.4
             - an adjacent building:
-                max(T_ext_an, 5 °C) or use NBN EN 12831-1 ANB NA.5.6 - Table NA.5
+                max(T_ext_an, 5 °C) or use EN 12831-1 ANB NA.5.6 - Table NA.5
         f1: Quantity, default None
             Adjustment factor for differences between the temperature of an
             adjacent space and the external design temperature.
-            (NBN EN 12831-1, B.2.4 - Table B.2)
+            (EN 12831-1, B.2.4 - Table B.2)
 
         Returns
         -------
@@ -503,7 +503,7 @@ class HeatedSpace(UnheatedSpace):
         adj_build_elem = AdjacentBuildingElement.create(
             ID=ID,
             area=area,
-            construction_assembly=construction_assembly,
+            constr_assem=constr_assem,
             T_int_d=self.T_int_d,
             T_int_surf=self.T_int_surf,
             T_ext_d=self.T_ext_d,
@@ -523,7 +523,7 @@ class HeatedSpace(UnheatedSpace):
         self,
         ID: str,
         area: Quantity,
-        construction_assembly: ConstructionAssembly,
+        constr_assem: ConstructionAssembly,
         A_slab: Quantity,
         P_slab: Quantity,
         z: Quantity,
@@ -531,8 +531,8 @@ class HeatedSpace(UnheatedSpace):
         f_dT_an: Quantity = Q_(1.45, 'frac'),
         f_gw: Quantity = Q_(1.15, 'frac')
     ) -> None:
-        """
-        Add new building element in contact with ground to the heated space.
+        """Adds a new building element in contact with ground to the heated
+        space.
 
         Parameters
         ----------
@@ -540,24 +540,24 @@ class HeatedSpace(UnheatedSpace):
             Name to identify building element.
         area: Quantity
             Floor area of the heated space.
-        construction_assembly: ConstructionAssembly
+        constr_assem: ConstructionAssembly
             The construction assembly that constitutes the building element.
         A_slab: Quantity
             Area of the floor slab.
         P_slab: Quantity
-            Exposed perimeter of the floor slab (see NBN EN 12831-1, annex E -
+            Exposed perimeter of the floor slab (see EN 12831-1, annex E -
             Figure E.2: examples).
         z: Quantity
             Depth of the top edge of the floor slab below ground level.
         dU_tb: Quantity
             Blanket additional thermal transmittance for thermal bridges
-            (see NBN EN 12831-1, B.2.1 - Table B.1).
+            (see EN 12831-1, B.2.1 - Table B.1).
         f_dT_an: Quantity
             Correction factor taking into account the annual variation of the
-            external temperature (see NBN EN 12831-1, B.2.3).
+            external temperature (see EN 12831-1, B.2.3).
         f_gw: Quantity
             Correction factor taking into account the influence of groundwater
-            (see NBN EN 12831-1, B.2.3).
+            (see EN 12831-1, B.2.3).
 
         Returns
         -------
@@ -566,7 +566,7 @@ class HeatedSpace(UnheatedSpace):
         grd_build_elem = GroundBuildingElement.create(
             ID=ID,
             area=area,
-            construction_assembly=construction_assembly,
+            constr_assem=constr_assem,
             T_int_d=self.T_int_d,
             T_int_surf=self.T_int_surf,
             T_ext_d=self.T_ext_d,
@@ -624,8 +624,8 @@ class HeatedSpace(UnheatedSpace):
         )
 
     def get_transmission_heat_loss(self, x: str = 'total') -> Quantity:
-        """
-        Get design transmission heat loss from the heated space to another space.
+        """Returns the design transmission heat loss from the heated space to
+        another space.
 
         Parameters
         ----------
@@ -655,11 +655,12 @@ class HeatedSpace(UnheatedSpace):
             return self.H_Tig * dT_d
 
     def get_additional_heating_up_power(self) -> Quantity:
-        """Get additional heating-up power for the heated space."""
+        """Returns the additional heating-up power for the heated space."""
         Q_hu = self.area * self.q_hu
         return Q_hu
 
     def get_heat_load(self) -> Quantity:
+        """Returns the total heating loss of the heated space."""
         Q_trm = self.get_transmission_heat_loss()
         Q_ven = self.get_ventilation_heat_loss()
         Q_hu = self.get_additional_heating_up_power()

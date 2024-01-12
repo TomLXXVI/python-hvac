@@ -1,29 +1,27 @@
-from typing import Optional, Dict, TYPE_CHECKING
-import pandas as pd
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from hvac import Quantity
 
 if TYPE_CHECKING:
-    from .building_entity import BuildingEntity
-    from .space import Space
+    from hvac.cooling_load_calc.building.space import ThermalZone
 
 Q_ = Quantity
 
 
 class VentilationZone:
-
+    """Calculation of the sensible and latent heat gain due to space
+    ventilation according to standard EN 12831-1 (2017).
+    """
     def __init__(self):
         self.ID: str = ''
-        self.building_entity: Optional[BuildingEntity] = None
-        self.spaces: Dict[str, Space] = {}
-        self.heat_gains: Optional[pd.DataFrame] = None
-
-        self.q_env_50: Optional[float] = 0.0
-        self.dP_ATD_d: Optional[float] = 0.0
-        self.v_leak: Optional[float] = 0.0
-        self.f_fac: Optional[float] = 0.0
-        self.f_V: Optional[float] = 0.0
-        self.f_dir: Optional[float] = 0.0
-        self.f_iz: Optional[float] = 0.0
+        self.q_env_50: float = 0.0
+        self.dP_ATD_d: float = 0.0
+        self.v_leak: float = 0.0
+        self.f_fac: float = 0.0
+        self.f_V: float = 0.0
+        self.f_dir: float = 0.0
+        self.f_iz: float = 0.0
+        self.thermal_zones: dict[str, ThermalZone] = {}
 
     @classmethod
     def create(
@@ -37,43 +35,43 @@ class VentilationZone:
         f_dir: float = 2.0,
         f_iz: float = 0.5
     ) -> 'VentilationZone':
-        """
-        Create a ventilation zone.
+        """Creates a `VentilationZone` object.
 
         Parameters
         ----------
         ID:
-            Name of the ventilation zone.
+            Identifies the ventilation zone.
         q_env_50:
             Air permeability of the building envelope at a pressure difference
             of 50 Pa between the interior and exterior with any ATDs closed or
-            sealed (NBN EN 12831-1, B.2.10).
+            sealed (see EN 12831-1 (2017), B.2.10).
         dP_ATD_d:
             Design pressure difference of the ATDs in the zone
-            (NBN EN 12831-1, B.2.12).
+            (see EN 12831-1 (2017), B.2.12).
         v_leak: float
-            Pressure exponent for air leakages (NBN EN 12831-1, B.2.13).
+            Pressure exponent for air leakages (see EN 12831-1 (2017), B.2.13).
         f_fac: float
             Adjustment factor for the number of wind exposed facades of the zone
-            (NBN EN 12831-1, B.2.15). The default value applies to more than 1
-            exposed facade.
+            (see EN 12831-1 (2017), B.2.15). The default value applies to
+            more than 1 exposed facade.
         f_V: float
-            Coefficient for the volume flow ratio of the zone (NBN EN 12831-1,
-            B.2.11 - Table B.8). The default value applies to more than 1 exposed
-            facade, the height of the zone above ground level between 0 and 50
-            m, normal shielding, and a zone height between 5 and 10 m.
+            Coefficient for the volume flow ratio of the zone
+            (see EN 12831-1 (2017), B.2.11, Table B.8).
+            The default value applies to more than 1 exposed facade, the height
+            of the zone above ground level between 0 and 50 m, normal shielding,
+            and a zone height between 5 and 10 m.
         f_dir: float
-            Factor for the orientation of the zone (NBN EN 12831-1, B.2.14).
-            Default value according to B.2.14.
+            Factor for the orientation of the zone (see EN 12831-1 (2017),
+            B.2.14). Default value according to B.2.14.
         f_iz: Quantity
-            Ratio between the minimum air volume flow rates of single heated
-            spaces and the air volume flow of the entire zone (NBN EN 12831-1,
-            B.2.9 - Table B.5). The default value applies to a zone with 2 or
-            more spaces.
+            Ratio between the minimum air volume flow rates of single
+            conditioned spaces and the air volume flow of the entire zone (see
+            EN 12831-1 (2017), B.2.9, Table B.5). The default value applies
+            to a zone with 2 or more spaces.
 
         Returns
         -------
-        Instance of `VentilationZone`.
+        `VentilationZone` object
         """
         obj = cls()
         obj.ID = ID
@@ -86,73 +84,54 @@ class VentilationZone:
         obj.f_iz = f_iz
         return obj
 
-    def add_space(self, space: 'Space'):
-        self.spaces[space.ID] = space
-        space.ventilation_zone = self
-
-    # noinspection PyTypeChecker
-    def get_heat_gains(self, unit: str = 'W') -> pd.DataFrame:
-        self.heat_gains = sum(
-            space.get_heat_gains(unit)
-            for space in self.spaces.values()
-        )
-        return self.heat_gains
-
+    def add_thermal_zone(self, thz: ThermalZone) -> None:
+        self.thermal_zones[thz.ID] = thz
+        thz.vez = self
+    
     @property
     def floor_area(self) -> Quantity:
-        A_floor = sum(
-            space.floor_area
-            for space in self.spaces.values()
-        )
-        return A_floor
-
+        """Returns the total floor area of the ventilation zone."""
+        A_fl = sum(thz.floor_area for thz in self.thermal_zones.values())
+        return A_fl
+    
     @property
     def envelope_area(self) -> Quantity:
-        A_env = sum(
-            space.envelope_area
-            for space in self.spaces.values()
-        )
+        """Returns the envelope surface area of the ventilation zone."""
+        A_env = sum(thz.envelope_area for thz in self.thermal_zones.values())
         return A_env
-
+    
     @property
     def volume(self) -> Quantity:
-        V = sum(
-            space.volume
-            for space in self.spaces.values()
-        )
+        """Returns the volume of the ventilation zone."""
+        V = sum(thz.volume for thz in self.thermal_zones.values())
         return V
 
     @property
-    def V_ATD_d(self) -> float:
+    def V_dot_ATD_d(self) -> float:
+        """Design air volume flow rate in m³/h of the ATDs in the ventilation
+        zone (EN 12831-1, Annex B.2.12). This is optional: only required when
+        ATDs are present.
         """
-        Design air volume flow of the ATDs in the ventilation zone.
-        Optional: only required when ATDs are present.
-        (EN 12831-1, Annex B.2.12).
-        """
-        V_ATD_d = sum(
-            space.ventilation.V_ATD_d
-            for space in self.spaces.values()
+        V_dot_ATD_d = sum(
+            space.ventilation.V_dot_ATD_d
+            for space in self.thermal_zones.values()
         )
-        return V_ATD_d
+        return V_dot_ATD_d
 
     @property
-    def V_ATD_50(self) -> float:
+    def V_dot_ATD_50(self) -> float:
+        """Airflow rate in m³/h into the ventilation zone through ATDs at a
+        pressure difference of 50 Pa (EN 12831-1 eq. 30).
         """
-        Airflow rate into the ventilation zone through ATDs at a pressure
-        difference of 50 Pa.
-        (EN 12831-1 eq. 30)
-        """
-        return self.V_ATD_d * (50.0 / self.dP_ATD_d) ** self.v_leak
+        return self.V_dot_ATD_d * (50.0 / self.dP_ATD_d) ** self.v_leak
 
     @property
     def f_ez(self) -> float:
+        """Adjustment factor taking into account the additional pressure 
+        difference due to unbalanced ventilation (EN 12831-1 eq. 29).
         """
-        Adjustment factor taking into account the additional pressure difference
-        due to unbalanced ventilation.
-        (EN 12831-1 eq. 29)
-        """
-        n = self.V_exh + self.V_comb - self.V_sup
-        d = self.q_env_50 * self.A_env + self.V_ATD_50
+        n = self.V_dot_exh + self.V_dot_comb - self.V_dot_sup
+        d = self.q_env_50 * self.A_env + self.V_dot_ATD_50
         try:
             return 1 / (1 + (self.f_fac / self.f_V) * (n / d) ** 2)
         except ZeroDivisionError:
@@ -160,93 +139,86 @@ class VentilationZone:
 
     @property
     def A_env(self) -> float:
-        """
-        Envelope surface area of the ventilation zone in square meters (float).
-        """
+        """Envelope surface area in m² of the ventilation zone."""
         A_env = self.envelope_area.to('m ** 2').m
         return A_env
 
     @property
-    def V_exh(self) -> float:
-        """
-        Exhaust airflow rate from the ventilation zone.
-        """
-        V_exh = sum(
-            space.ventilation.V_exh
-            for space in self.spaces.values()
+    def V_dot_exh(self) -> float:
+        """Exhaust airflow rate in m³/h from the ventilation zone."""
+        V_dot_exh = sum(
+            space.ventilation.V_dot_exh
+            for space in self.thermal_zones.values()
         )
-        return V_exh
+        return V_dot_exh
 
     @property
-    def V_comb(self) -> float:
-        """
-        Combustion airflow rate into the ventilation zone.
-        """
-        V_comb = sum(
-            space.ventilation.V_comb
-            for space in self.spaces.values()
+    def V_dot_comb(self) -> float:
+        """Combustion airflow rate in m³/h into the ventilation zone."""
+        V_dot_comb = sum(
+            space.ventilation.V_dot_comb
+            for space in self.thermal_zones.values()
         )
-        return V_comb
+        return V_dot_comb
 
     @property
-    def V_sup(self) -> float:
-        """
-        Supply airflow rate into the ventilation zone.
-        """
-        V_sup = sum(
-            space.ventilation.V_sup
-            for space in self.spaces.values()
+    def V_dot_sup(self) -> float:
+        """Supply airflow rate in m³/h into the ventilation zone."""
+        V_dot_sup = sum(
+            space.ventilation.V_dot_sup
+            for space in self.thermal_zones.values()
         )
-        return V_sup
+        return V_dot_sup
 
     @property
-    def V_inf_add(self) -> float:
-        """
-        Airflow rate through additional infiltration into the ventilation zone,
-        determined based on the air permeability (parameter `q_env_50`) and the
-        airflow rate through ATDs (property `V_ATD_50`).
+    def V_dot_inf_add(self) -> float:
+        """Airflow rate in m³/h due to additional infiltration into the
+        ventilation zone, determined based on the air permeability (parameter
+        `q_env_50`) and the airflow rate through ATDs (property `V_dot_ATD_50`).
         (EN 12831-1 eq. 28)
         """
-        return (self.q_env_50 * self.A_env + self.V_ATD_50) * self.f_V * self.f_ez
+        return (
+            (self.q_env_50 * self.A_env + self.V_dot_ATD_50)
+            * self.f_V * self.f_ez
+        )
 
     @property
-    def V_env(self) -> float:
+    def V_dot_env(self) -> float:
+        """External airflow rate in m³/h into the ventilation zone through the
+        building envelope, determined taking into consideration the exhaust and
+        supply airflow rates, the demand for combustion air and the airflow rate
+        through additional infiltration. (EN 12831-1 eq. 24)
         """
-        External airflow rate into the ventilation zone through the building
-        envelope, determined taking into consideration the exhaust and supply
-        airflow rates, the demand for combustion air and the airflow rate
-        through additional infiltration.
-        (EN 12831-1 eq. 24)
-        """
-        return max(self.V_exh + self.V_comb - self.V_sup, 0.0) + self.V_inf_add
+        V_dot_env = max(
+            self.V_dot_exh + self.V_dot_comb - self.V_dot_sup,
+            0.0
+        )
+        V_dot_env += self.V_dot_inf_add
+        return V_dot_env
 
     @property
     def a_ATD(self) -> float:
+        """Authority of the ATDs in the zone (i.e., the ratio of airflow rate
+        through ATDs only to the sum of the airflow rates through ATDs and
+        through envelope air infiltration, both at a pressure difference of
+        50 Pa). (EN 12831-1 eq. 22)
         """
-        Authority of the ATDs in the zone (i.e., the ratio of airflow rate
-        through ATDs only to the sum of the airflow rates through ATDs
-        and through envelope air infiltration, both at a pressure difference of
-        50 Pa).
-        (EN 12831-1 eq. 22)
-        """
-        V_leakage_50 = self.q_env_50 * self.A_env
+        V_dot_leakage_50 = self.q_env_50 * self.A_env
         try:
-            return self.V_ATD_50 / (self.V_ATD_50 + V_leakage_50)
+            return self.V_dot_ATD_50 / (self.V_dot_ATD_50 + V_dot_leakage_50)
         except ZeroDivisionError:
             return 0.0
 
     @property
-    def V_leak(self) -> float:
+    def V_dot_leak(self) -> float:
+        """External airflow rate in m³/h into the ventilation zone through
+        leakages (EN 12831-1 eq. 20).
         """
-        External airflow rate into the ventilation zone through leakages.
-        (EN 12831-1 eq. 20)
-        """
-        return (1 - self.a_ATD) * self.V_env
+        return (1 - self.a_ATD) * self.V_dot_env
 
     @property
-    def V_ATD(self) -> float:
+    def V_dot_ATD(self) -> float:
+        """External airflow rate in m³/h into the ventilation zone through ATDs
+        (EN 12831-1 eq. 21).
         """
-        External airflow rate into the ventilation zone through ATDs.
-        (EN 12831-1 eq. 21)
-        """
-        return self.a_ATD * self.V_env
+        return self.a_ATD * self.V_dot_env

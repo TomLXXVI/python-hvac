@@ -5,14 +5,14 @@ from ..cooling_load_calc.core import (
     Material,
     HeatFlowDirection,
     MechanicalFastening,
-    SurfaceLayer,
-    BuildingComponent,
-    AirSpace,
+    SurfaceFilm,
+    SolidLayer,
+    AirLayer,
     ConstructionAssembly,
     WindowThermalProperties
 )
 from ..cooling_load_calc.shelves import (
-    MaterialsShelf,
-    ConstructionAssembliesShelf,
+    MaterialShelf,
+    ConstructionAssemblyShelf,
     WindowPropertiesShelf
 )

@@ -3,33 +3,30 @@ from .core import (
     Geometry,
     HeatFlowDirection,
     MechanicalFastening,
-    BuildingComponent,
-    AirSpace,
-    SurfaceLayer,
+    SurfaceFilm,
+    SolidLayer,
+    AirLayer,
     ConstructionAssembly,
+    WeatherData,
     ExteriorBuildingElement,
-    InteriorBuildingElement,
-    WindowThermalProperties,
     ExteriorShadingDevice,
     InteriorShadingDevice,
-    TemperatureSchedule,
-    OnOffSchedule,
-    OccupancySchedule,
-    InternalHeatGain,
-    PeopleHeatGain,
+    Window,
+    InteriorBuildingElement,
+    Machine,
+    HoodedCookingAppliance,
+    OfficeAppliance,
+    OfficeEquipment,
+    GenericAppliance,
+    LightingFixture,
+    SpaceLighting,
     EquipmentHeatGain,
-    LightingHeatGain
+    LightingHeatGain,
+    PeopleHeatGain
 )
-
 from .building import (
-    Space,
+    ConditionedZone,
+    SpaceVentilation,
     VentilationZone,
-    BuildingEntity,
-    Building
-)
-
-# noinspection PyUnresolvedReferences
-from hvac.climate import (
-    Location,
-    ClimateData
+    UnconditionedZone
 )

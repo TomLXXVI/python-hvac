@@ -10,18 +10,17 @@ Q_ = Quantity
 
 @dataclass
 class ClimateDesignData:
-    """
+    """Holds the climatic design information needed to perform a heating loss
+    calculation (for Belgium: see NBN EN 12831-1 ANB, NA.2 - Table NA.1).
+
     Parameters
     ----------
     T_ext_d: Quantity
-        External design temperature for the considered building
-        (for Belgium: see NBN EN 12831-1 ANB, NA.2 - Table NA.1)
+        External design temperature for the considered building.
     T_ext_an: Quantity
-        Annual mean external temperature
-        (for Belgium: see NBN EN 12831-1 ANB, NA.2 - Table NA.1)
+        Annual mean external temperature.
     T_ext_min: Quantity
-        Average minimal external temperature during the coldest month
-        (for Belgium: see NBN EN 12831-1 ANB, NA.2 - Table NA.1)
+        Average minimal external temperature during the coldest month.
     """
     T_ext_d: Quantity
     T_ext_an: Quantity
@@ -37,8 +36,7 @@ class Building:
 
     @classmethod
     def create(cls, ID: str, climate_data: ClimateDesignData) -> Building:
-        """
-        Creates a new building.
+        """Creates a new building.
 
         Parameters
         ----------
@@ -59,8 +57,7 @@ class Building:
         return self
 
     def add_building_entity(self, ID: str) -> BuildingEntity:
-        """
-        Adds a new building entity to the building.
+        """Adds a new building entity to the building.
 
         Parameters
         ----------
@@ -76,6 +73,9 @@ class Building:
         return be
 
     def get_transmission_heat_loss(self) -> Quantity:
+        """Returns the heat loss of the building due to heat conduction through
+        the building elements.
+        """
         Q_trm = sum(
             be.get_transmission_heat_loss()
             for be in self.building_entities.values()
@@ -83,6 +83,9 @@ class Building:
         return Q_trm
 
     def get_ventilation_heat_loss(self) -> Quantity:
+        """Returns the heat loss of the building due to space ventilation and
+        outdoor air infiltration.
+        """
         Q_ven = sum(
             vz.get_ventilation_heat_loss()
             for be in self.building_entities.values()
@@ -91,6 +94,9 @@ class Building:
         return Q_ven
 
     def get_additional_heating_up_power(self) -> Quantity:
+        """Returns the total heat rate needed to heat-up the spaces in the
+        building after a temperature set-back period.
+        """
         Q_hu = sum(
             be.get_additional_heating_up_power()
             for be in self.building_entities.values()
@@ -98,14 +104,14 @@ class Building:
         return Q_hu
 
     def get_heat_load(self) -> Quantity:
+        """Returns the total heating load of the building."""
         Q_trm = self.get_transmission_heat_loss()
         Q_ven = self.get_ventilation_heat_loss()
         Q_hu = self.get_additional_heating_up_power()
         return Q_trm + Q_ven + Q_hu
 
     def get_summary(self, unit: str = 'kW', n_digits: int = 3) -> pd.DataFrame:
-        """
-        Returns a Pandas Dataframe with an overview of the building entities
+        """Returns a Pandas Dataframe with an overview of the building entities
         in the building.
 
         Parameters

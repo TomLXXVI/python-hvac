@@ -1,7 +1,7 @@
 from .equipment import (
     Machine,
-    HoodedCookingAppliance,
     OfficeAppliance,
+    HoodedCookingAppliance,
     OfficeEquipment,
     GenericAppliance
 )
@@ -10,8 +10,8 @@ from .lighting import (
     SpaceLighting
 )
 from .internal_heat_gains import (
-    InternalHeatGain,
     EquipmentHeatGain,
     LightingHeatGain,
-    PeopleHeatGain
+    PeopleHeatGain,
+    InternalHeatGain
 )
