@@ -26,21 +26,19 @@ A package about air-conditioning processes and systems.
 **cooling_load_calc**<br>
 A package for doing cooling load calculations of a building, based upon ASHRAE's
 Radiant-Times-Series (RTS) method. 
-It uses a lumped linear thermal network model to take the thermal inertia of 
-flat, opaque building components into account. The same network model is also 
-used to implement a simplified model for the internal thermal mass of a space. 
+It uses a lumped capacitance model to take the thermal inertia of flat, opaque 
+building components and the interior thermal mass of a zone into account. 
 
-This package uses the subpackage **climate**, also included in the main package
-`hvac`, for the development of daily temperature profiles from a limited number 
-of climate design parameters. 
-Package **climate** also contains a subpackage **sun** for calculating solar 
-irradiance and irradiation on surfaces, either based on ASHRAE's 
-*Clear-Sky Model*, or based on TMY-data. For calculating the position of the 
-sun, the third-party library `astral` is used.
+This package uses the subpackage **sun**, also included in the main package
+`hvac`. This subpackage is used to calculate the solar radiation incident on 
+exterior surfaces and the solar heat gain through windows.
+Subpackage **sun** implements the equations in chapters 1 and 2 of *Duffie, 
+J. A., Beckman, W. A., & Blair, N. (2020). SOLAR ENGINEERING OF THERMAL 
+PROCESSES, PHOTOVOLTAICS AND WIND. John Wiley & Sons.*
 
 **heating_load_calc**<br>
-A package for doing heating load calculations of a building based on the method 
-of European standard EN 12831-1 (July 2017).
+A package for doing the heating load calculation of a building based on the 
+method of *European standard EN 12831-1 (July 2017)*.
 
 **energy_estimation**<br>
 Estimation of the energy consumption of a building using the bin table method.
@@ -48,7 +46,8 @@ Estimation of the energy consumption of a building using the bin table method.
 **fluid_flow**<br>
 A package about fluid flow in pipes and ducts and for designing and analyzing 
 pipe and duct network systems. It includes a large number of fittings taken 
-from Crane Technical Paper No. 410M and SMACNA's HVAC Systems Duct Design Manual.
+from *Crane's TECHNICAL PAPER NO. 410M* and *SMACNA's HVAC SYSTEMS DUCT DESIGN 
+MANUAL*.
 
 **refrigerant_piping**<br>
 Package for sizing refrigerant lines (suction line, discharge line, and liquid
@@ -57,18 +56,18 @@ line) between an outdoor unit and indoor unit of an air conditioning system.
 **heat_transfer**<br>
 This package implements a number of correlations for calculating convection
 heat transfer coefficients and friction factors for different geometries. Most 
-correlations were taken from the book "Introduction to Engineering Heat Transfer" 
-by G. F. Nellis and S. A. Klein (Cambridge University Press).
+correlations were taken from *Nellis G. F. , & Klein S. A.  (2021). 
+INTRODUCTION TO ENGINEERING HEAT TRANSFER. Cambridge University Press*.
 
 **heat_exchanger**<br>
-Originally (and still) part of the subpackage **heat_transfer**, but a new, 
-rewritten package has also been added directly as a subpackage of the main package
+Originally (and still) part of the subpackage **heat_transfer**, but a rewritten
+package has also been added as a subpackage of the main package
 **hvac**. It implements the effectiveness-NTU method for both dry and wet 
 external heat transfer surfaces, and it contains rating and sizing procedures 
 for some fin-tube heat exchangers, which are applicable to single-phase fluid 
-flow, and which are implementations of the procedures described in the book 
-"Fundamentals of Heat Exchanger Design" by R. K. Shah and D. P. Sekulic 
-(John Wiley & Sons, 2003).
+flow, and which are implementations of the procedures described in *Shah, 
+R. K. , & Sekulic, D. P.  (2003). FUNDAMENTALS OF HEAT EXCHANGER 
+DESIGN. John Wiley & Sons*.
 
 **vapor_compression**<br>
 Furthermore, subpackage `heat_transfer.heat_exchanger.fin_tube` also contains 
