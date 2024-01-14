@@ -271,8 +271,8 @@ class Tube(ABC):
         """Returns the average convection heat transfer coefficient between
         the inlet of the tube and position `x` along the tube.
 
-        In case of laminar flow the value of the heat transfer coefficient will
-        depend on the thermal boundary conditions at the wall surface of the
+        In case the flow is laminar, the value of the heat transfer coefficient
+        will depend on the thermal boundary conditions at the wall surface of the
         tube. Two conditions are considered here for circular and rectangular
         tubes: (1) uniform heat flux along the surface of the tube wall, and (2)
         uniform wall surface temperature. Therefore, two values are returned
@@ -282,7 +282,7 @@ class Tube(ABC):
         the outer wall of the annulus is (perfectly) insulated, while the inner
         wall has a uniform temperature. So, only one value is returned.
 
-        In case of turbulent flow there is also only one value to be returned.
+        In the flow is turbulent, there is also only one value to be returned.
         """
         ...
 

@@ -1,11 +1,11 @@
-"""
-Correlations for the drag coefficient and the average Nusselt number in case
+"""Correlations for the drag coefficient and the average Nusselt number in case
 of external forced convective flow of a fluid past a sphere.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press.
+The correlations were taken from:
+    Nellis G. F., & Klein S. A. (2021)
+    INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+    Cambridge University Press.
 """
-
 from math import pi as PI
 import warnings
 from hvac import Quantity

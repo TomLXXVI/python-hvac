@@ -2,8 +2,10 @@
 Correlations for the drag coefficient and the average Nusselt number of
 forced convective cross flow of a fluid past a cylinder.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press.
+The correlations were taken from:
+    Nellis G. F., & Klein S. A. (2021)
+    INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+    Cambridge University Press.
 """
 
 from hvac import Quantity

@@ -1,14 +1,16 @@
 """Correlations for the drag coefficient and the average Nusselt number in case
 of forced convective cross flow of a gas past non-circular cylinders.
 
-The correlations for average Nusselt number were taken from Incropera, F.P.,
-DeWitt, D.P., Bergman, T.L., and Lavine, A.S. Fundamentals of Heat and Mass
-Transfer. Wiley, 7th edition, 2019.
+The correlations for average Nusselt number were taken from:
+    Incropera, F. P., DeWitt, D. P., Bergman, T. L., & Lavine, A. S. (2019).
+    FUNDAMENTALS OF HEAT AND MASS TRANSFER.
+    Wiley.
 
-The drag coefficients were taken from White, Frank M. Fluid Mechanics. 5th ed.
-New York: McGraw-Hill Education, 2016.
+The drag coefficients were taken from:
+    White, F. M. (2016)
+    FLUID MECHANICS.
+    New York: McGraw-Hill Education.
 """
-
 import warnings
 from abc import ABC
 from hvac import Quantity

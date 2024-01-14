@@ -207,7 +207,7 @@ class Fluid:
         is no other way). The second input state variable can be any valid state
         variable (see the keys of `_coolprop_qties`). The third input state
         variable must be again either P, T or x (but not the same one used for
-        the first input state variable, of course).
+        the first input state variable).
 
         The goal is to find the correct value of the third state variable so
         that at the state defined by the value of this third state variable and
@@ -277,8 +277,8 @@ class Fluid:
         combinations if one of the state variables is P, T or x and the second
         is any other valid state variable. Therefore, it is, however, needed
         that an initial guess is also given for a third state variable, which
-        must be either P, T or x, but of course cannot be equal to the first
-        state variable.
+        must be either P, T or x, but cannot be equal to the first state
+        variable.
 
         Example
         -------

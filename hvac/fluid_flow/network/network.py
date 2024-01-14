@@ -996,7 +996,10 @@ class DuctNetwork(Network):
             f"Δp-dyn. [{units['pressure']}]"
         ]
         table = {header: [] for header in headers}
-        conduits = (conduit for conduit in self.conduits.values() if not isinstance(conduit, PseudoConduit))
+        conduits = (
+            conduit for conduit in self.conduits.values()
+            if not isinstance(conduit, PseudoConduit)
+        )
         for conduit in conduits:
             table[headers[0]].append(conduit.ID)
             table[headers[1]].append(conduit.length.to(units['length']).magnitude)

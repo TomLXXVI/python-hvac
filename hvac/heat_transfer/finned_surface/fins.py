@@ -20,36 +20,36 @@ class Fin(ABC):
 
     @property
     def h_avg(self) -> Quantity:
-        """Get the average heat transfer coefficient between the fin and the
+        """Gets the average heat transfer coefficient between the fin and the
         surrounding fluid.
         """
         return Q_(self._h_avg, 'W / (m ** 2 * K)')
 
     @h_avg.setter
     def h_avg(self, v: Quantity):
-        """Set the average heat transfer coefficient between the fin and the
+        """Sets the average heat transfer coefficient between the fin and the
         surrounding fluid.
         """
         self._h_avg = v.to('W / (m ** 2 * K)').m
 
     @property
     def T_b(self) -> Quantity:
-        """Get the base temperature of the fin."""
+        """Gets the base temperature of the fin."""
         return Q_(self._T_b, 'K')
 
     @T_b.setter
     def T_b(self, v: Quantity) -> None:
-        """Set the base temperature of the fin."""
+        """Sets the base temperature of the fin."""
         self._T_b = v.to('K').m
 
     @property
     def T_fluid(self) -> Quantity:
-        """Get the fluid temperature (at some distance from the fin)."""
+        """Gets the fluid temperature (at some distance from the fin)."""
         return Q_(self._T_fluid, 'K')
 
     @T_fluid.setter
     def T_fluid(self, v: Quantity) -> None:
-        """Set the fluid temperature (at some distance from the fin)."""
+        """Sets the fluid temperature (at some distance from the fin)."""
         self._T_fluid = v.to('K').m
 
     @property
@@ -60,7 +60,7 @@ class Fin(ABC):
     @property
     @abstractmethod
     def surface_area(self) -> Quantity:
-        """Get the surface area of the fin involved in the heat transfer between
+        """Gets the surface area of the fin involved in the heat transfer between
         the fin and the surrounding fluid (fin tip included).
         """
         ...
@@ -68,7 +68,7 @@ class Fin(ABC):
     @property
     @abstractmethod
     def efficiency(self) -> float:
-        """Get the fin efficiency, i.e. the ratio of the actual heat transfer
+        """Gets the fin efficiency, i.e. the ratio of the actual heat transfer
         rate between the fin and the surrounding fluid to the heat transfer rate
         that would occur if the fin is at a uniform temperature equal to the
         base temperature."""
@@ -76,7 +76,7 @@ class Fin(ABC):
 
     @property
     def resistance(self) -> Quantity:
-        """Get the fin thermal resistance."""
+        """Gets the fin thermal resistance."""
         eta_fin = self.efficiency
         A_f = self.surface_area.m
         R_f = 1 / (eta_fin * self._h_avg * A_f)
@@ -84,7 +84,7 @@ class Fin(ABC):
 
     @property
     def heat_transfer(self) -> Quantity:
-        """Get the heat transfer between the fin and the surrounding
+        """Gets the heat transfer between the fin and the surrounding
         fluid.
         """
         R = self.resistance.m
@@ -94,12 +94,12 @@ class Fin(ABC):
     @property
     @abstractmethod
     def base_area(self) -> Quantity:
-        """Get the cross-sectional area of the fin base."""
+        """Gets the cross-sectional area of the fin base."""
         ...
 
     @property
     def effectiveness(self) -> float:
-        """Get the fin effectiveness, i.e. the ratio of the actual heat transfer
+        """Gets the fin effectiveness, i.e. the ratio of the actual heat transfer
         rate to the heat transfer rate that would occur without fin."""
         A_f = self.surface_area.m
         A_b = self.base_area.m
@@ -524,6 +524,6 @@ class PlainContinuousFin(Fin):
 
     @property
     def base_area(self) -> Quantity:
-        """Get the cross-sectional area of the fin base."""
+        """Gets the cross-sectional area of the fin base."""
         A_b = 2 * np.pi * self._r_i * self._t
         return Q_(A_b, 'm ** 2')

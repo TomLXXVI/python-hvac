@@ -2,8 +2,10 @@
 Correlations for local and average friction factor and Nusselt number in case
 of external forced convective fluid flow parallel along a flat plate.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press.
+The correlations were taken from:
+    Nellis G. F., & Klein S. A. (2021)
+    INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+    Cambridge University Press.
 """
 import math
 from scipy.optimize import root_scalar

@@ -30,14 +30,14 @@ class FinnedSurface:
 
     @property
     def h_avg(self) -> Quantity:
-        """Get the average heat transfer coefficient between the finned surface
+        """Gets the average heat transfer coefficient between the finned surface
         and the surrounding fluid.
         """
         return Q_(self._h_avg, 'W / (m ** 2 * K)')
 
     @h_avg.setter
     def h_avg(self, v: Quantity) -> None:
-        """Set the average heat transfer coefficient between the finned surface
+        """Sets the average heat transfer coefficient between the finned surface
         and the surrounding fluid.
         """
         self._h_avg = v.to('W / (m ** 2 * K)').m
@@ -45,31 +45,31 @@ class FinnedSurface:
 
     @property
     def T_b(self) -> Quantity:
-        """Get the base temperature of the finned surface."""
+        """Gets the base temperature of the finned surface."""
         return Q_(self._T_b, 'K')
 
     @T_b.setter
     def T_b(self, v: Quantity) -> None:
-        """Set the base temperature of the finned surface."""
+        """Sets the base temperature of the finned surface."""
         self._T_b = v.to('K').m
 
     @property
     def T_fluid(self) -> Quantity:
-        """Get the temperature of the fluid (at some distance from the finned
+        """Gets the temperature of the fluid (at some distance from the finned
         surface).
         """
         return Q_(self._T_fluid, 'K')
 
     @T_fluid.setter
     def T_fluid(self, v: Quantity) -> None:
-        """Set the temperature of the fluid (at some distance from the finned
+        """Sets the temperature of the fluid (at some distance from the finned
          surface).
          """
         self._T_fluid = v.to('K').m
 
     @property
     def resistance(self) -> Quantity:
-        """Get the thermal resistance between the finned surface and the
+        """Gets the thermal resistance between the finned surface and the
         surrounding fluid."""
         eta_fin = self.fin.efficiency
         U = self._h_avg * (eta_fin * self.A_f.m + self.A_p.m)
@@ -78,7 +78,7 @@ class FinnedSurface:
 
     @property
     def heat_transfer(self) -> Quantity:
-        """Get the heat transfer between the finned surface and the surrounding
+        """Gets the heat transfer between the finned surface and the surrounding
         fluid."""
         R = self.resistance.m
         Q = (self._T_b - self._T_fluid) / R
@@ -86,7 +86,7 @@ class FinnedSurface:
 
     @property
     def efficiency(self) -> float:
-        """Get the overall surface efficiency of the finned surface, i.e. the
+        """Gets the overall surface efficiency of the finned surface, i.e. the
         ratio between the actual heat transfer and the heat transfer that would
         occur if the finned surface had a uniform temperature equal to the base
         temperature."""
