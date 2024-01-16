@@ -154,7 +154,7 @@ class Network(ABC):
     def __init__(self):
         self.ID: str = ''
         self.start_node: Node = Node()
-        self.end_node: Optional[Node] = None
+        self.end_node: Node = Node()
         self.fluid: FluidState = STANDARD_AIR
         self.ambient_air: FluidState = STANDARD_AIR
         self.wall_roughness: Quantity = Q_(0.09, 'mm')
@@ -175,7 +175,7 @@ class Network(ABC):
         schedule: Optional[TSchedule] = None,
         start_node_ID: str = '',
         start_node_height: Quantity = Q_(0.0, 'm'),
-        end_node_ID: Optional[str] = None,
+        end_node_ID: str = '',
         end_node_height: Quantity = Q_(0.0, 'm'),
         units: Optional[Dict[str, str]] = None
     ) -> 'Network':
@@ -206,7 +206,7 @@ class Network(ABC):
         start_node_height: default 0 m
             Height of the start node with respect to a reference plane to
             which the heights of all network nodes are referred to.
-        end_node_ID: optional
+        end_node_ID:
             ID of the network's end node.
         end_node_height: default 0 m
             Height of the end node referred to the same reference plane as the
