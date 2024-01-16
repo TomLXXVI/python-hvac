@@ -1,6 +1,6 @@
 """
 In this script, we want to determine the mass flow rate of water through a given
-air-to-water cooling coil that is needed to arrive at a given target temperature
+air-to-water cooling coil that is needed to reach a given target temperature
 of the air leaving the cooling coil.
 """
 from scipy import optimize

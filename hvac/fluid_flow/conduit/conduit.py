@@ -407,7 +407,11 @@ class Conduit(AbstractConduit):
         """Darcy friction factor acc. to correlation of Serghide."""
         if Re > 0.0:
             f1 = -2.0 * math.log10(e / 3.7 + 12.0 / Re)
-            f2 = -2.0 * math.log10(e / 3.7 + 2.51 * f1 / Re)
+            try:
+                f2 = -2.0 * math.log10(e / 3.7 + 2.51 * f1 / Re)
+            except ValueError as err:
+                print('Oops!')
+                raise err
             f3 = -2.0 * math.log10(e / 3.7 + 2.51 * f2 / Re)
             f = (f1 - (f2 - f1) ** 2.0 / (f3 - 2.0 * f2 + f1)) ** -2.0
             return f
@@ -715,7 +719,11 @@ class Loop(List[AbstractConduit]):
         for conduit in self:
             n += conduit.numerator
             d += conduit.denominator
-        self.correction_term = n / d
+        try:
+            self.correction_term = n / d
+        except ZeroDivisionError as err:
+            print('Oops!')
+            raise err
 
     @property
     def pressure_drop(self) -> Quantity:

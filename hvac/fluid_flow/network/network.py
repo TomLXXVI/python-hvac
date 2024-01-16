@@ -1,3 +1,4 @@
+import warnings
 from typing import Dict, List, Optional, Tuple, Union
 from abc import ABC
 # import threading
@@ -22,6 +23,13 @@ Air = Fluid('Air')
 STANDARD_AIR = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 
 
+class AnalysisWarning(Warning):
+    """Warning for when the maximum number of iterations has been reached during
+    the analysis of a network with the Hardy Cross method.
+    """
+    pass
+
+
 def pretty_unit(unit: str) -> str:
     """Returns the prettified form of the given unit."""
     q = Quantity(0, unit)
@@ -33,7 +41,6 @@ class FlowPath(List[TConduit]):
     """Class derived from `list` representing a flow path between the start
     and end node of a network.
     """
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ambient_air: FluidState = STANDARD_AIR
@@ -65,7 +72,11 @@ class FlowPath(List[TConduit]):
         or chimney effect) due to any height difference between the start and
         end node of the flow path.
         """
-        first_node = self.conduits[0].start_node
+        try:
+            first_node = self.conduits[0].start_node
+        except IndexError as err:
+            print('Oops')
+            raise err
         last_node = self.conduits[-1].end_node
         z1 = first_node.height.to('m')
         z2 = last_node.height.to('m')
@@ -263,8 +274,8 @@ class Network(ABC):
             Identifier to identify the loop or loops to which a conduit belongs
             in a network. A conduit can belong to 2 loops maximum.
         zeta: optional
-            The sum of the resistance coefficients of all fittings present in
-            the conduit.
+            The sum of the resistance coefficients of all fittings and valves
+            present in the conduit.
         """
         conduit.ID = conduit_ID
         if isinstance(zeta, float) and isinstance(conduit, Conduit):
@@ -304,11 +315,17 @@ class Network(ABC):
                     self.loops[loop_ID[0]],
                     self.loops[loop_ID[1]]
                 ]
-                conduit_duplicate = Conduit.duplicate(
-                    conduit,
-                    flow_sign=conduit.flow_sign.reverse()
-                    # flow sign in the other loop is opposite to the first loop
-                )
+                if isinstance(conduit, Conduit):
+                    conduit_duplicate = Conduit.duplicate(
+                        conduit,
+                        flow_sign=conduit.flow_sign.reverse()
+                        # flow sign in the other loop is opposite to the first loop
+                    )
+                else:
+                    conduit_duplicate = PseudoConduit.duplicate(
+                        conduit,
+                        flow_sign=conduit.flow_sign.reverse()
+                    )
                 other_loop.append(conduit_duplicate)
                 conduit_duplicate.loops = [
                     self.loops[loop_ID[1]],
@@ -346,7 +363,6 @@ class Network(ABC):
                         correction_term = loop.correction_term - other_loop.correction_term
                     else:
                         correction_term = loop.correction_term
-
                     # calculate new flow rate of the section
                     if conduit.flow_sign == FlowSign.COUNTERCLOCKWISE:
                         conduit.volume_flow_rate += correction_term
@@ -396,7 +412,12 @@ class Network(ABC):
             self._hardy_cross_algorithm()
             i += 1
             if i > i_max:
-                raise OverflowError(f'no solution after {i_max} iterations')
+                warnings.warn(
+                    'Tolerance could not be reached for '
+                    f'all loops after {i_max} iterations',
+                    category=AnalysisWarning
+                )
+                break
         return i
 
     # def _find_flow_paths(self):
@@ -428,10 +449,10 @@ class Network(ABC):
         self._recursive_path_search(node, path)
 
     def _recursive_path_search(self, node: Node, path: FlowPath) -> None:
-        while True:
+        while node.ID != self.end_node.ID:
             if len(node.outgoing) > 1:
                 for conduit in node.outgoing[1:]:
-                    if conduit not in path:
+                    if conduit not in path and not isinstance(conduit, PseudoConduit):
                         new_flow_path = FlowPath(path)
                         new_flow_path.ambient_air = self.ambient_air
                         self._flow_paths.append(new_flow_path)
@@ -445,7 +466,7 @@ class Network(ABC):
             except IndexError:
                 return
             else:
-                if conduit not in path:
+                if conduit not in path and not isinstance(conduit, PseudoConduit):
                     path.append(conduit)
                     node = self.nodes[conduit.end_node.ID]
                 else:
@@ -619,33 +640,134 @@ class Network(ABC):
         Loads a network configuration from a csv-file and creates the network.
 
         Available column titles:
-        * 'conduit_ID': mandatory
-        * 'start_node_ID': mandatory
-        - 'start_node_height': optional
-        * 'end_node_ID': mandatory
-        - 'end_node_height': optional
-        - 'loop_ID': optional
-        - 'zeta': optional
-        - 'shape': optional (possible values: 'circular', 'rectangular', or 'flat-oval')
-        - 'diameter': optional
-        - 'nominal_diameter': optional
-        - 'width': optional
-        - 'height': optional
-        * 'length': mandatory
-        - 'wall_roughness': optional
-        - 'volume_flow_rate': optional
-        - 'pressure_drop': optional
-        - 'specific_pressure_drop': optional
-        - 'machine_coefficients': optional
-        - 'fixed_pressure_difference': optional
-        - 'schedule': optional
-            Name of the pipe or duct schedule to be used to size the pipe/duct.
-            This schedule must already be available at runtime in the
-            `PipeScheduleFactory` or `DuctScheduleFactory`. So before calling
-            `load_from_csv`, the schedules that will be used must be loaded
-            in the `PipeScheduleFactory` (in case a `PipeNetwork` instance will
-            be created) or `DuctScheduleFactory` (in case a `DuctNetwork`
-            instance will be created).
+        ** 'conduit_ID': text, mandatory
+                The ID of the conduit in the network.
+        ** 'start_node_ID': text, mandatory
+                The ID of the start node of the conduit. The start node is
+                the endpoint of the conduit where fluid enters the conduit.
+        - 'start_node_height': number, optional
+                The height of the start node above a fixed reference plane
+                (the height of all nodes in the network must be referred to this
+                reference plane). The measuring unit is to be specified via
+                parameter `units` when calling the class method `create` of the
+                `PipeNetwork` or `DuctNetwork` class.
+                The height of the nodes is only meaningful when designing or
+                analyzing so called "open networks".
+        ** 'end_node_ID': text, mandatory
+                The ID of the end node of the conduit. The end node is
+                the endpoint of the conduit where fluid leaves the conduit.
+        - 'end_node_height': number, optional
+                See 'start_node_height'
+        - 'loop_ID': text, optional
+                The ID of the loop to which the conduit belongs. In case the
+                conduit belongs to two loops, this must be specified like so:
+                (L1, L2). The loop IDs must be placed between parentheses and
+                are separated by a comma (just like a tuple in Python).
+                The loop IDs must be specified if you want to analyze a pipe or
+                duct network.
+        - 'zeta': number, optional
+                The global resistance coefficient of all fittings and valves
+                in the conduit. The zeta-value of a fitting relates the pressure
+                drop across the fitting to the volume flow rate through the 
+                fitting in the equation `dP = zeta * rho * v**2 / 2` where `dP` 
+                is the pressure drop expressed in 'Pa', `rho` is the mass 
+                density of the fluid expressed in 'kg / m**3', and `v` is the 
+                flow velocity expressed in 'm / s'.
+        - 'shape': text, optional {'circular', 'rectangular', or 'flat-oval'}
+                The shape of the cross-section. If `shape` is not given a
+                circular cross-section is assumed.
+        - 'diameter': number, optional
+                The inner diameter of the circular conduit. The measuring unit 
+                is to be specified via parameter `units` when calling the class 
+                method `create` of the `PipeNetwork` or `DuctNetwork` class.
+        - 'nominal_diameter': number, optional
+                The nominal diameter of the circular conduit. The measuring unit 
+                is to be specified via parameter `units` when calling the class 
+                method `create` of the `PipeNetwork` or `DuctNetwork` class.
+                When the nominal diameter is specified, the pipe or duct 
+                schedule must also be specified, either individually for the
+                conduit, or globally for all conduits in the network (see more
+                on this below in the explanation about column 'schedule').
+        - 'width': number, optional
+                The width of the cross-section in case of a rectangular or 
+                flat-oval conduit. The measuring unit is to be specified via 
+                parameter `units` when calling the class method `create` of the 
+                `PipeNetwork` or `DuctNetwork` class.
+        - 'height': number, optional
+                The height of the cross-section in case of a rectangular or 
+                flat-oval conduit. The measuring unit is to be specified via 
+                parameter `units` when calling the class method `create` of the 
+                `PipeNetwork` or `DuctNetwork` class.
+        ** 'length': number, mandatory
+                The length of the conduit. The measuring unit is to be specified
+                via parameter `units` when calling the class method `create` of 
+                the `PipeNetwork` or `DuctNetwork` class.
+        - 'wall_roughness': number, optional
+                The absolute conduit wall roughness. The measuring unit is to be
+                specified via parameter `units` when calling the class method 
+                `create` of the `PipeNetwork` or `DuctNetwork` class. If the
+                same wall roughness applies to all conduits in the network, this
+                value can also be specified via the class method `create` of the 
+                `PipeNetwork` or `DuctNetwork` class.
+        - 'volume_flow_rate': number, optional
+                The volume flow rate through the conduit. The measuring unit is 
+                to be specified via parameter `units` when calling the class 
+                method `create` of the `PipeNetwork` or `DuctNetwork` class.
+                If the volume flow rate through the conduits is still unknown,
+                this column must be omitted in the csv-file.
+                When analyzing the network with the Hardy Cross method, the
+                sign of the volume flow rates is coupled to the loop sense,
+                which by convention is taken to be clockwise. If the flow sense
+                in a conduit is opposite to the loop sense, the volume flow rate
+                must be a negative number. In case of a conduit that is common
+                to two loops, the sign of the volume flow rate through the
+                conduit is referred to the loop first mentioned.
+        - 'pressure_drop': number, optional
+                The pressure loss across the conduit. The measuring unit is
+                to be specified via parameter `units` when calling the class
+                method `create` of the `PipeNetwork` or `DuctNetwork` class.
+                If the pressure drop across the conduits is still unknown,
+                this column must be omitted in the csv-file.
+        - 'specific_pressure_drop': number, optional
+                The pressure loss per unit length of the conduit. The measuring
+                unit is to be specified via parameter `units` when calling the
+                class method `create` of the `PipeNetwork` or `DuctNetwork`
+                class.
+                The specific pressure drop is used by the equal friction method
+                to size ducts given the design volume flow rates through the
+                ducts.
+        - 'machine_coefficients': text, optional
+                Pump or fan curves are modeled using a second order polynomial
+                `dP = a0 + a1 * V_dot + a2 * V_dot**2`. In case a conduit has
+                a pump or fan, the polynomial coefficients (which can be
+                determined by curve fitting; see class `PumpCurve` in module
+                `utils.py`) can be specified like so: (a0, a1, a2). The
+                coefficients must be placed between parentheses and are
+                separated by a comma (just like a tuple in Python). The
+                coefficients must be ordered from left to right from zero order
+                a0 to second order a2.
+        - 'fixed_pressure_difference': number, optional
+                This only applies to "pseudo conduits", which are used to close
+                loops when analyzing open networks with the Hardy Cross method.
+                The measuring unit is to be specified via parameter `units` when
+                calling the class method `create` of the `PipeNetwork` or
+                `DuctNetwork` class.
+        - 'schedule': text, optional
+                ID of the pipe or duct schedule used to size the pipe or
+                duct. This schedule must already be defined before calling the
+                method `load_from_csv`. The schedules are held in the
+                `PipeScheduleFactory` (in case a `PipeNetwork` instance will
+                be created) or in the `DuctScheduleFactory` (in case a
+                `DuctNetwork` instance will be created).
+                If all the conduits in the network have the same schedule,
+                column `schedule` can be omitted and the schedule can be
+                assigned when calling the class method `create` of the
+                `PipeNetwork` or `DuctNetwork` class.
+
+        Notes
+        -----
+        The decimal sign used in a csv-file must always be a decimal point,
+        never a comma.
         """
         self._clear()
         with open(file_path) as f:

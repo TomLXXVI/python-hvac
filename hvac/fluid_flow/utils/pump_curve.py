@@ -30,7 +30,7 @@ class PumpCurve:
         Parameters
         ----------
         coeffs:
-            Sequence of the 3 polynomial coefficients of the pump curve model,
+            List of the 3 polynomial coefficients of the pump curve model,
             ordered left to right from zeroth to second order (a0, a1, a2).
         name: optional
             A label to identify the pump curve.
@@ -120,8 +120,9 @@ class PumpCurve:
     ) -> tuple[Quantity, Quantity]:
         """Returns a tuple (`V_ax`, `dP_ax`) of the pump curve coordinates.
         `V_ax` contains a range of volume flow rates (encapsulated within a single
-        `Quantity` object) and `dP_ax` contains the range of corresponding
-        pump pressure differentials.
+        `Quantity` object, i.e. a `Quantity` array) and `dP_ax` contains the
+        range of corresponding pump pressure differentials (also a `Quantity`
+        array).
 
         Parameters
         ----------

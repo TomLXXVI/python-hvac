@@ -23,4 +23,4 @@ from .schedule import (
 
 from .network import PipeNetwork, DuctNetwork, save_network, load_network
 
-from .utils import SystemCurve, PumpCurve
+from .utils import SystemCurve, PumpCurve, plot_curves

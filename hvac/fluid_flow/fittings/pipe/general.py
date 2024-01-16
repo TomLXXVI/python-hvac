@@ -110,7 +110,8 @@ class ResistanceCoefficient:
         Parameters
         ----------
         Av:
-            The flow coefficient of the valve based on SI base units.
+            The flow coefficient of the valve based on SI base units (volume
+            flow rate in m³/s, pressure drop in Pa, and mass density in kg/m³).
         diameter:
             The inner diameter of the pipe to which the velocity pressure
             applies.
@@ -139,7 +140,7 @@ class ResistanceCoefficient:
     @staticmethod
     def from_ELR(ELR: float, diameter: Quantity) -> float:
         """Converts the 'Equivalent Length Ratio' (ELR) of a fitting to its
-        equivalent resistance coefficient.
+        equivalent resistance coefficient (see Crane's TP 410M).
 
         Parameters
         ----------
@@ -188,13 +189,33 @@ class PipeFitting(AbstractFitting):
         zeta_d: optional
             A third resistance coefficient of the same fitting (see 3K-method).
         ELR: optional
-            The 'Equivalent Length Ratio' of the fitting (see Crane's TP 410M).
+            The 'Equivalent Length Ratio' of the fitting.
 
         Notes
         -----
-        If `zeta_inf` or `zeta_d` is specified, then `zeta`, `zeta_inf`, and
+        1. Zeta-values are of type float. They are used to relate the pressure
+        drop across the fitting to the volume flow rate through the fitting in
+        the equation `dP = zeta * rho * v**2 / 2` where `dP` is the pressure drop
+        expressed in 'Pa', `rho` is the mass density of the fluid expressed in
+        'kg / m**3', and `v` is the flow velocity expressed in 'm / s'.
+
+        2. If `zeta_inf` or `zeta_d` is specified, then `zeta`, `zeta_inf`, and
         `zeta_d` must all be specified, to calculate the pressure drop across
-        the fitting.
+        the fitting using the 3K-method.
+
+        3. Kv-values are of type float. They are used to relate the volume flow
+        rate through a valve to the pressure drop across a valve in the equation
+        `V_dot = Kv * math.sqrt(dP / (rho/rho_w_15))` where `V_dot` is the volume
+        flow rate through the valve expressed in 'm**3 / hr', `dP` is the
+        pressure drop across the valve expressed in `bar`, and `rho/rho_w_15` is
+        the specific gravity of the fluid, being the ratio of the mass density
+        `rho` of the fluid to the mass density `rho_w_15` of water at standard
+        pressure (101_325 Pa) and a temperature of 15 °C.
+
+        4. ELR-values are of type float. ELR relates the resistance coefficient
+        `zeta` to the Darcy friction factor for fully turbulent flow:
+        `zeta = ELR * fT` where fT is the Darcy friction factor for fully
+        turbulent flow (see Crane's TP 410M).
         """
         super().__init__(ID)
         self.pipe = pipe
