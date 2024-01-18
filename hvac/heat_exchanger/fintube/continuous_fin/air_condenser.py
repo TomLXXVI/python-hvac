@@ -1112,7 +1112,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         rfg_m_dot:
             Mass flow rate of refrigerant through the condenser.
         L_flow_sub_min: optional
-            The smallest subcooling flow length to try with. By default, 1 mm.
+            The smallest subcooling flow length to try with. By default, 0.1 mm.
         x_tol: optional
             Absolute tolerance for root-finding algorithm
             (`scipy.optimize.root_scalar` with 'brentq' method).
