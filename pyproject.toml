@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-hvac"
-version = "0.1.0"
+version = "0.1.1"
 description = "A package for HVAC engineering"
 authors = ["Tom Christiaens <tom.chr@proximus.be>"]
 readme = "README.md"

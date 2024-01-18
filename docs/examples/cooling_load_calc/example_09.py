@@ -24,7 +24,7 @@ instantiate an object of class `SomeAirCoil`, representing the air-cooling
 coil being installed in the zone. For solving the energy balance of the zone for
 the zone air temperature at each hour of the considered day, we will call the
 method on the `SomeAirCoil` instance to get the rate at which the air-cooling
-coil will extract heat from the zone air.
+coil extracts heat from the zone air.
 
 Notes
 -----
@@ -44,7 +44,7 @@ temperature at the previous time moment `t - dt`.
 import numpy as np
 import pandas as pd
 from hvac import Quantity
-from hvac.fluids import Fluid, HumidAir
+from hvac.fluids import Fluid, FluidState, HumidAir
 from hvac.heat_exchanger.fintube.continuous_fin import (
     PlainFinTubeAirToWaterCounterFlowHeatExchanger as AirCoil
 )
@@ -71,24 +71,8 @@ class SomeAirCoil:
     returns the cooling capacity of this air-cooling coil for a given zone air
     temperature at the air inlet of the air-cooling coil.
     """
-    def __init__(
-        self,
-        T_w_in: Quantity,
-        V_dot_w: Quantity,
-        V_dot_a: Quantity
-    ) -> None:
-        """Creates the model of the air-cooling coil and sets the operating
-        conditions of this air-cooling coil which are regarded to be fixed.
-
-        Parameters
-        ----------
-        T_w_in:
-            The entering water temperature.
-        V_dot_w:
-            The volume flow rate of water through the air-cooling coil.
-        V_dot_a:
-            The volume flow rate of air through the air-cooling coil.
-        """
+    def __init__(self) -> None:
+        """Creates the model of the air-cooling coil."""
         self.air_coil = AirCoil(
             width=Q_(900, 'mm'),
             height=Q_(180, 'mm'),
@@ -101,12 +85,33 @@ class SomeAirCoil:
             fin_density=1 / Q_(3.175, 'mm'),
             num_circuits=2
         )
+        self.water_in: FluidState | None = None
+        self.m_dot_w: Quantity | None = None
+        self.V_dot_a: Quantity | None = None
+        # Internal assumption: the relative humidity of the entering air is
+        # always 50 %.
+        self.RH_a_in: Quantity = Q_(50, 'pct')
+
+    def set_fixed_operating_conditions(
+        self,
+        T_w_in: Quantity,
+        V_dot_w: Quantity,
+        V_dot_a: Quantity
+    ) -> None:
+        """Sets the fixed operating conditions of the air-cooling coil.
+
+        Parameters
+        ----------
+        T_w_in:
+            The entering water temperature.
+        V_dot_w:
+            The volume flow rate of water through the air-cooling coil.
+        V_dot_a:
+            The volume flow rate of air through the air-cooling coil.
+        """
         self.water_in = Water(T=T_w_in, P=Q_(2, 'bar'))
         self.m_dot_w = V_dot_w * self.water_in.rho
         self.V_dot_a = V_dot_a
-        # Internal assumption: the relative humidity of the entering air is
-        # always 50 %.
-        self.RH_a_in = Q_(50, 'pct')
 
     def Q_dot_fun(self, T_a_in: Quantity) -> Quantity:
         """Returns the cooling capacity of the air-cooling coil for a given
@@ -311,39 +316,16 @@ class SomeZone:
             )
             return roof
 
-    def __init__(self):
-        """Creates the `UnconditionedZone` object and the `SomeAirCoil` object,
-        modeling the single-zone building equipped with an air-cooling coil.
+    def __init__(self, weather_data: WeatherData) -> None:
+        """Creates the `UnconditionedZone` object and the `SomeAirCoil` object
+        to model the single-zone building, equipped with an air-cooling coil.
         """
-        # SET THE GEOGRAPHIC LOCATION:
-
-        location = Location(
-            fi=Q_(51.183, 'deg'),
-            L_loc=Q_(3.8, 'deg'),
-            altitude=Q_(8, 'm'),
-            climate_type=ClimateType.MID_LATITUDE_SUMMER,
-            timezone='Etc/GMT-1'
-        )
-
-        # CREATE THE WEATHER DATA:
-
-        weather_data = WeatherData.create_from_climatic_design_data(
-            location=location,
-            date=ReferenceDates.get_date_for('Jul'),  # take the reference date for July
-            # use the climatic design information from ASHRAE 2017 (chapter 14)
-            # for the given location:
-            T_db_des=Q_(26.7, 'degC'),
-            T_db_rng=Q_(11.3, 'K'),
-            T_wb_mc=Q_(19.2, 'degC'),
-            T_wb_rng=Q_(4.7, 'K')
-        )
-
-        # CREATE THE `UnconditionedZone` OBJECT:
-
         width = Q_(10, 'm')   # interior width of the space
         length = Q_(10, 'm')  # interior length of the space
+        height = Q_(3, 'm')   # interior height of the space
+
         floor_area = width * length
-        height = Q_(3, 'm')  # interior height of the space
+
         self.zone = UnconditionedZone.create(
             ID='zone',
             weather_data=weather_data,
@@ -355,17 +337,20 @@ class SomeZone:
             A_tsn=floor_area,
             R_tsn=Q_(0.015, 'K * m**2 / W')
             # unit thermal resistance between the interior thermal mass and
-            # the zone air (determined by the kind of floor covering and
-            # convective thermal resistance)
+            # the zone air (determined by the kind of floor covering and the
+            # convective thermal resistance between the floor and zone air)
         )
+
         h_wall = height + Q_(0.5, 'm')  # exterior height of the space
         w_wall = width + Q_(0.5, 'm')   # exterior width of the space
         l_wall = length + Q_(0.5, 'm')  # exterior length of the space
-        # determine the gross area of the exterior building elements:
+
+        # Set the gross area of the exterior building elements:
         gross_area_wall_1 = h_wall * w_wall
         gross_area_wall_2 = h_wall * l_wall
         gross_area_roof = w_wall * l_wall
-        # create the exterior building elements:
+
+        # Create the exterior building elements:
         ext_build_elems = SomeZone.ExteriorBuildingElements(
             weather_data=weather_data,
             T_zone_des=Q_(24, 'degC'),
@@ -375,7 +360,8 @@ class SomeZone:
             gross_area_ew=gross_area_wall_2,
             gross_area_rf=gross_area_roof
         )
-        # add the exterior building elements to the zone:
+
+        # Add the exterior building elements to the zone:
         self.zone.add_ext_build_elem([
             ext_build_elems.south_wall,
             ext_build_elems.west_wall,
@@ -383,25 +369,20 @@ class SomeZone:
             ext_build_elems.east_wall,
             ext_build_elems.roof
         ])
-        # add default space ventilation to the zone:
+
+        # Add default space ventilation to the zone:
         self.zone.add_ventilation()
 
-        # CREATE THE AIR-COOLING COIL IN THE ZONE AND SET THE FIXED OPERATING
-        # CONDITIONS OF THIS COIL:
-
-        self.air_coil = SomeAirCoil(
-            T_w_in=Q_(7, 'degC'),
-            V_dot_w=Q_(853.02, 'L / hr'),
-            V_dot_a=Q_(850, 'm**3 / hr')
-        )
+        # Create the air-cooling coil in the zone:
+        self.air_coil: SomeAirCoil = SomeAirCoil()
 
     # noinspection PyUnusedLocal
     def _Q_dot_sys_fun(self, t_sol_sec: float, T_zone: float) -> Quantity:
-        """This function object will be passed to the thermal zone model and
-        it will be called internally by it. The expected function signature must
-        have the following arguments: solar time in seconds from midnight (0 s)
-        (a float) and the zone air temperature in degrees Kelvin (also a float).
-        This function needs to return the cooling capacity of the air-cooling
+        """This function is passed to the thermal zone model and will be called
+        internally by it. The signature of this function must have the following
+        two arguments: (1) solar time in seconds from midnight (0 s)
+        (a float), and (2) the zone air temperature in degrees Kelvin (also a
+        float). The function must return the cooling capacity of the air-cooling
         coil as a `Quantity` object.
         """
         # noinspection PyBroadException
@@ -412,11 +393,26 @@ class SomeZone:
         else:
             return Q_dot.to('W')
 
-    def solve(self) -> pd.DataFrame:
-        """Calculates the value of the zone air temperature and the values of
-        the heat gains in the zone at each hour of the selected day and returns
-        the results in Pandas DataFrame table.
+    def solve(
+        self,
+        T_w_in: Quantity,
+        V_dot_w: Quantity,
+        V_dot_a: Quantity
+    ) -> pd.DataFrame:
+        """Calculates the zone air temperature and the heat gains in the zone at
+        each hour of the selected day and returns the results in a Pandas
+        DataFrame table.
+
+        Parameters
+        ----------
+        T_w_in:
+            The entering water temperature.
+        V_dot_w:
+            The volume flow rate of water through the air-cooling coil.
+        V_dot_a:
+            The volume flow rate of air through the air-cooling coil.
         """
+        self.air_coil.set_fixed_operating_conditions(T_w_in, V_dot_w, V_dot_a)
         self.zone.solve(
             F_rad=Q_(0.46, 'frac'),
             Q_dot_sys_fun=self._Q_dot_sys_fun,
@@ -432,22 +428,71 @@ def main_01():
     coil and prints the table with the zone air temperatures and heat gains
     at each hour of the considered day of the year.
     """
-    zone = SomeZone()
-    df = zone.solve()
+    # Define the geographic location of the building:
+    location = Location(
+        fi=Q_(51.183, 'deg'),
+        L_loc=Q_(3.8, 'deg'),
+        altitude=Q_(8, 'm'),
+        climate_type=ClimateType.MID_LATITUDE_SUMMER,
+        timezone='Etc/GMT-1'
+    )
+
+    # Create the weather data using the climatic design information found in
+    # the ASHRAE 2017 climate data tables for the given location:
+    weather_data = WeatherData.create_from_climatic_design_data(
+        location=location,
+        date=ReferenceDates.get_date_for('Jul'),  # take the reference date for July
+        T_db_des=Q_(26.7, 'degC'),
+        T_db_rng=Q_(11.3, 'K'),
+        T_wb_mc=Q_(19.2, 'degC'),
+        T_wb_rng=Q_(4.7, 'K')
+    )
+
+    # Create the thermal model of our zone:
+    zone = SomeZone(weather_data)
+
+    # Solve the thermal model for the zone air temperature and heat gains at
+    # each hour of the selected day:
+    # Entering water temperature (EWT) 7 °C:
+    df_7 = zone.solve(
+        T_w_in=Q_(7, 'degC'),
+        V_dot_w=Q_(853.02, 'L / hr'),
+        V_dot_a=Q_(850, 'm**3 / hr')
+    )
     with pd.option_context(
         'display.max_rows', None,
         'display.max_columns', None,
         'display.width', 800
     ):
-        print(df)
+        print(df_7)
+    # Entering water temperature (EWT) 12 °C:
+    df_12 = zone.solve(
+        T_w_in=Q_(12, 'degC'),
+        V_dot_w=Q_(853.02, 'L / hr'),
+        V_dot_a=Q_(850, 'm**3 / hr')
+    )
+    with pd.option_context(
+        'display.max_rows', None,
+        'display.max_columns', None,
+        'display.width', 800
+    ):
+        print(df_12)
 
+    # Plot a line chart with the zone air temperature for EWT 7°C and EWT 12 °C:
     chart = LineChart()
     chart.add_xy_data(
-        label='T_zone',
-        x1_values=df.index,
-        y1_values=df['T_zone'],
+        label='EWT 7°C',
+        x1_values=df_7.index,
+        y1_values=df_7['T_zone'],
         style_props={'marker': 'o'}
     )
+    chart.add_xy_data(
+        label='EWT 12°C',
+        x1_values=df_12.index,
+        y1_values=df_12['T_zone'],
+        style_props={'marker': 'o'}
+    )
+    chart.add_legend()
     chart.x1.add_title('time index')
     chart.y1.add_title('T_zone, °C')
     chart.show()
@@ -458,7 +503,8 @@ def main_02():
     of the zone air temperature, while the other operating conditions are
     fixed.
     """
-    air_coil = SomeAirCoil(
+    air_coil = SomeAirCoil()
+    air_coil.set_fixed_operating_conditions(
         T_w_in=Q_(7, 'degC'),
         V_dot_w=Q_(853.02, 'L / hr'),
         V_dot_a=Q_(850, 'm**3 / hr')
