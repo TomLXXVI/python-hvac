@@ -44,7 +44,7 @@ Q_ = Quantity
 # envelope.
 
 # The construction assemblies are created inside functions that we group inside
-# a class `ConstructionAssemblies`. Through the function parameters, it will be
+# a class `ConstructionAssemblyFactory`. Through the function parameters, it will be
 # possible to adapt our construction assemblies to different conditions, e.g.,
 # we can still choose the insulation thickness inside a wall when we create
 # the building envelope.

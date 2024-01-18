@@ -46,15 +46,16 @@ Q_ = Quantity
 # envelope.
 
 # The construction assemblies are created inside functions that we group inside
-# a class `ConstructionAssemblies`. Through the function parameters, it will be
+# a class `ConstructionAssemblyFactory`. Through the function parameters, it will be
 # possible to adapt our construction assemblies to different conditions, e.g.,
 # we can still choose the insulation thickness inside a wall when we create
 # the building envelope.
 
 
-class ConstructionAssemblies:
-    """Class that groups the construction assemblies from which the building
-    elements of the building envelope can be made.
+class ConstructionAssemblyFactory:
+    """Class that groups a number of functions that create a construction
+    assembly from which the building elements of the building envelope can be
+    made.
     """
     @staticmethod
     def exterior_wall_light(
@@ -349,8 +350,8 @@ class ConstructionAssemblies:
         return wnd_props
 
 
-# After the construction assemblies have been defined, we can construct the
-# building elements. This will be done with the class `BuildingConstructor`.
+# With the construction assembly factory methods, we can construct the
+# building elements. This will be done in the class `BuildingConstructor`.
 
 class BuildingConstructor:
     """Class for creating the building envelope and put it around the
@@ -412,19 +413,19 @@ class BuildingConstructor:
         T_ext:
             Design value of the outdoor air temperature.
         """
-        cls.light_wall = ConstructionAssemblies.exterior_wall_light(
+        cls.light_wall = ConstructionAssemblyFactory.exterior_wall_light(
             T_ext=T_ext,
             T_int=T_int,
             v_wind=Q_(3.4, 'm / s'),
             t_ins=Q_(140, 'mm')
         )
-        cls.heavy_wall = ConstructionAssemblies.exterior_wall_heavy(
+        cls.heavy_wall = ConstructionAssemblyFactory.exterior_wall_heavy(
             T_ext=T_ext,
             T_int=T_int,
             v_wind=Q_(3.4, 'm / s'),
             t_ins=Q_(140, 'mm')
         )
-        cls.roof = ConstructionAssemblies.roof(
+        cls.roof = ConstructionAssemblyFactory.roof(
             T_ext=T_ext,
             T_int=T_int,
             v_wind=Q_(3.4, 'm / s'),
@@ -509,14 +510,14 @@ class BuildingConstructor:
             ID='sky-light-1',
             width=Q_(3, 'm'),
             height=Q_(10, 'm'),
-            props=ConstructionAssemblies.sky_light(),
+            props=ConstructionAssemblyFactory.sky_light(),
         )
         # Add skylight 2:
         roof.add_window(
             ID='sky-light-2',
             width=Q_(3, 'm'),
             height=Q_(10, 'm'),
-            props=ConstructionAssemblies.sky_light(),
+            props=ConstructionAssemblyFactory.sky_light(),
         )
 
     @staticmethod

@@ -1,18 +1,18 @@
 """ANALYSIS OF A PIPE NETWORK
 -----------------------------
 The pipe network is part of a HVAC system equipped with fan coil units that are
-operated in cooling mode. A PDF-document `network_scheme.pdf` with the network
-diagram, showing all the details of the pipe network, is added to the folder of
-this script.
+operated in cooling mode. In the PDF-document `network_scheme.pdf` a schematic
+diagram of the network is shown with all the details about the pipe network.
 The circulation pump is a GRUNDFOS MAGNA3 32-120 F. From the GRUNDFOS website
 the pump curves at different operating speeds can be retrieved and downloaded
-in an Excel file. Using this data, a second-order polynomial of the pump curve
-can be retrieved. This is done in the script `pump_curve.py` residing in the
-same folder as this script. The coefficients a0, a1, and a2 of this polynomial
-are needed to add the pump to the network. These coefficients are entered
-in the CSV-file `input-analysis-csv` which will be used to configure the
-pipe network. More information about this configuration file can be found in the
-docstring of method `load_from_csv()` of the `Network` class in module
+in an Excel file (see file `pump-curve-data.xlsx`). Using this data, a second-
+order polynomial of the pump curve can be derived. This is done in the script
+`pump_curve.py`. The coefficients a0, a1, and a2 of this polynomial
+(`dP_pump = a0 + a1 * V_dot + a2 * V_dot**2`) are needed to add a pump to a pipe
+in the network. These coefficients are entered in the CSV-file
+`input-analysis-csv` which is used to configure the pipe network. More
+information about this configuration file can be found in the docstring of
+the method `load_from_csv()` of the `Network` class in module
 `hvac.fluid_flow.network.py`.
 """
 import warnings
@@ -49,31 +49,35 @@ def main():
     network = create_network()
 
     # Now we can change the valve openings of the control valves to see the
-    # effect of this on the working point of the pump and system. For example:
+    # effect of this on the working point of the pump and system. The control
+    # valves are installed upstream of the fan coil units in the cross-over
+    # pipes of the network. The IDs of these cross-overs are:
     cross_over_lst = [
         'D8R8', 'D7R7', 'D6R6', 'D5R5',
         'D4R4', 'D3R3', 'D9R9', 'D10R10'
     ]
+    # Set the valve opening of each control valve:
     for ID in cross_over_lst:
         network.set_control_valve_opening(ID, percent_open=100)
 
-    # Analyze the pipe network:
+    # Now, we can analyze the pipe network with the method of Hardy Cross. This
+    # will determine the volume flow rate in each pipe of the network:
     network.analyze(tolerance=Q_(0.01, 'kPa'), i_max=100)
 
-    # Print the working point:
+    # Print the working point of the pipe network:
     print(
         "working point: ",
         f"{network.volume_flow_rate.to('L/s'):~P.3f} ",
         f"{network.total_pressure_difference.to('bar'):~P.1f}"
     )
 
-    # Draw the system curve and the pump curve:
+    # Draw the system curve of the network and the pump curve:
     diagram = create_curves(network)
     diagram.show()
 
 
 def create_network() -> PipeNetwork:
-    # Create the pipe schedule for the pipes in the network:
+    # Create the pipe schedule used for the pipes in the network:
     pipe_schedule, pipe_roughness = create_pipe_schedule()
 
     # Create a `PipeNetwork` object:
@@ -82,8 +86,8 @@ def create_network() -> PipeNetwork:
         fluid=water,
         wall_roughness=pipe_roughness,
         schedule=pipe_schedule,
-        start_node_ID='D2',
-        end_node_ID='R2',
+        start_node_ID='D2',  # where fluid enters the network
+        end_node_ID='R2',    # where fluid leaves the network
         units={
             'length': 'cm',
             'volume_flow_rate': 'L / s',
@@ -184,7 +188,7 @@ def create_pipe_schedule() -> tuple[PipeSchedule, Quantity]:
     roughness. The data is based on GEBERIT MAPRESS CARBON STEEL pipe.
     """
     pipe_records = [
-        (10, 12, 1.2),
+        (10, 12, 1.2),  # (nominal diameter, outside diameter, wall thickness)
         (12, 15, 1.2),
         (15, 18, 1.2),
         (20, 22, 1.5),
@@ -201,19 +205,26 @@ def create_pipe_schedule() -> tuple[PipeSchedule, Quantity]:
     D_ext = Q_(D_ext, 'mm')
     t_wall = Q_(t_wall, 'mm')
     D_int = D_ext - 2 * t_wall
+    # Create a `PipeSchedule` object and set the unit in which the diameters
+    # and pipe wall thickness will be entered to the lookup-table:
     pipe_schedule = PipeSchedule(unit='mm')
+    # Create the lookup-table, which is a Pandas DataFrame (note: mind to use the
+    # correct keys for the column names):
     pipe_schedule.lookup_table = pd.DataFrame({
         'D_nom': D_nom.to('mm').m,
         'D_ext': D_ext.to('mm').m,
         't': t_wall.to('mm').m,
         'D_int': D_int.to('mm').m
     })
+    # Column 'D_nom' must be set as the index of the dataframe:
     pipe_schedule.lookup_table.set_index(['D_nom'], inplace=True)
+    # Set the absolute pipe wall roughness:
     pipe_roughness = Q_(0.01, 'mm')
     return pipe_schedule, pipe_roughness
 
 
 def add_fittings_D2D3(network: PipeNetwork) -> None:
+    """Adds the fittings to the pipe with ID 'D2D3'."""
     tee_1 = fittings.Tee(
         flow_pattern='diverging',
         combined_pipe=Pipe.create(
@@ -424,6 +435,7 @@ def add_fittings_to_cross_over(
     num_elbows: int = 2,
     has_tees: bool = True
 ) -> None:
+    """General function to place the fittings in the cross-over pipes."""
     if has_tees:
         tee_1 = fittings.Tee(
             flow_pattern='diverging',
@@ -532,7 +544,8 @@ def create_curves(network: PipeNetwork) -> LineChart:
     pump_curve = PumpCurve.create(
         coeffs=network.conduits['R2D2'].machine_coefficients,
         # the polynomial coefficients of the second-order polynomial that models
-        # the pump curve.
+        # the pump curve can be retrieved from the `Pipe` object containing the
+        # pump as indicated in the network configuration file.
         name='pump curve'
     )
     diagram = plot_curves(
