@@ -1,7 +1,8 @@
 """
 In this script, we want to determine the mass flow rate of water through a given
-air-to-water cooling coil that is needed to reach a given target temperature
-of the air leaving the cooling coil.
+air-to-water cooling coil that is needed to maintain a given target temperature
+of the air leaving the cooling coil and this at different mass flow rates of air
+through the cooling coil.
 """
 from scipy import optimize
 from hvac import Quantity
@@ -115,6 +116,8 @@ def get_water_m_dot(
 
 
 def main():
+    # First determine the cooling coil performance at its nominal conditions
+    # (see class `NominalConditions`):
     print("Nominal cooling coil performance: ")
     nom_output = rate(verbose=True)
 

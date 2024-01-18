@@ -578,7 +578,7 @@ class ZoneAirNode(TemperatureNode):
         self.ventilation: SpaceVentilation | None = None
         self.Q_dot_sol_cv: Callable[[float], Quantity] | None = None
         self.Q_dot_ihg_cv: Callable[[float], Quantity] | None = None
-        self.Q_dot_sys: Callable[[float], Quantity] | None = None
+        self.Q_dot_sys: Callable[[float, ...], Quantity] | None = None
 
     @classmethod
     def create(
@@ -594,7 +594,7 @@ class ZoneAirNode(TemperatureNode):
         ventilation: SpaceVentilation | None = None,
         Q_dot_sol_cv: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_cv: Callable[[float], Quantity] | None = None,
-        Q_dot_sys: Callable[[float], Quantity] | None = None
+        Q_dot_sys: Callable[[float, ...], Quantity] | None = None
     ) -> TemperatureNode:
         """Creates a `ZoneAirNode` object.
 
@@ -708,7 +708,7 @@ class ZoneAirNode(TemperatureNode):
         a3 = -a3
         return a3
 
-    def _b(self, t_sol_sec: float) -> float:
+    def _b(self, T: list[float], t_sol_sec: float) -> float:
         """Calculates the input-side (rhs) of the node equation at the current
         solar time moment `t_sol_sec` in seconds from midnight (0 s).
         """
@@ -750,7 +750,8 @@ class ZoneAirNode(TemperatureNode):
             + self.Q_dot_sol_cv(t_sol_sec).to('W').m
             + self.Q_dot_ihg_cv(t_sol_sec).to('W').m
         )
-        return self.Q_dot_sys(t_sol_sec).to('W').m - Q_dot_conv
+        r = self.Q_dot_sys(t_sol_sec, T[1]).to('W').m - Q_dot_conv
+        return r
 
     def get_a_coefficients(self) -> list[float]:
         a = self._a1
@@ -758,8 +759,8 @@ class ZoneAirNode(TemperatureNode):
         a.append(self._a3)
         return a
 
-    def get_b_value(self, t_sol_sec) -> float:
-        return self._b(t_sol_sec)
+    def get_b_value(self, T: list[float], t_sol_sec) -> float:
+        return self._b(T, t_sol_sec)
 
 
 class NodalThermalZoneModelBuilder:
@@ -784,7 +785,7 @@ class NodalThermalZoneModelBuilder:
         Q_dot_sol_rd: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_cv: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_rd: Callable[[float], Quantity] | None = None,
-        Q_dot_sys: Callable[[float], Quantity] | None = None
+        Q_dot_sys: Callable[[float, ...], Quantity] | None = None
     ) -> None:
         """Creates a `NodalThermalZoneModelBuilder` object.
 
@@ -1080,7 +1081,7 @@ class NodalThermalZoneModel:
         Q_dot_sol_rd: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_cv: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_rd: Callable[[float], Quantity] | None = None,
-        Q_dot_sys: Callable[[float], Quantity] | None = None
+        Q_dot_sys: Callable[[float, ...], Quantity] | None = None
     ) -> NodalThermalZoneModel:
         """Creates a `NodalThermalZoneModel`.
 
@@ -1252,7 +1253,11 @@ class NodalThermalZoneModel:
         self._B[c] = b
         c += 1
         # Fill in the b-coefficient of the zone air node:
-        b = self.zan.get_b_value(t_sol_sec)
+        b = self.zan.get_b_value([
+            self._T_node_table[-2, c],
+            self._T_node_table[-1, c]],
+            t_sol_sec
+        )
         self._B[c] = b
 
     def _init(
@@ -1379,11 +1384,11 @@ class NodalThermalZoneModel:
             2D-list with the initial temperatures (`Quantity` objects) of the
             nodes at time index -2 (first row) and at time index -1 (second
             row) before the first cycle. The number of columns of this 2D-list
-            must be equal to the number of nodes in the linear thermal network.
+            must be equal to the number of nodes in the thermal model.
             If `init_values` is None, an array of zeros will be created.
         dt_hr: optional
             The time step width in hours between two successive time moments
-            at which the linear thermal network is solved. The default value
+            at which the thermal model is solved. The default value
             is 1 hr. The product of the number of time steps per cycle and the
             time step width determines the duration (period) of one cycle.
         num_cycles:

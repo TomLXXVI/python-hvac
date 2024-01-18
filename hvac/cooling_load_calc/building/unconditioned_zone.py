@@ -33,6 +33,7 @@ class UnconditionedZone:
     """
     def __init__(self):
         self.ID: str = ''
+        self.weather_data: WeatherData | None = None
         self.floor_area: Quantity | None = None
         self.height: Quantity | None = None
         self.ext_build_elems: dict[str, ExteriorBuildingElement] = {}
@@ -335,9 +336,9 @@ class UnconditionedZone:
         T_init_lst = []
         T_sa_avg = []
         for ebe in self.ext_build_elems.values():
-            T_sa_avg.append(ebe._ext_surf.T_sa(12))
+            T_sa_avg.append(ebe._ext_surf.T_sa(0))
             num_nodes = len(ebe.ltn)
-            T_init_sub_lst = [ebe._ext_surf.T_sa(12)] * num_nodes
+            T_init_sub_lst = [ebe._ext_surf.T_sa(0)] * num_nodes
             T_init_lst.extend(T_init_sub_lst)
         T_sa_avg = Quantity.from_list(T_sa_avg)
         # Add an init-value for the zone air node and thermal storage node,
@@ -349,12 +350,35 @@ class UnconditionedZone:
     def solve(
         self,
         F_rad: Quantity = Q_(0.46, 'frac'),
-        Q_dot_sys_fun: Callable[[float], Quantity] | None = None,
+        Q_dot_sys_fun: Callable[[float, float], Quantity] | None = None,
         dt_hr: float = 1.0,
         num_cycles: int = 1
     ) -> None:
         """Creates the nodal thermal zone model of the unconditioned space and
         solves it.
+
+        Parameters
+        ----------
+        F_rad:
+            The radiative fraction of the conduction heat gain.
+        Q_dot_sys_fun:
+            A function with signature
+            f(t_sol_sec: float, T_zone: float) -> Quantity
+            which takes the time `t_sol_sec` in seconds from midnight (0 s) on
+            the design day and the zone air temperature in Kelvins (K) and
+            returns the cooling capacity of the cooling system.
+            If None, it is assumed that no operating cooling system is present
+            in the zone, i.e. the zone is unconditioned.
+        dt_hr: optional
+            The time step width in hours between two successive time moments
+            at which the thermal model is solved. The default value
+            is 1 hr. The product of the number of time steps per cycle and the
+            time step width determines the duration (period) of one cycle.
+        num_cycles:
+            The number of times the cycle of `num_steps` calculations is repeated.
+            Each new cycle starts with the node temperatures from the last two
+            time indexes k-2 and k-1 of the previous cycle as the initial values.
+            Only the last cycle is kept.
         """
         self.dt_hr = dt_hr
         num_steps = int(round(24 / dt_hr))
@@ -392,7 +416,7 @@ class UnconditionedZone:
         # Solve the model for the node temperatures:
         self.thz_model.solve(
             num_steps=num_steps,
-            init_values=None,
+            init_values=self._init_values(),
             dt_hr=dt_hr,
             num_cycles=num_cycles
         )
@@ -546,15 +570,15 @@ class UnconditionedZone:
         Q_dot_sol = self.get_solar_heat_gain()
         Q_dot_ihg = self.get_internal_heat_gain()
         Q_dot_itm = self.get_int_thermal_mass_heat_gain()
-        Q_dot_net = Q_dot_vent + Q_dot_cond + Q_dot_sol + Q_dot_ihg + Q_dot_itm
+        Q_dot_sys = Q_dot_vent + Q_dot_cond + Q_dot_sol + Q_dot_ihg + Q_dot_itm
         d = {
             'T_zone': T_zone.to(units['T']).magnitude,
-            'H.G. vent.': Q_dot_vent.to(units['Q_dot']).magnitude,
-            'H.G. cond.': Q_dot_cond.to(units['Q_dot']).magnitude,
-            'H.G. solar': Q_dot_sol.to(units['Q_dot']).magnitude,
-            'H.G. internal': Q_dot_ihg.to(units['Q_dot']).magnitude,
-            'H.G. storage': Q_dot_itm.to(units['Q_dot']).magnitude,
-            'H.G. net': Q_dot_net.to(units['Q_dot']).magnitude
+            'Q_dot_vent': Q_dot_vent.to(units['Q_dot']).magnitude,
+            'Q_dot_cond': Q_dot_cond.to(units['Q_dot']).magnitude,
+            'Q_dot_sol': Q_dot_sol.to(units['Q_dot']).magnitude,
+            'Q_dot_ihg': Q_dot_ihg.to(units['Q_dot']).magnitude,
+            'Q_dot_itm': Q_dot_itm.to(units['Q_dot']).magnitude,
+            'Q_dot_sys': Q_dot_sys.to(units['Q_dot']).magnitude
         }
         df = pd.DataFrame(d).round(num_decimals)
         return df

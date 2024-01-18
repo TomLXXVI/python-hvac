@@ -22,8 +22,14 @@ Q_ = Quantity
 class ConditionedZone:
     """Represents a space or a group of spaces in a building of which the
     air temperature is controlled by a single thermostat. Aim is to find the
-    required rate at which the cooling system must extract heat to keep the
-    zone air temperature at its setpoint value.
+    required rate at which the cooling system must extract heat from the zone
+    air to keep the zone air temperature at its setpoint value, i.e., the
+    cooling load of the zone.
+    The sensible and latent heat gains and corresponding cooling loads are
+    calculated at different time moments during the design day (see method
+    `solve`). By default, the time step is one hour, which means that the
+    heat gains and cooling loads are calculated on each hour of the design
+    day.
     """
     def __init__(self):
         self.ID: str = ''
@@ -31,6 +37,7 @@ class ConditionedZone:
         self.height: Quantity | None = None
         self.weather_data: WeatherData | None = None
         self.T_zone: Callable[[float], Quantity] | None = None
+        self.T_zone_des: Quantity | None = None
         self.RH_zone: Quantity | None = None
         self.ext_build_elems: dict[str, ExteriorBuildingElement] = {}
         self.int_build_elems: dict[str, InteriorBuildingElement] = {}
@@ -48,7 +55,8 @@ class ConditionedZone:
         floor_area: Quantity,
         height: Quantity,
         RH_zone: Quantity = Q_(50, 'pct'),
-        ventilation_zone: VentilationZone | None = None
+        ventilation_zone: VentilationZone | None = None,
+        T_zone_des: Quantity = Q_(24, 'degC')
     ) -> ConditionedZone:
         """Creates a `ConditionedZone` object.
 
@@ -75,11 +83,17 @@ class ConditionedZone:
             Relative air humidity in the zone. The default is 50 %.
         ventilation_zone: optional
             The ventilation zone to which the thermal zone belongs.
+        T_zone_des: optional
+            The design value of the zone air temperature. The default value is
+            24 °C. This value can be used to determine the thermal resistance of
+            construction assemblies in the exterior building elements that
+            surround the conditioned zone.
         """
         zone = cls()
         zone.ID = ID
         zone.weather_data = weather_data
         zone.T_zone = T_zone
+        zone.T_zone_des = T_zone_des
         zone.floor_area = floor_area
         zone.height = height
         zone.RH_zone = RH_zone
@@ -530,22 +544,23 @@ class ConditionedZone:
             ) for k in range(n)
         ])
         d = {
-            'solar time': sol_time,
-            f'local time {self.weather_data.location.timezone}': loc_time,
+            'sol_time': sol_time,
+            f'std_time {self.weather_data.location.timezone}': loc_time,
             'Q_dot_cnd': Q_dot_cnd.to(unit).m,
             'Q_dot_sol': Q_dot_sol.to(unit).m,
-            'Q_dot_sen_vent': Q_dot_sen_vent.m,
-            'Q_dot_sen_ihg': Q_dot_ihg_sen.m
+            'Q_dot_sen_vent': Q_dot_sen_vent.to(unit).m,
+            'Q_dot_sen_ihg': Q_dot_ihg_sen.to(unit).m
         }
         if Q_dot_tsn is not None:
             d['Q_dot_tsn'] = Q_dot_tsn.to(unit).m
         d.update({
             'Q_dot_sen_zone': Q_dot_sen_zone.to(unit).m,
-            'Q_dot_lat_vent': Q_dot_lat_vent.m,
-            'Q_dot_lat_ihg': Q_dot_ihg_lat.m,
-            'Q_dot_lat_zone': Q_dot_lat_zone.m
+            'Q_dot_lat_vent': Q_dot_lat_vent.to(unit).m,
+            'Q_dot_lat_ihg': Q_dot_ihg_lat.to(unit).m,
+            'Q_dot_lat_zone': Q_dot_lat_zone.to(unit).m
         })
         df = pd.DataFrame(d)
+        df['Q_dot_zone'] = df['Q_dot_sen_zone'] + df['Q_dot_lat_zone']
         return df
 
 

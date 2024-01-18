@@ -26,8 +26,9 @@ class Output:
     supply_air: HumidAir
     return_air: HumidAir
     zone_air_sp: HumidAir
-    Q_dot_zone_sen: Quantity
-    Q_dot_zone_lat: Quantity
+    Q_dot_sen_zone: Quantity
+    Q_dot_lat_zone: Quantity
+    SHR_zone: Quantity
     Q_dot_cc: Quantity
     SHR_cc: Quantity
     Q_dot_hc: Quantity | None = None
@@ -88,8 +89,9 @@ class Output:
             f"{self.zone_air_sp.W.to(self.units['W'][0]):~P.{self.units['W'][1]}f} AH "
             f"({self.zone_air_sp.RH.to(self.units['RH'][0]):~P.{self.units['RH'][1]}f} RH)\n"
             "zone cooling load = "
-            f"{self.Q_dot_zone_sen.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f} (S), "
-            f"{self.Q_dot_zone_lat.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f} (L)\n"
+            f"{self.Q_dot_sen_zone.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f} (S), "
+            f"{self.Q_dot_lat_zone.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f} (L), "
+            f"{self.SHR_zone.to(self.units['SHR'][0]):~P.{self.units['SHR'][1]}f}\n"
             "cooling coil load = "
             f"{self.Q_dot_cc.to(self.units['Q_dot'][0]):~P.{self.units['Q_dot'][1]}f}, "
             f"{self.SHR_cc.to(self.units['SHR'][0]):~P.{self.units['SHR'][1]}f}"

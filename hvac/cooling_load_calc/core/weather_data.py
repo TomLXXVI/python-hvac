@@ -145,6 +145,8 @@ class WeatherData:
         self.T_wb_prof: list[Quantity] | None = None
         self._T_db_interp: Callable[[float], float] | None = None
         self._T_wb_interp: Callable[[float], float] | None = None
+        self.T_db_max: Quantity | None = None
+        self.T_db_avg: Quantity | None = None
 
     @classmethod
     def create_from_tmy_data(
@@ -190,6 +192,8 @@ class WeatherData:
         interpol_fun = obj._interpolate_profiles()
         obj._T_db_interp = interpol_fun[0]
         obj._T_wb_interp = interpol_fun[1]
+        obj.T_db_max = max(obj.T_db_prof)
+        obj.T_db_avg = sum(T_db.to('K') for T_db in obj.T_db_prof) / len(obj.T_db_prof)
         return obj
 
     @classmethod
@@ -266,6 +270,8 @@ class WeatherData:
         interpol_fun = obj._interpolate_profiles()
         obj._T_db_interp = interpol_fun[0]
         obj._T_wb_interp = interpol_fun[1]
+        obj.T_db_max = max(obj.T_db_prof)
+        obj.T_db_avg = sum(T_db.to('K') for T_db in obj.T_db_prof) / len(obj.T_db_prof)
         return obj
 
     @property

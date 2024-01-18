@@ -7,7 +7,7 @@ import warnings
 from dataclasses import dataclass
 from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid, CoolPropWarning
-from hvac.cooling_load_calc import Space
+from hvac.cooling_load_calc import ConditionedZone
 from hvac.air_conditioning import AirConditioningProcess, AirStream, AdiabaticMixing
 from hvac.charts.psychrometric_chart import PsychrometricChart, StatePoint
 from .cooling_design import Output
@@ -220,6 +220,7 @@ class VAVSingleZoneAirCoolingSystem:
         self.rel_Q_zone_lat: Quantity | None = None
         self.Q_dot_zone_sen: Quantity | None = None
         self.Q_dot_zone_lat: Quantity | None = None
+        self.SHR_zone: Quantity | None = None
         self.T_zone_sp: Quantity | None = None
         self.m_dot_supply: Quantity | None = None
         self.m_dot_recir: Quantity | None = None
@@ -671,6 +672,7 @@ class VAVSingleZoneAirCoolingSystem:
         self.rel_Q_zone_lat = rel_Q_zone_lat
         self.Q_dot_zone_sen = self.rel_Q_zone_sen * self.design_data.Q_zone_sen
         self.Q_dot_zone_lat = self.rel_Q_zone_lat * self.design_data.Q_zone_lat
+        self.SHR_zone = self.Q_dot_zone_sen / (self.Q_dot_zone_sen + self.Q_dot_zone_lat)
         self.T_zone_sp = T_zone_sp if T_zone_sp is not None else self.design_data.zone_air.Tdb
 
         # We initially assume that the cooling coil is active and that the
@@ -791,7 +793,7 @@ class VAVSingleZoneAirCoolingSystem:
             self.m_dot_supply, self.m_dot_vent, self.m_dot_recir,
             self.outdoor_air, self.mixed_air, self.cooled_air,
             self.supply_air, self.return_air, self.design_data.zone_air,
-            self.Q_dot_zone_sen, self.Q_dot_zone_lat,
+            self.Q_dot_zone_sen, self.Q_dot_zone_lat, self.SHR_zone,
             self.Q_dot_cc, self.SHR_cc, self.Q_dot_hc, self.units
         )
 
@@ -856,7 +858,7 @@ class CoolingSimData:
     """
     def __init__(
         self,
-        zone: Space,
+        zone: ConditionedZone,
         design_data: DesignData
     ) -> None:
         """Creates an instance of class `CoolingSimData`.
@@ -864,8 +866,8 @@ class CoolingSimData:
         Parameters
         ----------
         zone:
-            `Space` object that represents the thermal model of the single-zone
-             building.
+            `ConditionedZone` object that represents the thermal model of the
+            single-zone building.
         design_data:
             `DesignData` object that contains data from the design
             calculations of the single-zone VAV air-cooling system, including
@@ -873,17 +875,17 @@ class CoolingSimData:
         """
         # Get the outdoor air dry-bulb and wet-bulb temperatures for each hour
         # of the day (index 0 to 23):
-        self.T_outdoor_db_rng = zone.climate_data.Tdb_profile['T']
-        self.T_outdoor_wb_rng = zone.climate_data.Twb_profile['T']
+        self.T_outdoor_db_rng = zone.weather_data.T_db_prof
+        self.T_outdoor_wb_rng = zone.weather_data.T_wb_prof
         # Get the zone air setpoint temperature for each hour of the day
         # (index 0 to 23):
         self.T_set_zone_rng = [
-            Q_(zone.T_int_fun(t_hr=t), 'degC')
+            zone.T_zone(t * 3600)
             for t in range(len(self.T_outdoor_db_rng))
         ]
         # Get the dataframe with the zone loads (heat gains) for each hour of
         # the day:
-        self.df_Q_zone = zone.get_heat_gains(unit='kW')
+        self.df_Q_zone = zone.solve(unit='kW')
         self.design_data = design_data
         # Combine outdoor air dry-bulb and wet-bulb temperatures in `HumidAir`
         # objects:
@@ -896,13 +898,13 @@ class CoolingSimData:
         # list (index 0 to 23):
         self.Q_zone_sen_rng = [
             Q_(Q, 'kW')
-            for Q in self.df_Q_zone['Q_sen_load'].values
+            for Q in self.df_Q_zone['Q_dot_sen_zone'].values
         ]
         # 'Quantify' and put the latent zone loads from the dataframe in a
         # list (index 0 to 23):
         self.Q_zone_lat_rng = [
             Q_(Q, 'kW')
-            for Q in self.df_Q_zone['Q_lat_load'].values
+            for Q in self.df_Q_zone['Q_dot_lat_zone'].values
         ]
         # Determine the relative sensible zone loads (i.e., as a fraction of the
         # design load):

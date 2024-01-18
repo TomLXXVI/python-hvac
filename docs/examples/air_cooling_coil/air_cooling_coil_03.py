@@ -1,9 +1,10 @@
 """
 Given:
-- An air-cooling coil in a space.
+- An air-cooling coil in a space is cooling the space air.
 - The mass flow rate of water through the air-cooling coil is known.
 - The entering water temperature is known.
 - The mass flow rate of air through the air-cooling coil is known.
+- The sensible and latent space cooling load.
 
 Calculate the space air state when steady-state operation (thermal equilibrium)
 has been established (the thermal power absorbed by the water in the air-cooling
@@ -148,15 +149,30 @@ def main():
     in the range 1 to 7 kW having at a sensible heat ratio of 0.5 and 0.75.
     The steady-state space air temperature and space air humidity ratio are
     shown in two separate diagrams as a function of space load.
+
+    We will use parallel programming to distribute the calculations over
+    multiple processes.
     """
     space_Q_dot_list = [Q_(val, 'kW') for val in np.arange(1.0, 7.5, 0.5)]
     space_SHR_list = [0.5, 0.75]
+    # To each total space cooling load in `space_Q_dot_list` we connect the SHRs
+    # in `space_SHR_list`. Each tuple `(Q_dot, SHR)` in the two resulting lists
+    # in `args_list` will serve as an input argument to a separate child process.
+    # Thus, list `args_list` contains two lists. The first list contains the
+    # tuples of all the space cooling loads in `space_Q_dot_list` combined with
+    # the first SHR-value in `space_SHR_list`. The second list then contains the
+    # tuples of all the space cooling loads combined with the second element in
+    # `space_SHR_list`.
     args_list = [
         list(zip(space_Q_dot_list, [space_SHR] * len(space_Q_dot_list)))
         for space_SHR in space_SHR_list
     ]
     solutions = {}
     for space_SHR, args in zip(space_SHR_list, args_list):
+        # For each list in `args_list` we run the function `system_fun` in
+        # parallel processes with the tuples in that list. Each process returns
+        # the state of the space air that corresponds with the given space
+        # cooling load and SHR that was passed in a tuple to this process.
         print(f"Calculating space air state when SHR = {space_SHR}")
         space_air_list = []
         with ProcessPoolExecutor() as executor:

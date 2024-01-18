@@ -19,12 +19,9 @@ from hvac.air_conditioning.single_zone.vav_cooling_sim import (
     CoolingSimData,
     Output
 )
-from hvac.climate import (
-    ClimateData,
-    Location,
-    TMY
-)
-from exposition_hall import ExpositionHall
+from hvac.sun import Location
+from hvac.cooling_load_calc import WeatherData
+from building_model import BuildingModeler
 
 Q_ = Quantity
 
@@ -95,26 +92,26 @@ airco_system = VAVSingleZoneAirCoolingSystem(
 
 
 def get_simulation_data(
-    month: int, day: int,
-    ExpositionHall: type[ExpositionHall],
+    month: int,
+    day: int,
+    building_modeler: type[BuildingModeler],
     design_data: DesignData
 ) -> CoolingSimData:
-    # Retrieve the climate data for the given month and day:
-    climate = ClimateData.create_from_TMY_data(
-        day=date(2022, month, day),
+    # Retrieve the tmy data:
+    weather_data = WeatherData.create_from_tmy_data(
+        date=date(2022, month, day),
         location=Location(
-            name='Ghent',
-            lat=Q_(51.183, 'deg'),
-            lon=Q_(3.8, 'deg'),
-            alt=Q_(8.0, 'm'),
-            tz='Europe/Brussels'
+            fi=Q_(51.183, 'deg'),
+            L_loc=Q_(3.8, 'deg'),
+            altitude=Q_(8.0, 'm'),
+            timezone='Etc/GMT-1'
         ),
-        tmy=TMY('tmy_gent_2005_2020.csv')
+        tmy_file='tmy_gent_2005_2020.csv'
     )
 
-    # Create the `ExpositionHall` model based on the current climate data:
-    hall = ExpositionHall.create(
-        climate,
+    # Create the thermal model based on the returned weather data:
+    hall = building_modeler.create(
+        weather_data,
         T_comfort=design_data.zone_air.Tdb,
         T_economy=design_data.zone_air.Tdb,
         num_people_max=200,
@@ -183,7 +180,7 @@ def create_output_table(outputs: list[Output]) -> pd.DataFrame:
         d['W_oa'].append(output.outdoor_air.W.to(output.units['W'][0]).m)
         d['T_zone_sp'].append(output.zone_air_sp.Tdb.to(output.units['T'][0]).m)
         d['W_set_zone'].append(output.zone_air_sp.W.to(output.units['W'][0]).m)
-        d['Q_dot_zone'].append(output.Q_dot_zone.to(output.units['Q_dot'][0]).m)
+        d['Q_dot_zone'].append(output.Q_dot_sen_zone.to(output.units['Q_dot'][0]).m)
         d['SHR_zone'].append(output.SHR_zone.to(output.units['SHR'][0]).m)
         d['m_dot_supply'].append(output.m_dot_supply.to(output.units['m_dot'][0]).m)
         d['m_dot_vent'].append(output.m_dot_vent.to(output.units['m_dot'][0]).m)
@@ -217,7 +214,7 @@ def main(month: int, day: int):
     # Get the simulation working data for the given month and day:
     sim_data = get_simulation_data(
         month, day,
-        ExpositionHall,
+        BuildingModeler,
         airco_system.design_data
     )
 

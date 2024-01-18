@@ -1,19 +1,33 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+
+import pandas as pd
+
 from hvac import Quantity
 
 if TYPE_CHECKING:
-    from hvac.cooling_load_calc.building.space import ThermalZone
+    from hvac.cooling_load_calc.building.building_entity import BuildingEntity
+    from hvac.cooling_load_calc.building.conditioned_zone import ConditionedZone
+
 
 Q_ = Quantity
 
 
 class VentilationZone:
-    """Calculation of the sensible and latent heat gain due to space
-    ventilation according to standard EN 12831-1 (2017).
+    """Represents a single ventilation zone which is part of a building entity.
+    A ventilation zone contains all the single conditioned or unconditioned
+    thermal zones (spaces) that are served by the same ventilation system.
+    It is possible that a building entity has more than one ventilation zone,
+    but most often there will be one single ventilation zone per building
+    entity.
+
+    The class `VentilationZone` is used for the calculation of the sensible and
+    latent heat gain due to space ventilation according to standard EN 12831-1
+    (2017).
     """
     def __init__(self):
         self.ID: str = ''
+        self.building_entity: BuildingEntity | None = None
         self.q_env_50: float = 0.0
         self.dP_ATD_d: float = 0.0
         self.v_leak: float = 0.0
@@ -21,7 +35,9 @@ class VentilationZone:
         self.f_V: float = 0.0
         self.f_dir: float = 0.0
         self.f_iz: float = 0.0
-        self.thermal_zones: dict[str, ThermalZone] = {}
+        self.thermal_zones: dict[str, ConditionedZone] = {}
+        self._is_solved: bool = False
+        self._cooling_load_table: pd.DataFrame | None = None
 
     @classmethod
     def create(
@@ -34,7 +50,7 @@ class VentilationZone:
         f_V: float = 0.05,
         f_dir: float = 2.0,
         f_iz: float = 0.5
-    ) -> 'VentilationZone':
+    ) -> VentilationZone:
         """Creates a `VentilationZone` object.
 
         Parameters
@@ -84,10 +100,54 @@ class VentilationZone:
         obj.f_iz = f_iz
         return obj
 
-    def add_thermal_zone(self, thz: ThermalZone) -> None:
+    def add_thermal_zone(self, thz: ConditionedZone) -> None:
+        """Adds a conditioned zone the ventilation zone."""
         self.thermal_zones[thz.ID] = thz
         thz.vez = self
-    
+
+    def get_cooling_load_table(
+        self,
+        dt_hr: float = 1.0,
+        num_cycles: int = 5,
+        unit: str = 'W',
+        do_recalculation: bool = False
+    ) -> pd.DataFrame:
+        """Returns the total cooling load of the ventilation zone.
+
+        Parameters
+        ----------
+        dt_hr:
+            Time step expressed as a fraction of 1 hour, e.g., `dt_hr` = 1/4
+            means the time step for the calculations is one quarter of an hour.
+            The default value is 1 hour.
+        num_cycles:
+            Number of diurnal calculation cycles before the results of the last
+            diurnal cycle are returned.
+        unit:
+            The measuring unit in which heat flows need to be expressed. The
+            default unit is Watts (W).
+        do_recalculation:
+            If True, indicates that a full recalculation must be performed of
+            the heat gains and cooling loads of all thermal zones in the
+            ventilation zone, e.g. after modifications to thermal zones in the
+            ventilation zone or after a modification of the ventilation zone
+            itself.
+            By default, if the cooling loads of the thermal zones were already
+            calculated once, the original table is returned.
+
+        Returns
+        -------
+        A Pandas DataFrame with the heat gains and the total cooling load
+        of the ventilation zone for each time index k of the design day.
+        """
+        if not self._is_solved or do_recalculation:
+            self._cooling_load_table = sum(
+                thz.solve(dt_hr, num_cycles, unit)
+                for thz in self.thermal_zones.values()
+            )
+            self._is_solved = True
+        return self._cooling_load_table
+
     @property
     def floor_area(self) -> Quantity:
         """Returns the total floor area of the ventilation zone."""
@@ -96,7 +156,7 @@ class VentilationZone:
     
     @property
     def envelope_area(self) -> Quantity:
-        """Returns the envelope surface area of the ventilation zone."""
+        """Returns the exterior envelope surface area of the ventilation zone."""
         A_env = sum(thz.envelope_area for thz in self.thermal_zones.values())
         return A_env
     

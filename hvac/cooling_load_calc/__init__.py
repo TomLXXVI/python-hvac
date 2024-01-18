@@ -12,6 +12,7 @@ from .core import (
     ExteriorShadingDevice,
     InteriorShadingDevice,
     Window,
+    WindowThermalProperties,
     InteriorBuildingElement,
     Machine,
     HoodedCookingAppliance,
@@ -22,7 +23,8 @@ from .core import (
     SpaceLighting,
     EquipmentHeatGain,
     LightingHeatGain,
-    PeopleHeatGain
+    PeopleHeatGain,
+    InternalHeatGain
 )
 from .building import (
     ConditionedZone,

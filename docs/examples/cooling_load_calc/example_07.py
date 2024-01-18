@@ -2,10 +2,11 @@
 EXAMPLE 7
 ---------
 CREATING A UNCONDITIONED ZONE AND SOLVING FOR THE ZONE AIR TEMPERATURE.
+
 In an unconditioned zone the zone air temperature is not predetermined as in a
 conditioned zone. Its value depends on a global heat balance of the zone
-air (the sum of all heat gains to the zone air and the heat extracted from the
-zone air by the cooling system should be zero).
+air (i.e., the sum of all heat gains to the zone air and the heat extracted from
+the zone air by the cooling system should be zero).
 """
 import pandas as pd
 
@@ -29,7 +30,6 @@ class ExteriorBuildingElements:
     """Class that holds the exterior building elements of the unconditioned
     zone.
     """
-
     def __init__(self):
         """Creates the exterior building elements."""
         self.location = Location(
