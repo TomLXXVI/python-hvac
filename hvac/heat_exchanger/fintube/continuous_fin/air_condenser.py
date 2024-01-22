@@ -49,8 +49,12 @@ class HeatExchangerCore:
         fin_density: Quantity,
         k_fin: Quantity = Q_(237, 'W / (m * K)'),
         d_r: Quantity | None = None,
-        condensing: bool = False
+        condensing: bool = False,
+        A_min_tot: Quantity | None = None,
+        N_rows_tot: int | None = None
     ) -> None:
+        self.A_min_tot = A_min_tot
+        self.N_rows_tot = N_rows_tot
         self.geometry = ContinuousFinStaggeredTubeBank(
             width, height, num_rows, pitch_trv,
             pitch_lon, d_o, d_i, t_fin, fin_density,
@@ -146,8 +150,8 @@ class InternalSurface(ABC):
     def _m_dot_tube(self) -> Quantity:
         # Here it is assumed that every tube in the first row is connected to
         # the supply header.
-        A_min = self.parent.geometry.internal.A_min
-        n_r = self.parent.geometry.num_rows
+        A_min = self.parent.A_min_tot
+        n_r = self.parent.N_rows_tot
         d_i = self.parent.geometry.d_i
         G = self.m_dot / (A_min / n_r)
         A_tube = math.pi * d_i ** 2 / 4
@@ -233,7 +237,9 @@ class DesuperheatingRegion:
         D_ext: Quantity,
         t_fin: Quantity,
         N_fin: Quantity,
-        k_fin: Quantity
+        k_fin: Quantity,
+        A_min_tot: Quantity,
+        N_rows_tot: int
     ) -> None:
         self.core = HeatExchangerCore(
             width=W_fro,
@@ -245,7 +251,9 @@ class DesuperheatingRegion:
             d_o=D_ext,
             t_fin=t_fin,
             fin_density=N_fin,
-            k_fin=k_fin
+            k_fin=k_fin,
+            A_min_tot=A_min_tot,
+            N_rows_tot=N_rows_tot
         )
         # Known parameters:
         self.rfg_in: FluidState | None = None   # discharge gas from compressor
@@ -489,7 +497,9 @@ class CondensingRegion:
         D_ext: Quantity,
         t_fin: Quantity,
         N_fin: Quantity,
-        k_fin: Quantity
+        k_fin: Quantity,
+        A_min_tot: Quantity,
+        N_rows_tot: int
     ) -> None:
         self.core = HeatExchangerCore(
             width=W_fro,
@@ -502,7 +512,9 @@ class CondensingRegion:
             t_fin=t_fin,
             fin_density=N_fin,
             k_fin=k_fin,
-            condensing=True
+            condensing=True,
+            A_min_tot=A_min_tot,
+            N_rows_tot=N_rows_tot
         )
         # Known parameters:
         self.rfg_in: FluidState | None = None   # saturated vapor
@@ -726,7 +738,9 @@ class SubcoolingRegion:
         D_ext: Quantity,
         t_fin: Quantity,
         N_fin: Quantity,
-        k_fin: Quantity
+        k_fin: Quantity,
+        A_min_tot: Quantity,
+        N_rows_tot: int
     ) -> None:
         self.core = HeatExchangerCore(
             width=W_fro,
@@ -738,7 +752,9 @@ class SubcoolingRegion:
             d_o=D_ext,
             t_fin=t_fin,
             fin_density=N_fin,
-            k_fin=k_fin
+            k_fin=k_fin,
+            A_min_tot=A_min_tot,
+            N_rows_tot=N_rows_tot
         )
         # Known parameters:
         self.rfg_in: FluidState | None = None  # saturated liquid
@@ -990,17 +1006,32 @@ class PlainFinTubeCounterFlowAirCondenser:
             Thermal conductivity of the fin material. The default value applies
             to aluminum.
         """
+        # Create the geometry of the whole condenser to determine `A_min` of
+        # the whole condenser; we need this, together with the number of rows
+        # of the whole condenser, to determine the mass flow rate of
+        # refrigerant in 1 tube (see class `InternalSurface`, method
+        # `_m_dot_tube()`).
+        geometry = ContinuousFinStaggeredTubeBank(
+            W_fro, H_fro, N_rows, S_trv, S_lon,
+            D_ext, D_int, t_fin, N_fin, k_fin
+        )
+        A_min_tot = geometry.internal.A_min
+        # Create the geometry of the desuperheating region, the condensing
+        # region, and the subcooling region:
         self.desuperheating_region = DesuperheatingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int, D_ext,
-            t_fin, N_fin, k_fin
+            t_fin, N_fin, k_fin,
+            A_min_tot, N_rows
         )
         self.condensing_region = CondensingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int, D_ext,
-            t_fin, N_fin, k_fin
+            t_fin, N_fin, k_fin,
+            A_min_tot, N_rows
         )
         self.subcooling_region = SubcoolingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int, D_ext,
-            t_fin, N_fin, k_fin
+            t_fin, N_fin, k_fin,
+            A_min_tot, N_rows
         )
         self.L_flow = N_rows * S_lon
 
@@ -1031,7 +1062,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         i = counter[0]
 
         logger.debug(
-            f"Subcooling region/Iteration {i + 1}: "
+            f"Condenser/Iteration {i + 1}: "
             f"Try with subcooling flow length {L_flow_sub:~P.3f}."
         )
 
@@ -1040,7 +1071,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         air_out = self.subcooling_region.solve(L_flow_sub)
 
         logger.debug(
-            f"Subcooling region/Iteration {i + 1}: "
+            f"Condenser(SCR)/Iteration {i + 1}: "
             f"Leaving air temperature = {air_out.Tdb.to('degC'):~P.3f}. "
             "Determine condensing flow length to reject "
             f"{self.condensing_region.Q_dot.to('kW'):~P.3f}..."
@@ -1053,7 +1084,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         L_flow_cnd = self.condensing_region.solve(self.L_flow)
 
         logger.debug(
-            f"Condensing region/Iteration {i + 1}: "
+            f"Condenser(CDR)/Iteration {i + 1}: "
             f"Flow length = {L_flow_cnd.to('mm'):~P.3f}. "
             "Determine desuperheating flow length to reject "
             f"{self.desuperheating_region.Q_dot.to('kW'):~P.3f}"
@@ -1066,7 +1097,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         L_flow_dsh = self.desuperheating_region.solve(self.L_flow)
 
         logger.debug(
-            f"Desuperheating region/Iteration {i + 1}: "
+            f"Condenser(DSR)/Iteration {i + 1}: "
             f"Flow length = {L_flow_dsh.to('mm'):~P.3f}."
         )
 
@@ -1169,7 +1200,7 @@ class PlainFinTubeCounterFlowAirCondenser:
                 method='brentq',
                 bracket=(L_flow_sub_min, L_flow_sub_max),
                 xtol=x_tol,  # mm
-                rtol=r_tol,  # 1 %
+                rtol=r_tol,  # %
                 maxiter=i_max
             )
         except ValueError:

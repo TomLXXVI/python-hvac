@@ -42,7 +42,7 @@ from hvac.vapor_compression.machine import (
     Output,
     logger
 )
-from hvac.heat_transfer.heat_exchanger.fin_tube import (
+from hvac.heat_exchanger.fintube.continuous_fin import (
     PlainFinTubeCounterFlowAirEvaporator,
     PlainFinTubeCounterFlowAirCondenser
 )
@@ -67,7 +67,7 @@ def create_machine() -> SingleStageVaporCompressionMachine:
 
     # Create the compressor model
     compressor = VariableSpeedCompressor(
-        coeff_file=Path("./compressor_data/VTZ038-G_R134a.csv"),
+        coeff_file=Path("./compressor_data/VTZ054-G_R134a.csv"),
         refrigerant_type=R134a,
         units={'m_dot': 'kg / hr', 'speed': '1 / s'}
     )
@@ -76,7 +76,7 @@ def create_machine() -> SingleStageVaporCompressionMachine:
     evaporator = PlainFinTubeCounterFlowAirEvaporator(
         W_fro=Q_(0.731, 'm'),
         H_fro=Q_(0.244, 'm'),
-        N_rows=2,
+        N_rows=3,
         S_trv=Q_(25.4, 'mm'),
         S_lon=Q_(22.0, 'mm'),
         D_int=Q_(8.422, 'mm'),
@@ -87,9 +87,9 @@ def create_machine() -> SingleStageVaporCompressionMachine:
 
     # Create the condenser model:
     condenser = PlainFinTubeCounterFlowAirCondenser(
-        W_fro=Q_(0.909, 'm'),
-        H_fro=Q_(0.303, 'm'),
-        N_rows=4,
+        W_fro=Q_(1.003, 'm'),
+        H_fro=Q_(0.334, 'm'),
+        N_rows=5,
         S_trv=Q_(25.4, 'mm'),
         S_lon=Q_(22.0, 'mm'),
         D_int=Q_(8.422, 'mm'),
@@ -126,7 +126,7 @@ def analyze_performance(n_cmp: Quantity) -> Output:
     evp_m_dot_air = Q_(1500.0, 'kg / hr')
 
     cnd_air_in = HumidAir(Tdb=Q_(35.0, 'degC'), RH=Q_(30, 'pct'))
-    cnd_m_dot_air = Q_(2233.861, 'kg / hr')
+    cnd_m_dot_air = Q_(3216.315, 'kg / hr')
 
     # Run rating routine to determine steady-state machine performance:
     logger.info(

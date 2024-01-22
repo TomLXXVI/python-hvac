@@ -4,8 +4,8 @@ from scipy import optimize
 from hvac import Quantity
 from hvac.fluids import HumidAir
 from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
-from hvac.heat_transfer.heat_exchanger.fin_tube import PlainFinTubeCounterFlowAirCondenser
-from hvac.heat_transfer.heat_exchanger.fin_tube.air_condenser import CondenserError
+from hvac.heat_exchanger.fintube.continuous_fin import PlainFinTubeCounterFlowAirCondenser
+from hvac.heat_exchanger.fintube.continuous_fin.air_condenser import CondenserError
 from hvac.logging import ModuleLogger
 from .machine import Output
 

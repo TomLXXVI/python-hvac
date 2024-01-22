@@ -46,8 +46,12 @@ class HeatExchangerCore:
         fin_density: Quantity,
         k_fin: Quantity = Q_(237, 'W / (m * K)'),
         d_r: Quantity | None = None,
-        boiling: bool = False
+        boiling: bool = False,
+        A_min_tot: Quantity | None = None,
+        N_rows_tot: int | None = None
     ) -> None:
+        self.A_min_tot = A_min_tot
+        self.N_rows_tot = N_rows_tot
         self.geometry = ContinuousFinStaggeredTubeBank(
             width, height, num_rows, pitch_trv,
             pitch_lon, d_o, d_i, t_fin, fin_density,
@@ -144,8 +148,8 @@ class InternalSurface(ABC):
     def _m_dot_tube(self) -> Quantity:
         # Here it is assumed that every tube in the first row is connected to
         # the supply header.
-        A_min = self.parent.geometry.internal.A_min
-        n_r = self.parent.geometry.num_rows
+        A_min = self.parent.A_min_tot
+        n_r = self.parent.N_rows_tot
         d_i = self.parent.geometry.d_i
         G = self.m_dot / (A_min / n_r)
         A_tube = math.pi * d_i ** 2 / 4
@@ -212,7 +216,9 @@ class SuperheatingRegion:
         D_ext: Quantity,
         t_fin: Quantity,
         N_fin: Quantity,
-        k_fin: Quantity
+        k_fin: Quantity,
+        A_min_tot: Quantity,
+        N_rows_tot: int
     ) -> None:
         """
         Creates the superheating region of the plain fin-tube evaporator.
@@ -238,6 +244,16 @@ class SuperheatingRegion:
             density).
         k_fin:
             Thermal conductivity of the fin material.
+        A_min_tot:
+            The total cross-section area of the internal part of the whole
+            evaporator (i.e., the cross-section area of 1 tube x all the tubes
+            in the heat exchanger core).
+            This will be needed to determine the mass flow rate of refrigerant
+            in 1 tube (see `InternalSurface._m_dot_tube()`).
+        N_rows_tot:
+            The number of rows of the whole evaporator.
+            This will be needed to determine the mass flow rate of refrigerant
+            in 1 tube (see `InternalSurface._m_dot_tube()`).
         """
         self.core = HeatExchangerCore(
             width=W_fro,
@@ -249,7 +265,9 @@ class SuperheatingRegion:
             d_o=D_ext,
             t_fin=t_fin,
             fin_density=N_fin,
-            k_fin=k_fin
+            k_fin=k_fin,
+            A_min_tot=A_min_tot,
+            N_rows_tot=N_rows_tot
         )
         # Known parameters:
         self.air_in: HumidAir | None = None
@@ -474,7 +492,9 @@ class BoilingRegion:
         D_ext: Quantity,
         t_fin: Quantity,
         N_fin: Quantity,
-        k_fin: Quantity
+        k_fin: Quantity,
+        A_min_tot: Quantity,
+        N_rows_tot: int
     ) -> None:
         """
         Creates the boiling region of the plain fin-tube evaporator.
@@ -500,6 +520,16 @@ class BoilingRegion:
             density).
         k_fin:
             Thermal conductivity of the fin material.
+        A_min_tot:
+            The total cross-section area of the internal part of the whole
+            evaporator (i.e., the cross-section area of 1 tube x all the tubes
+            in the heat exchanger core).
+            This will be needed to determine the mass flow rate of refrigerant
+            in 1 tube (see `InternalSurface._m_dot_tube()`).
+        N_rows_tot:
+            The number of rows of the whole evaporator.
+            This will be needed to determine the mass flow rate of refrigerant
+            in 1 tube (see `InternalSurface._m_dot_tube()`).
         """
         self.core = HeatExchangerCore(
             width=W_fro,
@@ -512,7 +542,9 @@ class BoilingRegion:
             t_fin=t_fin,
             fin_density=N_fin,
             k_fin=k_fin,
-            boiling=True
+            boiling=True,
+            A_min_tot=A_min_tot,
+            N_rows_tot=N_rows_tot
         )
         # Known parameters:
         self.air_m_dot: Quantity | None = None
@@ -531,7 +563,7 @@ class BoilingRegion:
         rfg_m_dot: Quantity,
         L_flow: Quantity,
         tol: Quantity = Q_(0.1, 'kg / hr'),
-        i_max: int = 10
+        i_max: int = 50
     ) -> Quantity:
         """
         Solves for the refrigerant mass flow rate needed to boil the
@@ -817,13 +849,25 @@ class PlainFinTubeCounterFlowAirEvaporator:
             Thermal conductivity of the fin material. The default value applies
             to aluminum.
         """
+        # Create the geometry of the whole evaporator to determine `A_min` of
+        # the whole evaporator; we need this, together with the number of rows
+        # of the whole evaporator, to determine the mass flow rate of
+        # refrigerant in 1 tube.
+        geometry = ContinuousFinStaggeredTubeBank(
+            W_fro, H_fro, N_rows, S_trv, S_lon,
+            D_ext, D_int, t_fin, N_fin, k_fin
+        )
+        A_min_tot = geometry.internal.A_min
+        # Create the geometry of the superheating region and the boiling region:
         self.superheating_region = SuperheatingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int,
-            D_ext, t_fin, N_fin, k_fin
+            D_ext, t_fin, N_fin, k_fin,
+            A_min_tot, N_rows  # <-- A_min and N_rows of the whole evaporator
         )
         self.boiling_region = BoilingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int,
-            D_ext, t_fin, N_fin, k_fin
+            D_ext, t_fin, N_fin, k_fin,
+            A_min_tot, N_rows  # <-- A_min and N_rows of the whole evaporator
         )
         self.L_flow = N_rows * S_lon
 
@@ -877,7 +921,7 @@ class PlainFinTubeCounterFlowAirEvaporator:
         )
 
         logger.debug(
-            f"Superheating region/Iteration {i + 1}: "
+            f"Evaporator(SHR)/Iteration {i + 1}: "
             f"Refrigerant mass flow rate = {rfg_m_dot.to('kg / hr'):~P.3f}. "
             f"Superheating flow length = {L_flow_superheat.to('mm'):~P.3f}. "
             f"Determine mass flow rate in boiling region..."
@@ -899,7 +943,7 @@ class PlainFinTubeCounterFlowAirEvaporator:
         dev = (rfg_m_dot_new - rfg_m_dot).to('kg / hr')
 
         logger.debug(
-            f"Boiling region/Iteration {i + 1}: "
+            f"Evaporator(BLR)/Iteration {i + 1}: "
             f"Boiling flow length = {L_flow_boil.to('mm'):~P.3f}. "
             "Deviation between refrigerant mass flow rate in boiling and "
             f"superheating region = {dev:~P.3f}."

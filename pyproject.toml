@@ -23,10 +23,7 @@ lmfit = "^1.2.2"
 mpld3 = "^0.5.9"
 
 [tool.poetry.group.dev.dependencies]
-jupyterlab = "^3.6.0"
-jupyterlab-lsp = "^4.2.0"
-jupyter-lsp = "^2.2.0"
-python-lsp-server = { version = "^1.7.4", extras = ["all"]}
+jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]

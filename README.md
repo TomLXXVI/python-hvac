@@ -21,7 +21,9 @@ will be added over time.
 At this moment the following subpackages are part of `hvac`:
 
 **air_conditioning**<br>
-A package about air-conditioning processes and systems.
+A package about air-conditioning processes and systems that can be used to 
+design and analyze single-zone or multi-zone CAV and VAV air conditioning
+systems.
 
 **cooling_load_calc**<br>
 A package for doing cooling load calculations of a building, based upon ASHRAE's
@@ -29,9 +31,10 @@ Radiant-Times-Series (RTS) method.
 It uses a lumped capacitance model to take the thermal inertia of flat, opaque 
 building components and the interior thermal mass of a zone into account. 
 
-This package uses the subpackage **sun**, also included in the main package
-`hvac`. This subpackage is used to calculate the solar radiation incident on 
-exterior surfaces and the solar heat gain through windows.
+**sun**
+This subpackage can be used to calculate the solar radiation on surfaces. It
+implements different sky-models used to calculate the solar radiation incident 
+on exterior surfaces and the solar heat gain through windows.
 Subpackage **sun** implements the equations in chapters 1 and 2 of *Duffie, 
 J. A., Beckman, W. A., & Blair, N. (2020). SOLAR ENGINEERING OF THERMAL 
 PROCESSES, PHOTOVOLTAICS AND WIND. John Wiley & Sons.*
@@ -60,20 +63,19 @@ correlations were taken from *Nellis G. F. , & Klein S. A.  (2021).
 INTRODUCTION TO ENGINEERING HEAT TRANSFER. Cambridge University Press*.
 
 **heat_exchanger**<br>
-Originally (and still) part of the subpackage **heat_transfer**, but a rewritten
-package has also been added as a subpackage of the main package
-**hvac**. It implements the effectiveness-NTU method for both dry and wet 
-external heat transfer surfaces, and it contains rating and sizing procedures 
-for some fin-tube heat exchangers, which are applicable to single-phase fluid 
-flow, and which are implementations of the procedures described in *Shah, 
+Implements the effectiveness-NTU method for both dry and wet air cooling/heating
+coils.
+Contains a model to analyze and simulate an air-to-water cooling coil.
+Contains a model of an air evaporator and an air condenser, that can be used to 
+simulate the performance of air-to-air, single stage vapor compression machines.
+The implementations are based on solving methods described in *Shah, 
 R. K. , & Sekulic, D. P.  (2003). FUNDAMENTALS OF HEAT EXCHANGER 
 DESIGN. John Wiley & Sons*.
 
 **vapor_compression**<br>
-Furthermore, subpackage `heat_transfer.heat_exchanger.fin_tube` also contains 
-a model for a plain fin-tube, counter-flow air evaporator and similar air 
-condenser. These models are used together with a model for a fixed or variable 
-speed compressor in the module `machine` of subpackage `vapor_compression`. 
+Contains models to represent fixed- and variable speed compressors, and a model
+of a single-stage vapor compression machine, that integrates the models for the
+air evaporator and condenser in subpackage *heat_exchanger*.
 Purpose of this module is to simulate the steady-state performance of a 
 single-stage vapor compression machine (air conditioning machine, heat pump). 
 Several application examples have been included in the folder `vapor_compression` 

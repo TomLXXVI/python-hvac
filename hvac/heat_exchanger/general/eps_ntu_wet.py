@@ -181,7 +181,7 @@ class AbstractHeatExchanger(ABC):
             try:
                 cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp
             except CoolPropError:
-                # Refrigerant is a 2-phase mixture (boiling or condensing)
+                # refrigerant is a 2-phase mixture (boiling or condensing)
                 T_r_out_new = self.T_r_in
             else:
                 T_r_out_new = self.T_r_in + (eps * self.Q_max) / (self.m_dot_r * cp_r)
@@ -196,33 +196,29 @@ class AbstractHeatExchanger(ABC):
 
     @property
     def xi(self) -> Quantity:
-        i_a_T_r_in = HumidAir(Tdb=self.T_r_in, RH=Q_(100, 'pct')).h
-        i_a_T_r_out = HumidAir(Tdb=self.T_r_out, RH=Q_(100, 'pct')).h
-        try:
-            xi = (i_a_T_r_in - i_a_T_r_out) / (self.T_r_in - self.T_r_out)
-            if np.isnan(xi.m): raise ZeroDivisionError
-            return xi.to('J / (kg * K)')
-        except ZeroDivisionError:
-            # in case of a boiling refrigerant: self.T_r_in == self.T_r_out
+        dT_r = self.T_r_in - self.T_r_out
+        if abs(dT_r.m) > 1.e-6:
+            i_a_T_r_in = HumidAir(Tdb=self.T_r_in, RH=Q_(100, 'pct')).h
+            i_a_T_r_out = HumidAir(Tdb=self.T_r_out, RH=Q_(100, 'pct')).h
+            xi = (i_a_T_r_in - i_a_T_r_out) / dT_r
+            return xi
+        else:
+            # If `self.T_r_in` and `self.T_r_out` are equal or very close to
+            # each other (according to CoolProp <= 1.e-6), the refrigerant is a
+            # 2-phase mixture (boiling or condensing).
             return Q_(0.0, 'J / (kg * K)')
 
     @property
     def C_r(self) -> float:
-        if not self.xi.m == 0.0:
-            # in the case of a boiling refrigerant, the average refrigerant
-            # temperature `T_r_avg` is equal to the saturation temperature that
-            # corresponds with the pressure `self._P_r`; this means that the
-            # state of the 2-phase refrigerant mixture cannot be determined (the
-            # quality x of the mixture?) and a `CoolPropError` would be raised
-            # at (*).
-            # However, in that case, `xi` will also be zero, so `C_r` will be
-            # zero anyway.
-            T_r_avg = (self.T_r_in + self.T_r_out) / 2
-            cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp  # (*)
+        T_r_avg = (self.T_r_in + self.T_r_out) / 2
+        try:
+            cp_r = self._Rfg(T=T_r_avg, P=self._P_r).cp
+        except CoolPropError:
+            # Refrigerant is a 2-phase mixture (boiling or condensing):
+            return 0.0
+        else:
             C_r = (self.m_dot_a * self.xi) / (self.m_dot_r * cp_r)
             return C_r.m
-        else:
-            return 0.0
 
     @property
     def NTU(self) -> float:

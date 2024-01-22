@@ -444,16 +444,53 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
         T_dis = self.correlations['T_dis'](self._Te, self._Tc, self._speed)
         return Q_(T_dis, 'degC')
 
-    def get_compressor_speed(self, Qc_dot: Quantity) -> Quantity:
-        """Returns the compressor speed at which the cooling capacity is
-        equal to `Qc_dot` at the set evaporator temperature and condenser
-        temperature."""
+    def get_compressor_speed(self, **kwargs) -> Quantity:
+        """Returns the compressor speed at which the cooling capacity or the
+        the refrigerant mass flow rate is equal to the value of `Qc_dot`
+        respectively the value of `m_dot` at the set evaporator temperature and
+        condenser temperature.
+
+        Parameters
+        ----------
+        **kwargs:
+            Either keyword `Q_dot` with its corresponding value, or keyword
+            `m_dot` with its corresponding value.
+
+        Returns
+        -------
+        Quantity
+        """
+        Qc_dot = kwargs.get('Qc_dot')
+        m_dot = kwargs.get('m_dot')
+        if Qc_dot is not None:
+            n_cmp = self._solve_with_Qc_dot(Qc_dot)
+            return n_cmp
+        if m_dot is not None:
+            n_cmp = self._solve_with_m_dot(m_dot)
+            return n_cmp
+
+    def _solve_with_Qc_dot(self, Qc_dot: Quantity) -> Quantity:
         _Qc_dot = Qc_dot.to(self.units['Qc_dot']).m
 
         def eq(unknowns: np.ndarray) -> np.ndarray:
             speed_ = unknowns[0]
             lhs = _Qc_dot
             rhs = self.correlations['Qc_dot'](self._Te, self._Tc, speed_)
+            out = lhs - rhs
+            return np.array([out])
+
+        speed_ini = 0.0
+        roots = fsolve(eq, np.array([speed_ini]))
+        speed = Q_(roots[0], self.units['speed'])
+        return speed
+
+    def _solve_with_m_dot(self, m_dot: Quantity) -> Quantity:
+        _m_dot = m_dot.to(self.units['m_dot']).m
+
+        def eq(unknowns: np.ndarray) -> np.ndarray:
+            speed_ = unknowns[0]
+            lhs = _m_dot
+            rhs = self.correlations['m_dot'](self._Te, self._Tc, speed_)
             out = lhs - rhs
             return np.array([out])
 

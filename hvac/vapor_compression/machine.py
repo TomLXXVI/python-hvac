@@ -14,11 +14,11 @@ from hvac.fluids import HumidAir, Fluid, FluidState
 from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
 from hvac.logging import ModuleLogger
 
-from hvac.heat_transfer.heat_exchanger.fin_tube.air_evaporator import (
+from hvac.heat_exchanger.fintube.continuous_fin.air_evaporator import (
     PlainFinTubeCounterFlowAirEvaporator,
     EvaporatorError
 )
-from hvac.heat_transfer.heat_exchanger.fin_tube.air_condenser import (
+from hvac.heat_exchanger.fintube.continuous_fin.air_condenser import (
     PlainFinTubeCounterFlowAirCondenser,
     CondenserError
 )
@@ -311,18 +311,18 @@ class Output:
 
 class SingleStageVaporCompressionMachine:
     """
-    Model class for a single-stage vapor compression machine.
+    Model of a single-stage vapor compression machine.
 
-    Method `rate` can be used to retrieve the steady-state machine operation
-    at a given compressor speed and at given operating conditions on the air-side
-    of the evaporator and condenser. The method searches for the evaporation
-    and condensation temperature for which the mass flow rate let through by the
-    expansion device (to maintain the set degree of refrigerant superheating
-    at the evaporator outlet) balances with the mass flow rate of refrigerant
-    displaced by the compressor.
+    Method `rate` can be used to retrieve the steady-state machine performance
+    at a given compressor speed and for given operating conditions on the
+    air-side of the evaporator and condenser. The method searches for the
+    evaporation and condensation temperature for which the mass flow rate let
+    through by the expansion device (to maintain the set degree of refrigerant
+    superheating at the evaporator outlet) balances with the mass flow rate of
+    refrigerant displaced by the compressor.
 
     Method `balance_by_speed` can be used to retrieve the steady-state machine
-    operation at a given evaporation temperature and condensation temperature
+    performance at a given evaporation temperature and condensation temperature
     and at given operating conditions on the air-side of the evaporator and
     condenser. The method searches for the compressor speed for which the mass
     flow rate let through by the expansion device (to maintain the set degree
@@ -415,8 +415,8 @@ class SingleStageVaporCompressionMachine:
         n_cmp: Quantity | None = None,
         T_evp_ini: Quantity | None = None,
         T_cnd_ini: Quantity | None = None,
-        xa_tol: float | None = 1.0,
-        fa_tol: float | None = 0.5,
+        xa_tol: float | None = 0.1,
+        fa_tol: float | None = 0.05,
         i_max: int = 50,
     ) -> Output:
         """
@@ -458,15 +458,44 @@ class SingleStageVaporCompressionMachine:
 
         Notes
         -----
-        This method uses a minimization algorithm to determine the evaporation
-        and condensation temperature at steady-state machine operation under the
-        given operating conditions.
+        This method uses the Nelder-Mead minimization algorithm to determine the
+        evaporation and condensation temperature at steady-state machine
+        operation under the given operating conditions.
         The algorithm tries to find an evaporation and condensation temperature
         for which the difference becomes minimal between the mass flow rate of
         refrigerant according to the compressor model and the mass flow rate
         of refrigerant according to the evaporator model (where the expansion
         device regulates the mass flow rate of refrigerant in order to maintain
         the set degree of refrigerant superheating at the evaporator outlet).
+        1. The algorithm starts with an initial guess for the evaporation
+           temperature and the condensing temperature.
+        2. With these two values, the refrigerant mass flow rate displaced by
+           the compressor is determined with the compressor model, and also the
+           state of the discharge gas, which enters the condenser.
+        3. At the condenser, the state of the entering air and the air mass flow
+           rate are fixed. With the state of the entering refrigerant and the
+           refrigerant mass flow rate, a solution is determined with the
+           condenser model for the condenser's performance, i.e. the state of
+           refrigerant leaving the condenser and the state of air leaving the
+           condenser are determined.
+        4. Considering that the expansion process is an isenthalpic process,
+           the state of refrigerant entering the evaporator is determined.
+        5. At the evaporator, the state of entering air, the air mass flow
+           rate, and the degree of refrigerant superheating (being a setting on
+           the expansion device) are fixed. The refrigerant mass flow rate is
+           determined such that the refrigerant leaves the evaporator with the
+           degree of superheating set on the expansion device.
+        6. Ultimately, the refrigerant mass flow rate let through by the
+           expansion device and the refrigerant mass flow rate displaced by the
+           compressor must balance. The deviation is determined between the
+           refrigerant mass flow rate let through by the expansion device and
+           the mass flow rate displaced by the compressor.
+        7. Based on the absolute value of the deviation, the minimization
+           algorithm determines a new value for the evaporating temperature and
+           a new value for the condensing temperature.
+        8. Steps 2 to 7 are repeated until the deviation between the two mass
+           flow rates has become sufficiently small, or until the maximum number
+           of iterations has been reached.
         """
         self._init(
             evp_air_in, evp_air_m_dot,
@@ -500,7 +529,6 @@ class SingleStageVaporCompressionMachine:
         logger.info(
             f"cnd_air_m_dot: {cnd_air_m_dot:~P.2f}"
         )
-
         try:
             res = optimize.minimize(
                 self.__fun_rate__,
@@ -516,12 +544,9 @@ class SingleStageVaporCompressionMachine:
                 )
             )
         except Exception as err:
-            if isinstance(err, (CondenserError, EvaporatorError)):
-                logger.error("Operating state could not be determined.")
-            else:
-                logger.error(
-                    f'Analysis failed due to "{type(err).__name__}: {err}".'
-                )
+            logger.error(
+                f'Analysis failed due to "{type(err).__name__}: {err}".'
+            )
             self.output = Output(
                 evp_air_m_dot=self.evp_air_m_dot,
                 cnd_air_m_dot=self.cnd_air_m_dot,
@@ -534,8 +559,8 @@ class SingleStageVaporCompressionMachine:
             return self.output
         else:
             logger.info(
-                f"Analysis finished after {counter[0]} iterations with "
-                f"message: {res.message}"
+                f'Analysis finished after {counter[0]} iterations with '
+                f'message: "{res.message}"'
             )
             # Update the machine operating state using the evaporation and
             # condensation temperature returned from `optimize.minimize` (these
@@ -544,39 +569,51 @@ class SingleStageVaporCompressionMachine:
             self.compressor.Te = Q_(res.x[0], 'degC')
             self.compressor.Tc = Q_(res.x[1], 'degC')
             cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
-            self._get_deviation(cmp_rfg_m_dot, 0, logger_on=False)
-
-            self.output = Output(
-                evp_air_m_dot=self.evp_air_m_dot,
-                cnd_air_m_dot=self.cnd_air_m_dot,
-                evp_air_in=self.evp_air_in,
-                cnd_air_in=self.cnd_air_in,
-                n_cmp=self.n_cmp,
-                dT_sh=self.dT_sh,
-                evp_air_out=self.evaporator.air_out,
-                cnd_air_out=self.condenser.air_out,
-                evp_Q_dot=self.evaporator.Q_dot,
-                cnd_Q_dot=self.condenser.Q_dot,
-                cmp_W_dot=self.compressor.Wc_dot,
-                rfg_m_dot=self.compressor.m_dot,
-                T_evp=self.evaporator.T_evp,
-                P_evp=self.evaporator.P_evp,
-                T_cnd=self.condenser.T_cnd,
-                P_cnd=self.condenser.P_cnd,
-                dT_sc=self.condenser.dT_sc,
-                suction_gas=self.evaporator.rfg_out,
-                discharge_gas=self.condenser.rfg_in,
-                liquid=self.condenser.rfg_out,
-                mixture=self.evaporator.rfg_in,
-                COP=self.condenser.Q_dot / self.compressor.Wc_dot,
-                EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
-                evp_eps=self.evaporator.eps,
-                cnd_eps=self.condenser.eps,
-                evp_air_dP=self.evaporator.air_dP,
-                cnd_air_dP=self.condenser.air_dP
-            )
-            self.output.success = True
-            return self.output
+            dev = self._get_deviation(cmp_rfg_m_dot, 0, logger_on=False)
+            if np.isinf(dev):
+                logger.error("Machine performance could not be determined.")
+                self.output = Output(
+                    evp_air_m_dot=self.evp_air_m_dot,
+                    cnd_air_m_dot=self.cnd_air_m_dot,
+                    evp_air_in=self.evp_air_in,
+                    cnd_air_in=self.cnd_air_in,
+                    n_cmp=self.n_cmp,
+                    dT_sh=self.dT_sh
+                )
+                self.output.success = False
+                return self.output
+            else:
+                self.output = Output(
+                    evp_air_m_dot=self.evp_air_m_dot,
+                    cnd_air_m_dot=self.cnd_air_m_dot,
+                    evp_air_in=self.evp_air_in,
+                    cnd_air_in=self.cnd_air_in,
+                    n_cmp=self.n_cmp,
+                    dT_sh=self.dT_sh,
+                    evp_air_out=self.evaporator.air_out,
+                    cnd_air_out=self.condenser.air_out,
+                    evp_Q_dot=self.evaporator.Q_dot,
+                    cnd_Q_dot=self.condenser.Q_dot,
+                    cmp_W_dot=self.compressor.Wc_dot,
+                    rfg_m_dot=self.compressor.m_dot,
+                    T_evp=self.evaporator.T_evp,
+                    P_evp=self.evaporator.P_evp,
+                    T_cnd=self.condenser.T_cnd,
+                    P_cnd=self.condenser.P_cnd,
+                    dT_sc=self.condenser.dT_sc,
+                    suction_gas=self.evaporator.rfg_out,
+                    discharge_gas=self.condenser.rfg_in,
+                    liquid=self.condenser.rfg_out,
+                    mixture=self.evaporator.rfg_in,
+                    COP=self.condenser.Q_dot / self.compressor.Wc_dot,
+                    EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
+                    evp_eps=self.evaporator.eps,
+                    cnd_eps=self.condenser.eps,
+                    evp_air_dP=self.evaporator.air_dP,
+                    cnd_air_dP=self.condenser.air_dP
+                )
+                self.output.success = True
+                return self.output
 
     @time_it
     def balance_by_speed(
@@ -681,9 +718,7 @@ class SingleStageVaporCompressionMachine:
                 )
                 self.n_cmp = Q_(res.root, '1 / min')
             except Exception as err:
-                if isinstance(err, (CondenserError, EvaporatorError)):
-                    logger.error("Operating state could not be determined.")
-                elif isinstance(err, ValueError):
+                if isinstance(err, ValueError):
                     logger.error(
                         "No compressor speed found to establish the "
                         "given evaporation temperature "
@@ -851,7 +886,7 @@ class SingleStageVaporCompressionMachine:
         temperature of the air entering the evaporator is taken.
         """
         if T_evp_ini is None:
-            dT = Q_(12, 'K')
+            dT = Q_(20, 'K')
             T_evp = self.evp_air_in.Tdb - dT
             return T_evp.to('degC').m
         else:
@@ -973,7 +1008,11 @@ class SingleStageVaporCompressionMachine:
                 f"Iteration {i + 1}: "
                 f"{type(err).__name__}: {err}"
             )
-            raise err
+            # raise err
+            return float('inf')
+            # --> keep the minimize-function running and tell it that the
+            # deviation is infinity for the current combination of evaporation
+            # and condensing temperature.
 
         if logger_on:
             logger.info(
@@ -1010,7 +1049,8 @@ class SingleStageVaporCompressionMachine:
                 f"Iteration {i + 1}: "
                 f"{type(err).__name__}: {err}"
             )
-            raise err
+            # raise err
+            return float('inf')  # --> keep the minimize-function running
 
         if logger_on:
             logger.info(
