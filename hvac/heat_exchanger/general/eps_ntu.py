@@ -11,8 +11,8 @@ The designing problem involves determining the required overall conductance UA
 of a heat exchanger knowing the inlet conditions of the hot and the cold stream
 and the required rate of heat transfer from the hot to the cold stream.
 
-The analysis problem involves finding the resulting heat transfer from the hot
-to the cold stream if the conductance UA of the heat exchanger and the inlet
+The analysis problem involves finding the resulting heat transfer rate from the
+hot to the cold stream if the conductance UA of the heat exchanger and the inlet
 conditions of the hot and cold stream are known.
 """
 import math

@@ -6,8 +6,10 @@ horizontal tube.
 This correlation is known to over-predict the heat transfer coefficient for
 refrigerants that condense at high pressure (e.g. R125, R32, and R410a).
 
-The correlation was taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press, section 11.5 "Flow Condensation".
+The correlation was taken from:
+Nellis G. F., & Klein S. A. (2021)
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 
 import numpy as np

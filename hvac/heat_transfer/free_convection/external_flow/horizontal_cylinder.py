@@ -2,8 +2,10 @@
 Correlations for the average Nusselt number in case of external free convective
 fluid flow past a horizontal cylinder.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press.
+The correlations were taken from:
+Nellis G. F. , & Klein S. A.  (2021).
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 import warnings
 from hvac import Quantity

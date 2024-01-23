@@ -3,8 +3,10 @@ Correlation for the average Nusselt number in case of internal, free convective,
 fully developed fluid flow through an isothermal, vertical channel formed by
 two vertical plates.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press.
+The correlations were taken from:
+Nellis G. F. , & Klein S. A.  (2021).
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 import numpy as np
 from hvac import Quantity

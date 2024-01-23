@@ -2,11 +2,16 @@
 Correlations for the average Nusselt number in case of internal, free convective,
 fluid flow inside a rectangular enclosure formed by two vertical plates with
 the separation distance S between the plates being much less than either of the
-other two dimensions (length L and width W). Examples: the glass covering over
-solar collectors and multi-pane windows.
+other two dimensions (length L and width W).
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press.
+Examples:
+    - the glass covering over solar collectors
+    - multi-pane windows.
+
+The correlations were taken from:
+Nellis G. F. , & Klein S. A.  (2021).
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 
 import warnings

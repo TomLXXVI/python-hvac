@@ -2,9 +2,10 @@
 In this module, correlations are implemented for film condensation on a
 few different geometries.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press, section 11.4.2 "Correlations for
-Film Condensation".
+The correlations were taken from:
+Nellis G. F., & Klein S. A. (2021)
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 import warnings
 import numpy as np

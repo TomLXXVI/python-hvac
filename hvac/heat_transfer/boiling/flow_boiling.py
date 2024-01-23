@@ -7,8 +7,10 @@ heat fluxes and can be used for a wide range of vapor qualities, from saturated
 liquid (x = 0) to the liquid-deficient and dry-out regimes that occur at
 qualities of 0.8 or higher.
 
-The correlation was taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press, section 11.3 "Flow Boiling".
+The correlation was taken from:
+Nellis G. F., & Klein S. A. (2021)
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 
 import numpy as np

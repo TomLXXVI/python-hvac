@@ -1,7 +1,9 @@
 """
 Mixed convection.
 
-Based on Nellis, G.F. INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+From:
+Nellis G. F., & Klein S. A. (2021)
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
 Cambridge University Press.
 """
 from hvac import Quantity

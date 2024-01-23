@@ -2,8 +2,10 @@
 In this module some correlations are implemented that predict the behavior of
 nucleate boiling and the limit of this mode which is the critical heat flux.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press, section 11.2 "Pool Boiling".
+The correlations were taken from:
+Nellis G. F., & Klein S. A. (2021)
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 from math import pi as PI
 from abc import ABC, abstractmethod

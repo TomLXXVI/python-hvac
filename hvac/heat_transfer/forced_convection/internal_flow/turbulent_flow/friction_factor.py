@@ -1,7 +1,11 @@
 """
 Implementation of the correlations for fully developed and average friction
-factor in case of turbulent flow. The correlations were taken from
-Nellis, G.F. INTRODUCTION TO ENGINEERING HEAT TRANSFER. Cambridge University Press.
+factor in case of turbulent flow.
+
+The correlations were taken from:
+Nellis G. F., & Klein S. A. (2021)
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
 """
 import math
 from hvac import Quantity

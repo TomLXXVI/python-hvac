@@ -3,10 +3,13 @@ for external flow across a bank of tubes (e.g. in a shell-and-tube heat
 exchanger). A distinction needs to be made between an inline tube bank and a
 staggered tube bank.
 
-The correlations were taken from Nellis, G.F. INTRODUCTION TO ENGINEERING
-HEAT TRANSFER. Cambridge University Press. Friction factor data and tube row
-correction factors were taken from the third-party Python library ht
-(see https://github.com/CalebBell/ht).
+The correlations were taken from:
+Nellis G. F. , & Klein S. A.  (2021).
+INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Cambridge University Press.
+
+Friction factor data and tube row correction factors were taken from third-party
+Python library `ht` (see https://github.com/CalebBell/ht).
 """
 from abc import ABC, abstractmethod
 import numpy as np
