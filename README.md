@@ -31,11 +31,13 @@ Radiant-Times-Series (RTS) method.
 It uses a lumped capacitance model to take the thermal inertia of flat, opaque 
 building components and the interior thermal mass of a zone into account. 
 
-**sun**
-This subpackage can be used to calculate the solar radiation on surfaces. It
-implements different sky-models used to calculate the solar radiation incident 
-on exterior surfaces and the solar heat gain through windows.
-Subpackage **sun** implements the equations in chapters 1 and 2 of *Duffie, 
+**sun**<br>
+This subpackage is about solar radiation on surfaces. It implements different 
+sky-models (isotropic, anisotropic Perez, anisotropic HDKR, KT) to estimate the 
+solar radiation incident on exterior surfaces.
+It can generate solar radiation data based on the clear-sky model or it can use
+TMY-data of a certain geographic location .
+Subpackage *sun* implements the equations in chapters 1 and 2 of *Duffie, 
 J. A., Beckman, W. A., & Blair, N. (2020). SOLAR ENGINEERING OF THERMAL 
 PROCESSES, PHOTOVOLTAICS AND WIND. John Wiley & Sons.*
 

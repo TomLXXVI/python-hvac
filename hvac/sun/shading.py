@@ -33,7 +33,7 @@ def shading_point_coords(
 if __name__ == '__main__':
 
     from datetime import date, time
-    from sun.surface import Location
+    from hvac.sun.surface import Location
 
     Q_ = Quantity
 
