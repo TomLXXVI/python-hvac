@@ -1,10 +1,12 @@
-"""Lumped capacitance model of a thermal zone or space with a free-floating
-zone air temperature.
+"""NODAL THERMAL ZONE MODEL
+---------------------------
+Lumped capacitance model of a thermal zone or space with a variable zone air
+temperature. This model is incorporated in class `UnconditionedZone`: see
+`hvac.building.unconditioned_zone.py`.
 
-In this implementation the zone air temperature is considered to be free
-floating, i.e., it is not controlled to remain constant in time. Its value is
-determined based on a heat balance of the zone air node, i.e., the sum of the
-heat gains minus the heat rate extracted by the cooling system.
+In this type of model the zone air temperature is considered to be variable.
+Its value follows from an energy balance of the zone air node, i.e., the
+sum of the heat gains minus the heat rate extracted by the cooling system.
 """
 from __future__ import annotations
 from typing import Callable, TYPE_CHECKING
@@ -50,8 +52,7 @@ def set_time_step(dt_hr: float) -> float:
 
 
 class TemperatureNode(ABC):
-    """Represents a general temperature node in the linear thermal network of an
-    exterior building element.
+    """Represents a general temperature node.
 
     A temperature node has a unit thermal capacity `C`, expressed per unit of
     area, i.e., in SI units J/(K.m²).
@@ -636,9 +637,18 @@ class ZoneAirNode(TemperatureNode):
             the design day and returns the convective part of the internal heat
             gains in the zone.
         Q_dot_sys:
-            Function that takes solar time in seconds from midnight (0 s) of the
-            design day and returns the heat rate extracted by the cooling system
-            from the zone air at that time moment.
+            A function with signature
+                f(t_sol_sec: float, T_zone: float) -> Quantity
+            which takes the time `t_sol_sec` in seconds from midnight (0 s) of
+            the considered day and the zone air temperature in Kelvins (K). It
+            returns the cooling capacity (`Quantity` object) of the cooling
+            system (i.e. the heat rate extracted from the zone air by the
+            cooling system). Note that heat extraction by the cooling system
+            is associated with a positive sign. Should instead the system supply
+            heat to the zone, this must be associated with a negative sign.
+            If this parameter is left to None, it is assumed that no (operating)
+            cooling system is present in the zone, i.e. the zone is truly
+            unconditioned.
         """
         node = cls()
         node.ID = ID
@@ -834,11 +844,18 @@ class NodalThermalZoneModelBuilder:
             the design day and returns the radiative part of the internal heat
             gains in the zone.
         Q_dot_sys:
-            Function that takes solar time in seconds from midnight (0 s) of the
-            design day and returns the heat rate extracted by the cooling system
-            from the zone air at that time moment. If `None`, it is assumed that
-            the cooling system is permanently off, i.e. `Q_dot_sys` is always
-            0 W.
+            A function with signature
+                f(t_sol_sec: float, T_zone: float) -> Quantity
+            which takes the time `t_sol_sec` in seconds from midnight (0 s) of
+            the considered day and the zone air temperature in Kelvins (K). It
+            returns the cooling capacity (`Quantity` object) of the cooling
+            system (i.e. the heat rate extracted from the zone air by the
+            cooling system). Note that heat extraction by the cooling system
+            is associated with a positive sign. Should instead the system supply
+            heat to the zone, this must be associated with a negative sign.
+            If this parameter is left to None, it is assumed that no (operating)
+            cooling system is present in the zone, i.e. the zone is truly
+            unconditioned.
         """
         self.ebe_lst = ebe_lst
         self.F_rad = F_rad
@@ -867,7 +884,7 @@ class NodalThermalZoneModelBuilder:
         )
         self.Q_dot_sys = (
             Q_dot_sys if Q_dot_sys is not None
-            else lambda t_sol_sec: Q_(0.0, 'W')
+            else lambda t_sol_sec, _: Q_(0.0, 'W')
         )
         self.ebe_ltn_dict: dict[str, list[TemperatureNode]] = {}
         self.tsn: ThermalStorageNode | None = None
@@ -1129,12 +1146,18 @@ class NodalThermalZoneModel:
             the design day and returns the radiative part of the internal heat
             gains in the zone.
         Q_dot_sys:
-            Function that takes the solar time in seconds from midnight (0 s) on
-            the design day and returns the heat rate being extracted from the
-            zone air node by the cooling system. A negative value would mean
-            that heat is added to the zone air node. If `None`, it is assumed
-            that the cooling system is permanently off, i.e. `Q_dot_sys` is
-            always 0 W.
+            A function with signature
+                f(t_sol_sec: float, T_zone: float) -> Quantity
+            which takes the time `t_sol_sec` in seconds from midnight (0 s) of
+            the considered day and the zone air temperature in Kelvins (K). It
+            returns the cooling capacity (`Quantity` object) of the cooling
+            system (i.e. the heat rate extracted from the zone air by the
+            cooling system). Note that heat extraction by the cooling system
+            is associated with a positive sign. Should instead the system supply
+            heat to the zone, this must be associated with a negative sign.
+            If this parameter is left to None, it is assumed that no (operating)
+            cooling system is present in the zone, i.e. the zone is truly
+            unconditioned.
         """
         thz_model_builder = NodalThermalZoneModelBuilder(
             ebe_lst=ext_build_elems,

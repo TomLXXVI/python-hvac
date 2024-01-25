@@ -21,7 +21,7 @@ entire script.
 
 The analysis or rating routine tries to find the evaporation and condensation
 temperature for which the mass flow rate of the refrigerant displaced by the
-compressor is equal to the mass flow rate of the refrigerant let trough by the
+compressor equals the mass flow rate of the refrigerant let trough by the
 expansion device. Once the evaporation and condensation temperature are
 determined, the full operating state of the machine is known.
 The analysis starts with an initial guess for the evaporation and condensation

@@ -16,10 +16,10 @@ Q_ = Quantity
 class TemperatureNode:
     """Represents a temperature node in a linear thermal network.
 
-    A temperature node has a unit thermal capacity `C`, expressed per unit of
-    area, i.e., in SI units J/(K.m²).
-    The node can be connected on two sides (the left and the right side) to
-    either another temperature node in the linear network, or to the adjacent
+    A temperature node has an associated unit thermal capacity `C`, expressed
+    per unit of area, i.e., in SI units J/(K.m²).
+    The node can be connected on two sides (let's say its left and right side)
+    to either another temperature node in the linear network, or to the adjacent
     environment through a thermal resistor. The thermal resistor on the left is
     designated `R1`, while the resistor on the right is designated `R2`. The
     thermal resistance is expressed on the basis of one unit area, i.e., in SI
@@ -28,20 +28,21 @@ class TemperatureNode:
     separately.
 
     If the temperature node is connected on one or on both sides to an
-    environment, the known environmental temperature as a function of time can
-    be connected to the other end of the thermal resistor present on that side
-    of the temperature node: on the left side through parameter `T_fun1`, and
+    environment (outdoor or indoor), the known environmental temperature as a
+    function of time can be connected to the other end of the thermal resistor
+    present on that side: on the left side through parameter `T_fun1`, and
     on the right side through parameter `T_fun2`. To return the known
     temperature at a given time moment `t`, these functions need to be called
     by passing this time moment `t` to them. Time moment `t` is the time
-    measured from a certain zero point in time, and must be expressed in seconds.
+    measured from a certain reference point in time, and must be expressed in
+    seconds.
 
     Instead of a thermal resistor in combination with a temperature function, it
     is also possible to connect a function to the node that directly returns the
-    heat flow into or out of the node at a given time moment `t`; the parameter
-    `Q_dot_fun1` on the left side of the node is considered to be heat input,
-    while the parameter `Q_dot_fun2` is considered to be heat output (so heat
-    flows from left to right through the linear thermal network).
+    heat flow rate into or out of the node at a given time moment `t`; the
+    parameter `Q_dot_fun1` on the left side of the node is considered to be heat
+    input, while the parameter `Q_dot_fun2` is considered to be heat output (so
+    heat flows from left to right through the linear thermal network).
     """
     def __init__(self):
         """Creates an 'empty' `TemperatureNode` object."""
@@ -85,21 +86,19 @@ class TemperatureNode:
         A: Quantity
             Surface area associated with this node.
         T_fun1: optional, default None
-            A function of time that returns a temperature value (`Quantity`
-            object) at a given time `t` (float) present on the left-hand side of
-            this node. Time variable `t` should be of type float, being the time
-            measured in seconds since an arbitrary initial time moment that is
-            set to zero.
+            A function that returns a temperature value (`Quantity` object) at a
+            given time `t` (float) present on the left of this node.
+            Time variable `t` should be of type float, being the time measured
+            in seconds since a reference time moment that is set to zero.
         T_fun2: optional, default None
-            Same as `T_fun1`, but present on the right-hand side of this node.
+            Same as `T_fun1`, but present on the right of this node.
         Q_dot_fun1: optional, default None
-            A function of time, similar to `T_fun1`, that returns a thermal
-            power value (`Quantity` object) at a given time `t` in seconds
-            flowing into this node on the left-hand side.
+            A function, similar to `T_fun1`, that returns a heat rate value
+            (`Quantity` object) at a given time `t` in seconds flowing into this
+             node from its left side.
         Q_dot_fun2: optional, default None
-            A function of time, similar to `Q_fun1` that returns a thermal power
-            value at a given time `t` flowing out of this node on the right-hand
-            side.
+            A function, similar to `Q_fun1`, that returns a heat rate value at a
+            given time `t` flowing out of this node on its right side.
 
         Returns
         -------
@@ -172,7 +171,7 @@ class TemperatureNode:
 
     def Q_dot_2(self, t: float, T: float, T2: float | None = None) -> float:
         """Returns the thermal power output in units of Watt on the right
-        side of this node at the time moment `t` measured in seconds from time
+        side of this node at time moment `t` measured in seconds from time
         zero. Parameter `T` is the node temperature in units of Kelvin of this
         node at time `t`. Parameter `T2` is the temperature in units of Kelvin
         at the same time `t` of the next node to the right of this node in a

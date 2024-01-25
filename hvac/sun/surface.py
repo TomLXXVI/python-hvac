@@ -75,13 +75,14 @@ class Location:
         climate_type:
             Type of climate as defined in class `ClimateType`
         timezone: optional, default UTC
-            tz database identifier of the time zone of the location, indicating
-            the offset from UTC (e.g. Etc/GMT-1). Used to determine the local
-            standard time meridian. Do not specify a timezone with daylight
-            saving time (DST), should it be in use at the location under
-            consideration, as this may give errors at times when DST becomes
-            active or inactive.
-            (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+            Tz-database identifier of the time zone of the location, indicating
+            the offset from UTC (e.g. Etc/GMT-1).
+            See: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+            The time zone is only used to determine the local standard time
+            meridian. Do not specify a timezone with daylight saving time (DST),
+            should it be in use at the location under consideration, as this may
+            give errors at times when DST becomes active or inactive (e.g. use
+            'Etc/GMT-1' instead of 'Europe/Brussels').
         """
         self._fi = fi.to('rad')  # `.to(...)` returns new object
         self._L_loc = L_loc

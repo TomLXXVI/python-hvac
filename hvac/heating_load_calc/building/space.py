@@ -276,11 +276,11 @@ class UnheatedSpace:
         air infiltration).
         """
         rho_cp = Q_(0.34, 'W * hr / (m ** 3 * K)')
+        V_ext = max(self.V_env + self.V_open, self.V_min - self.V_tech)
         Q_ven = rho_cp * (
-            max(self.V_env + self.V_open, self.V_min - self.V_tech) *
-            (self.T_int_air - self.T_ext_d) +
-            self.V_sup * (self.T_int_air - self.T_sup) +
-            self.V_trf * (self.T_int_air - self.T_trf)
+            V_ext * (self.T_int_air - self.T_ext_d)
+            + self.V_sup * (self.T_int_air - self.T_sup)
+            + self.V_trf * (self.T_int_air - self.T_trf)
         )
         return Q_ven
 

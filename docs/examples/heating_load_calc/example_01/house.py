@@ -10,25 +10,25 @@ from hvac.heating_load_calc import (
     VentilationZone,
     HeatedSpace,
     UnheatedSpace,
-    ConstructionAssembliesShelf,
+    ConstructionAssemblyShelf,
     WindowPropertiesShelf,
     ConstructionAssembly,
     HeatFlowDirection,
     Geometry,
-    BuildingComponent,
-    SurfaceLayer,
-    MaterialsShelf
+    SolidLayer,
+    SurfaceFilm,
+    MaterialShelf
 )
-import hvac.cooling_load_calc.wtcb_catalog.exterior_walls as ew
-import hvac.cooling_load_calc.wtcb_catalog.interior_walls as iw
-import hvac.cooling_load_calc.wtcb_catalog.floors as fl
-import hvac.cooling_load_calc.wtcb_catalog.roofs as rf
+import hvac.cooling_load_calc.wtcb.exterior_walls as ew
+import hvac.cooling_load_calc.wtcb.interior_walls as iw
+import hvac.cooling_load_calc.wtcb.floors as fl
+import hvac.cooling_load_calc.wtcb.roofs as rf
 
 Q_ = Quantity
 
-ConstructionAssembliesShelf.path = "C:/Users/Tom/wtcb_database/wtcb_construction_assemblies.db"
-WindowPropertiesShelf.path = "C:/Users/Tom/wtcb_database/window_properties.db"
-MaterialsShelf.path = "C:/Users/Tom/wtcb_database/wtcb_materials.db"
+ConstructionAssemblyShelf.path = "C:/Users/Tom/wtcb-database/wtcb-construction-assemblies.db"
+WindowPropertiesShelf.path = "C:/Users/Tom/wtcb-database/window-properties.db"
+MaterialShelf.path = "C:/Users/Tom/wtcb-database/wtcb-materials.db"
 
 
 class ConstructionAssemblies:
@@ -36,31 +36,27 @@ class ConstructionAssemblies:
 
     def __init__(self):
         # exterior walls
-        self.ext_wall_WTCB1 = ew.create_ca_ext_wall_wtcbF1(
-            t_ins=Q_(12, 'cm')
-        )
+        self.ext_wall_wtcb_f1 = ew.create_ext_wall_wtcb_F1(t_ins=Q_(12, 'cm'))
 
         # interior walls
-        self.int_wall_WTCB1 = iw.create_ca_int_wall_wtcbF1(
-            t_ins=Q_(6, 'cm')
-        )
-        self.int_wall_PROJ1 = self._create_ca_int_wall_projF1()
+        self.int_wall_wtcb_f1 = iw.create_int_wall_wtcb_F1(t_ins=Q_(6, 'cm'))
+        self.int_wall_proj1 = self._create_int_wall_proj1()
 
         # floors
-        self.floor_WTCB4 = fl.create_ca_floor_wtcbF4(
+        self.floor_wtcb_f4 = fl.create_floor_wtcb_F4(
             t_ins=Q_(12, 'cm'),
-            heat_flow_direction=HeatFlowDirection.DOWNWARDS
+            heat_flow_dir=HeatFlowDirection.DOWNWARDS
         )
 
         # ceilings
-        self.ceiling_WTCB13 = rf.create_ca_ceiling_wtcbF13(
+        self.ceiling_wtcb_f13 = rf.create_ceiling_wtcb_F13(
             t_ins=Q_(12, 'cm'),
-            heat_flow_direction=HeatFlowDirection.UPWARDS,
+            heat_flow_dir=HeatFlowDirection.UPWARDS,
             T_ext=Q_(10, 'degC')
         )
 
         # windows
-        self.window_ASHRAE5a = WindowPropertiesShelf.load('window_5a_operable_wood/vinyl')
+        self.window_ashrae_5a = WindowPropertiesShelf.load('window-5a-operable-wood/vinyl')
 
         # interior doors
         self.int_door = ConstructionAssembly.create(
@@ -77,37 +73,37 @@ class ConstructionAssemblies:
         )
 
     @staticmethod
-    def _create_ca_int_wall_projF1():
-        # create interior wall construction assembly "à la carte"
-        ext_surf_film = SurfaceLayer.create(
+    def _create_int_wall_proj1():
+        # create the interior wall construction assembly "à la carte"
+        ext_surf_film = SurfaceFilm.create(
             ID='ext_surf_film',
             geometry=Geometry(),
-            heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-            Tmn=Q_(10, 'degC')
+            heat_flow_dir=HeatFlowDirection.HORIZONTAL,
+            T_mn=Q_(10, 'degC')
         )
-        gypsum_layer_ext = BuildingComponent.create(
+        gypsum_layer_ext = SolidLayer.create(
             ID='gypsum_layer_ext',
             geometry=Geometry(t=Q_(1.5, 'cm')),
-            material=MaterialsShelf.load('gipspleister')
+            material=MaterialShelf.load('gypsum-plaster')
         )
-        brick_layer = BuildingComponent.create(
+        brick_layer = SolidLayer.create(
             ID='brick_layer',
             geometry=Geometry(t=Q_(9, 'cm')),
-            material=MaterialsShelf.load('blokken gebakken aarde, 1200 kg/m3')
+            material=MaterialShelf.load('terracotta-block-1200kg/m3')
         )
-        gypsum_layer_int = BuildingComponent.create(
+        gypsum_layer_int = SolidLayer.create(
             ID='gypsum_layer_int',
             geometry=Geometry(t=Q_(1.5, 'cm')),
-            material=MaterialsShelf.load('gipspleister')
+            material=MaterialShelf.load('gypsum-plaster')
         )
-        int_surf_film = SurfaceLayer.create(
+        int_surf_film = SurfaceFilm.create(
             ID='int_surf_film',
             geometry=Geometry(),
-            heat_flow_direction=HeatFlowDirection.HORIZONTAL,
-            Tmn=Q_(20, 'degC')
+            heat_flow_dir=HeatFlowDirection.HORIZONTAL,
+            T_mn=Q_(20, 'degC')
         )
-        int_wall_projF1 = ConstructionAssembly.create(
-            ID='int_wall_projF1',
+        int_wall_proj1 = ConstructionAssembly.create(
+            ID='int_wall_proj1',
             layers=[
                 ext_surf_film,
                 gypsum_layer_ext,
@@ -116,16 +112,16 @@ class ConstructionAssemblies:
                 int_surf_film
             ]
         )
-        return int_wall_projF1
+        return int_wall_proj1
 
 
 class House:
 
     def __init__(self):
-        # load construction assemblies
+        # Get the construction assemblies:
         self.constr_assem = ConstructionAssemblies()
 
-        # declare the building attributes
+        # Declare the building attributes:
         self.building = Building()
         self.building_entity = BuildingEntity()
         self.ventilation_zone = VentilationZone()
@@ -137,7 +133,7 @@ class House:
         self.hall_way = UnheatedSpace()
         self.toilet = UnheatedSpace()
 
-        # create building and configure all heated spaces
+        # Create the building and configure all of its heated spaces:
         self._create_building()
         self._config_kitchen_and_dining_room()
         self._config_living_room()
@@ -146,7 +142,7 @@ class House:
         self._config_bathroom()
 
     def _create_building(self):
-        # create building
+        # Create the building:
         self.building = Building.create(
             ID='house',
             climate_data=ClimateDesignData(
@@ -155,11 +151,11 @@ class House:
                 T_ext_min=Q_(0.0, 'degC')
             )
         )
-        # add building entity to building
+        # Add a building entity to the building:
         self.building_entity = self.building.add_building_entity(ID='house')
-        # add ventilation zone to building entity
+        # Add a ventilation zone to the building entity:
         self.ventilation_zone = self.building_entity.add_ventilation_zone(ID='house')
-        # add heated spaces to ventilation zone
+        # Add the heated spaces to the ventilation zone:
         self.kitchen_and_dining_room = self.ventilation_zone.add_heated_space(
             ID='kitchen_and_dining_room',
             height=Q_(3.0, 'm'),
@@ -216,64 +212,64 @@ class House:
         )
 
     def _config_kitchen_and_dining_room(self) -> None:
-        # add exterior wall at the north side of the kitchen and dining room
+        # Add the exterior wall at the north side of the kitchen and dining room:
         self.kitchen_and_dining_room.add_exterior_building_element(
             ID='ext_wall_north',
             area=(Q_(5.6, 'm'), Q_(3.0, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
-        # add wall adjacent to neighbouring house
+        # Add the wall adjacent to the neighboring house:
         self.kitchen_and_dining_room.add_adjacent_building_element(
             ID='adj_wall_west',
             area=(Q_(4.65, 'm'), Q_(3.0, 'm')),
-            construction_assembly=self.constr_assem.int_wall_WTCB1,
+            constr_assem=self.constr_assem.int_wall_wtcb_f1,
             kind_of_adjacent_space='unheated',
             T_adj=Q_(10, 'degC')
         )
-        # add exterior wall at the east side of the kitchen and dining room
+        # Add the exterior wall at the east side of the kitchen and dining room:
         ext_wall_east = self.kitchen_and_dining_room.add_exterior_building_element(
             ID='ext_wall_east',
             area=(Q_(6.225, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
-        # add window and backdoor to east wall
+        # Add the window and the backdoor to the east wall:
         ext_wall_east.add_building_element(
             ID='window_east',
             area=(Q_(3.7, 'm'), Q_(2.7, 'm')),
-            construction_assembly=self.constr_assem.window_ASHRAE5a
+            constr_assem=self.constr_assem.window_ashrae_5a
         )
         ext_wall_east.add_building_element(
             ID='door_east',
             area=(Q_(0.8, 'm'), Q_(2.7, 'm')),
-            construction_assembly=self.constr_assem.ext_door
+            constr_assem=self.constr_assem.ext_door
         )
-        # add interior wall adjacent to toiletroom
+        # Add the interior wall adjacent to the toilet:
         int_wall_toilet = self.kitchen_and_dining_room.add_adjacent_building_element(
             ID='int_wall_toilet',
             area=(Q_(3.025, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            constr_assem=self.constr_assem.int_wall_proj1,
             T_adj=Q_(10, 'degC')
         )
-        # add door to interior wall
+        # Add the door to the interior wall:
         int_wall_toilet.add_building_element(
             ID='door_toilet',
             area=(Q_(0.8, 'm'), Q_(2.1, 'm')),
-            construction_assembly=self.constr_assem.int_door
+            constr_assem=self.constr_assem.int_door
         )
-        # add floor to kitchen and dining room
+        # Add the floor to the kitchen and dining room:
         self.kitchen_and_dining_room.add_ground_building_element(
             ID='floor',
             area=Q_(27.0, 'm ** 2'),
-            construction_assembly=self.constr_assem.floor_WTCB4,
+            constr_assem=self.constr_assem.floor_wtcb_f4,
             A_slab=Q_(59.36, 'm ** 2'),
             P_slab=Q_(32.4, 'm'),
             z=Q_(0, 'm')
         )
-        # add ceiling to kitchen and dining room
+        # Add ceiling to the kitchen and the dining room:
         self.kitchen_and_dining_room.add_adjacent_building_element(
             ID='ceiling',
             area=Q_(27.0, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             kind_of_adjacent_space='heated',
             T_adj=Q_(18.60, 'degC')  # area-weighted average adjacent space temperature
         )
@@ -282,38 +278,38 @@ class House:
         ext_wall_east = self.living_room.add_exterior_building_element(
             ID='ext_wall_east',
             area=(Q_(4.375, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
         ext_wall_east.add_building_element(
             ID='window_east',
             area=(Q_(3.0, 'm'), Q_(2.7, 'm')),
-            construction_assembly=self.constr_assem.window_ASHRAE5a
+            constr_assem=self.constr_assem.window_ashrae_5a
         )
         ext_wall_south = self.living_room.add_exterior_building_element(
             ID='ext_wall_south',
             area=(Q_(4.0, 'm'), Q_(3.0, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
         ext_wall_south.add_building_element(
             ID='window_south',
             area=(Q_(2, 'm'), Q_(1.8, 'm')),
-            construction_assembly=self.constr_assem.window_ASHRAE5a
+            constr_assem=self.constr_assem.window_ashrae_5a
         )
         int_wall_hallway = self.living_room.add_adjacent_building_element(
             ID='int_wall_hallway',
             area=(Q_(4.075, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            constr_assem=self.constr_assem.int_wall_proj1,
             T_adj=Q_(10, 'degC')
         )
         int_wall_hallway.add_building_element(
             ID='door_hallway',
             area=(Q_(0.8, 'm'), Q_(2.1, 'm')),
-            construction_assembly=self.constr_assem.int_door
+            constr_assem=self.constr_assem.int_door
         )
         self.living_room.add_ground_building_element(
             ID='floor',
             area=Q_(27.0, 'm ** 2'),
-            construction_assembly=self.constr_assem.floor_WTCB4,
+            constr_assem=self.constr_assem.floor_wtcb_f4,
             A_slab=Q_(59.36, 'm ** 2'),
             P_slab=Q_(32.4, 'm'),
             z=Q_(0, 'm')
@@ -321,7 +317,7 @@ class House:
         self.living_room.add_adjacent_building_element(
             ID='ceiling',
             area=Q_(14.0, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             kind_of_adjacent_space='heated',
             T_adj=Q_(16.67, 'degC')  # area-weighted average adjacent space temperature
         )
@@ -330,51 +326,51 @@ class House:
         ext_wall_east = self.bedroom_1.add_exterior_building_element(
             ID='ext_wall_east',
             area=(Q_(5.905, 'm'), Q_(3.0, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
         ext_wall_east.add_building_element(
             ID='window_east',
             area=(Q_(3.0, 'm'), Q_(1.5, 'm')),
-            construction_assembly=self.constr_assem.window_ASHRAE5a
+            constr_assem=self.constr_assem.window_ashrae_5a
         )
         ext_wall_south = self.bedroom_1.add_exterior_building_element(
             ID='ext_wall_south',
             area=(Q_(5.6, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
         ext_wall_south.add_building_element(
             ID='window_south',
             area=(Q_(3, 'm'), Q_(1.5, 'm')),
-            construction_assembly=self.constr_assem.window_ASHRAE5a
+            constr_assem=self.constr_assem.window_ashrae_5a
         )
         self.bedroom_1.add_adjacent_building_element(
             ID='int_wall_west',
             area=(Q_(1.95, 'm'), Q_(3.0, 'm')),
-            construction_assembly=self.constr_assem.int_wall_WTCB1,
+            constr_assem=self.constr_assem.int_wall_wtcb_f1,
             T_adj=Q_(10, 'degC')
         )
         int_wall_hallway = self.bedroom_1.add_adjacent_building_element(
             ID='int_wall_hallway',
             area=(Q_(2.39 + 4.045, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            constr_assem=self.constr_assem.int_wall_proj1,
             T_adj=Q_(10, 'degC')
         )
         int_wall_hallway.add_building_element(
             ID='door_hallway',
             area=(Q_(0.8, 'm'), Q_(2.1, 'm')),
-            construction_assembly=self.constr_assem.int_door
+            constr_assem=self.constr_assem.int_door
         )
         self.bedroom_1.add_adjacent_building_element(
             ID='floor',
             area=Q_(18, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             kind_of_adjacent_space='heated',
             T_adj=Q_(20, 'degC')
         )
         self.bedroom_1.add_adjacent_building_element(
             ID='ceiling',
             area=Q_(18, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             T_adj=Q_(0, 'degC')
         )
 
@@ -382,47 +378,47 @@ class House:
         ext_wall_east = self.bedroom_2.add_exterior_building_element(
             ID='ext_wall_east',
             area=(Q_(4.695, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
         ext_wall_east.add_building_element(
             ID='window_east',
             area=(Q_(3.7, 'm'), Q_(1.5, 'm')),
-            construction_assembly=self.constr_assem.window_ASHRAE5a
+            constr_assem=self.constr_assem.window_ashrae_5a
         )
         self.bedroom_2.add_exterior_building_element(
             ID='ext_wall_north',
             area=(Q_(2.955, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
         self.bedroom_2.add_adjacent_building_element(
             ID='int_wall_bathroom',
             area=(Q_(3.35, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            constr_assem=self.constr_assem.int_wall_proj1,
             kind_of_adjacent_space='heated',
             T_adj=Q_(24.0, 'degC')
         )
         int_wall_hallway = self.bedroom_2.add_adjacent_building_element(
             ID='int_wall_hallway',
             area=(Q_(1.045, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            constr_assem=self.constr_assem.int_wall_proj1,
             T_adj=Q_(10.0, 'degC')
         )
         int_wall_hallway.add_building_element(
             ID='door_bedroom_2',
             area=(Q_(0.8, 'm'), Q_(2.1, 'm')),
-            construction_assembly=self.constr_assem.int_door
+            constr_assem=self.constr_assem.int_door
         )
         self.bedroom_2.add_adjacent_building_element(
             ID='floor',
             area=Q_(11, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             kind_of_adjacent_space='heated',
             T_adj=Q_(20, 'degC')
         )
         self.bedroom_2.add_adjacent_building_element(
             ID='ceiling',
             area=Q_(11, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             T_adj=Q_(0.0, 'degC')
         )
 
@@ -430,48 +426,48 @@ class House:
         self.bathroom.add_adjacent_building_element(
             ID='int_wall_west',
             area=(Q_(3.65, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_WTCB1,
+            constr_assem=self.constr_assem.int_wall_wtcb_f1,
             T_adj=Q_(10.0, 'degC')
         )
         ext_wall_north = self.bathroom.add_exterior_building_element(
             ID='ext_wall_north',
             area=(Q_(2.645, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.ext_wall_WTCB1
+            constr_assem=self.constr_assem.ext_wall_wtcb_f1
         )
         ext_wall_north.add_building_element(
             ID='window_north',
             area=(Q_(0.6, 'm'), Q_(0.6, 'm')),
-            construction_assembly=self.constr_assem.window_ASHRAE5a
+            constr_assem=self.constr_assem.window_ashrae_5a
         )
         self.bathroom.add_adjacent_building_element(
             ID='int_wall_bedroom_2',
             area=(Q_(3.35, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            constr_assem=self.constr_assem.int_wall_proj1,
             kind_of_adjacent_space='heated',
             T_adj=Q_(18, 'degC')
         )
         int_wall_hallway = self.bathroom.add_adjacent_building_element(
             ID='int_wall_hallway',
             area=(Q_(2.3, 'm'), Q_(3, 'm')),
-            construction_assembly=self.constr_assem.int_wall_PROJ1,
+            constr_assem=self.constr_assem.int_wall_proj1,
             T_adj=Q_(10, 'degC')
         )
         int_wall_hallway.add_building_element(
             ID='door_hallway',
             area=(Q_(0.8, 'm'), Q_(2.1, 'm')),
-            construction_assembly=self.constr_assem.int_door
+            constr_assem=self.constr_assem.int_door
         )
         self.bathroom.add_adjacent_building_element(
             ID='floor',
             area=Q_(7.5, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             kind_of_adjacent_space='heated',
             T_adj=Q_(20, 'degC')
         )
         self.bathroom.add_adjacent_building_element(
             ID='ceiling',
             area=Q_(7.5, 'm ** 2'),
-            construction_assembly=self.constr_assem.ceiling_WTCB13,
+            constr_assem=self.constr_assem.ceiling_wtcb_f13,
             T_adj=Q_(0.0, 'degC')
         )
 
@@ -481,7 +477,7 @@ def main():
     with pd.option_context(
         'display.max_rows', None,
         'display.max_columns', None,
-        'display.width', None
+        'display.width', 800
     ):
         print(house.ventilation_zone.get_summary())
         print()

@@ -26,10 +26,16 @@ Q_ = Quantity
 
 class UnconditionedZone:
     """Represents a space or a group of spaces in a building of which the zone
-    air temperature is free-floating. This class can be used to solve for the
-    zone air temperature as a function of time if the heat gains in the zone and
-    the heat extraction rate of the cooling system can be calculated and/or are
-    given.
+    air temperature can vary in time depending on the momentary heat gains and
+    the heat rate extracted from the zone air by the cooling system (if present).
+
+    The purpose of this class is for simulation, i.e., to determine the zone air
+    temperature as function of time based on the momentary energy balance of the
+    heat gains in the zone and the heat rate extracted by the cooling system.
+    The sensible and latent heat gains are calculated at several time moments
+    during the considered day (see method `solve`). By default, the time step is
+    one hour, which means that the heat gains and cooling loads are calculated
+    at each hour of the considered day.
     """
     def __init__(self):
         self.ID: str = ''
@@ -53,7 +59,7 @@ class UnconditionedZone:
         floor_area: Quantity,
         height: Quantity,
         ventilation_zone: VentilationZone | None = None,
-        C_tsn: Quantity = Q_(100, 'kJ / m**2'),
+        C_tsn: Quantity = Q_(100, 'kJ / (K * m**2)'),
         A_tsn: Quantity = Q_(1.0, 'm**2'),
         R_tsn: Quantity = Q_(float('inf'), 'K * m**2 / W')
     ) -> UnconditionedZone:
@@ -111,7 +117,10 @@ class UnconditionedZone:
     ) -> None:
         """Adds an interior building element or a sequence of interior building
         elements to the zone."""
-        self.int_build_elems[ibe.ID] = ibe
+        if isinstance(ibe, Sequence):
+            self.int_build_elems.update({ibe_.ID: ibe_ for ibe_ in ibe})
+        else:
+            self.int_build_elems[ibe.ID] = ibe
 
     def add_ventilation(
         self,
@@ -236,9 +245,9 @@ class UnconditionedZone:
                 d['Q_dot'].append(Q_dot)
                 d['Q_dot_conv'].append(Q_dot_cv)
                 d['Q_dot_rad'].append(Q_dot_rd)
-        Q_dot = sum(d['Q_dot'])
-        Q_dot_conv = sum(d['Q_dot_conv'])
-        Q_dot_rad = sum(d['Q_dot_rad'])
+        Q_dot = sum(d['Q_dot']) if len(d['Q_dot']) else Q_(0, 'W')
+        Q_dot_conv = sum(d['Q_dot_conv']) if len(d['Q_dot_conv']) else Q_(0, 'W')
+        Q_dot_rad = sum(d['Q_dot_rad']) if len(d['Q_dot_rad']) else Q_(0, 'W')
         return Q_dot, Q_dot_conv, Q_dot_rad
 
     def _internal_heat_gain(
@@ -352,7 +361,7 @@ class UnconditionedZone:
         F_rad: Quantity = Q_(0.46, 'frac'),
         Q_dot_sys_fun: Callable[[float, float], Quantity] | None = None,
         dt_hr: float = 1.0,
-        num_cycles: int = 1
+        num_cycles: int = 1,
     ) -> None:
         """Creates the nodal thermal zone model of the unconditioned space and
         solves it.
@@ -363,12 +372,17 @@ class UnconditionedZone:
             The radiative fraction of the conduction heat gain.
         Q_dot_sys_fun:
             A function with signature
-            f(t_sol_sec: float, T_zone: float) -> Quantity
-            which takes the time `t_sol_sec` in seconds from midnight (0 s) on
-            the design day and the zone air temperature in Kelvins (K) and
-            returns the cooling capacity of the cooling system.
-            If None, it is assumed that no operating cooling system is present
-            in the zone, i.e. the zone is unconditioned.
+                f(t_sol_sec: float, T_zone: float) -> Quantity
+            which takes the time `t_sol_sec` in seconds from midnight (0 s) of
+            the considered day and the zone air temperature in Kelvins (K). It
+            returns the cooling capacity (`Quantity` object) of the cooling
+            system (i.e. the heat rate extracted from the zone air by the
+            cooling system). Note that heat extraction by the cooling system
+            is associated with a positive sign. Should instead the system supply
+            heat to the zone, this must be associated with a negative sign.
+            If this parameter is left to None, it is assumed that no (operating)
+            cooling system is present in the zone, i.e. the zone is truly
+            unconditioned.
         dt_hr: optional
             The time step width in hours between two successive time moments
             at which the thermal model is solved. The default value
@@ -391,11 +405,23 @@ class UnconditionedZone:
         # thermal storage node:
         t_axis = 3600 * np.arange(0, num_steps * dt_hr, dt_hr)  # seconds
         _, Q_dot_sol_cv, Q_dot_sol_rd = self._solar_heat_gain(dt_hr)
-        Q_dot_sol_cv_interp = interp1d(t_axis, Q_dot_sol_cv.to('W').m)
-        Q_dot_sol_rd_interp = interp1d(t_axis, Q_dot_sol_rd.to('W').m)
+        if isinstance(Q_dot_sol_cv.m, Sequence):
+            Q_dot_sol_cv_interp = interp1d(t_axis, Q_dot_sol_cv.to('W').m)
+        else:
+            Q_dot_sol_cv_interp = lambda t_sol_sec: Q_(0, 'W')
+        if isinstance(Q_dot_sol_rd.m, Sequence):
+            Q_dot_sol_rd_interp = interp1d(t_axis, Q_dot_sol_rd.to('W').m)
+        else:
+            Q_dot_sol_rd_interp = lambda t_sol_sec: Q_(0, 'W')
         _, Q_dot_ihg_cv, Q_dot_ihg_rd, _ = self._internal_heat_gain(dt_hr)
-        Q_dot_ihg_cv_interp = interp1d(t_axis, Q_dot_ihg_cv.to('W').m)
-        Q_dot_ihg_rd_interp = interp1d(t_axis, Q_dot_ihg_rd.to('W').m)
+        if isinstance(Q_dot_ihg_cv.m, Sequence):
+            Q_dot_ihg_cv_interp = interp1d(t_axis, Q_dot_ihg_cv.to('W').m)
+        else:
+            Q_dot_ihg_cv_interp = lambda t_sol_sec: Q_(0, 'W')
+        if isinstance(Q_dot_ihg_rd.m, Sequence):
+            Q_dot_ihg_rd_interp = interp1d(t_axis, Q_dot_ihg_rd.to('W').m)
+        else:
+            Q_dot_ihg_rd_interp = lambda t_sol_sec: Q_(0, 'W')
         # Create the nodal thermal model of the zone:
         self.thz_model = NodalThermalZoneModel.create(
             ext_build_elems=list(self.ext_build_elems.values()),
@@ -500,7 +526,7 @@ class UnconditionedZone:
                        - T_zone.to('K'))
                 )
                 Q_dot_cnd_cv_lst_.append(Q_dot_ibe.to('W'))
-            Q_dot_cnd_cv_lst.append(sum(Q_dot_cnd_cv_lst_))  # add total of conduction heat gains at t_sol_sec to list
+            Q_dot_cnd_cv_lst.append(sum(Q_dot_cnd_cv_lst_) or Q_(0, 'W'))
         Q_dot_cnd_cv = Quantity.from_list(Q_dot_cnd_cv_lst)  # convert the list to a `Quantity` array
         # Convective part of conduction heat gain through opaque exterior
         # building elements:
@@ -559,7 +585,8 @@ class UnconditionedZone:
         ----------
         units:
             A dictionary with two keys 'T' and 'Q_dot' of which the values
-            are the display units.
+            are the display units. Default units are 'degC' for 'T' and 'W' for
+            'Q_dot'.
         num_decimals:
             The displayed number of decimals of values.
         """

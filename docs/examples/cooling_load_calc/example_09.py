@@ -2,44 +2,50 @@
 EXAMPLE 09
 ----------
 SIMULATION OF AN "UNCONDITIONED" ZONE WITH AN AIR COOLING COIL.
+
 The class `UnconditionedZone` represents a thermal model of a zone (a space or
 a single-zone building) in which the zone air temperature is not fixed, but
 depends on the heat gains in the zone. The actual zone air temperature at a
-given time during the day being considered will follow from an energy balance
+given time during the specified day will follow from an energy balance
 containing the momentary heat gains to the zone air and the momentary rate at
-which heat is extracted from the zone air by the cooling system in the zone.
+which heat is extracted from the zone air by the cooling system in the zone
+(if present).
+
 In this example the cooling system is represented by an air-cooling coil in
 the zone. To model this air-cooling coil, being an air-to-water coil, we will
-use in this example the `PlainFinTubeAirToWaterCounterFlowHeatExchanger` class.
+use the `PlainFinTubeAirToWaterCounterFlowHeatExchanger` class.
 The cooling capacity of the air-cooling coil depends on the entering water
 temperature, the volume flow rate of water, the entering air temperature, which
 is also the zone air temperature, and the volume flow rate of air through the
 air cooling coil. Except the entering air temperature or zone air temperature,
 we consider the other three operating conditions as being fixed.
-The air-cooling coil is modeled inside the class `SomeAirCoil`. This class has
-a method that takes the zone air temperature and returns the cooling capacity
-of the air-cooling coil.
-The zone is modeled inside the class `SomeZone`. Inside this class we will
+The air-cooling coil is instantiated inside the class `SomeAirCoil`. This class
+has a method that takes the zone air temperature and returns the cooling capacity
+of the air-cooling coil corresponding with this zone air temperature.
+The zone is instantiated inside the class `SomeZone`. Inside this class we will
 instantiate an object of class `SomeAirCoil`, representing the air-cooling
-coil being installed in the zone. For solving the energy balance of the zone for
-the zone air temperature at each hour of the considered day, we will call the
-method on the `SomeAirCoil` instance to get the rate at which the air-cooling
-coil extracts heat from the zone air.
+coil being installed in the zone.
+
+To solve the energy balance of the zone for the zone air temperature at each
+hour of the considered day, we will call the method on the `SomeAirCoil`
+instance to get the rate at which the air-cooling coil extracts heat from the
+zone air.
 
 Notes
 -----
 To be able to solve the energy balance of the zone air at a given time moment `t`,
 the zone air temperature at the previous time moment `t - dt` is used to calculate
-the cooling capacity of the air-cooling coil at time moment `t`, and this value
+the cooling capacity of the air-cooling coil at time moment `t`. This value
 is then used to calculate the zone air temperature at time moment `t`.
-The implementation to solve the set of node equations in the nodal thermal model
-of the zone uses matrix algebra, i.e., `[A] * [X] = [B]` with matrix `[A]` being
-the coefficient matrix and `[X]` the column vector with the unknown node
-temperatures at time moment `t`. As it is not possible to write the function of
-the air-cooling coil's cooling capacity `Q_dot_cc = f(T_zone)` as `a * T_zone`
-with `a` being a constant in the coefficient matrix [A], this function is put
-in the input matrix [B], where it can only be solved with the zone air
-temperature at the previous time moment `t - dt`.
+The reason for this is as follows: The implementation to solve the set of node
+equations in the nodal thermal model of the zone uses matrix algebra, i.e.,
+`[A] * [X] = [B]` with matrix `[A]` being the coefficient matrix and `[X]` the
+column vector with the unknown node temperatures at time moment `t`. As it is
+not possible to write the function of the air-cooling coil's cooling capacity
+`Q_dot_cc = f(T_zone)` as `a * T_zone` with `a` being a constant in the
+coefficient matrix [A], this function is put inside the input matrix [B], where
+it can only be solved with the zone air temperature at the previous time moment
+`t - dt`.
 """
 import numpy as np
 import pandas as pd
@@ -115,8 +121,8 @@ class SomeAirCoil:
 
     def Q_dot_fun(self, T_a_in: Quantity) -> Quantity:
         """Returns the cooling capacity of the air-cooling coil for a given
-        entering air temperature `T_a_in`, all other operating conditions
-        being fixed.
+        entering air temperature `T_a_in`, while all other operating conditions
+        remain fixed.
         """
         air_in = HumidAir(Tdb=T_a_in, RH=self.RH_a_in)
         m_dot_a = self.V_dot_a * air_in.rho
@@ -131,7 +137,7 @@ class SomeAirCoil:
 
 
 class SomeZone:
-    """Encapsulates an `UnconditionedZone` object, representing a simple
+    """Encapsulates an `UnconditionedZone` object, representing a small
     single zone conditioned building consisting of 4 exterior walls and a roof
     at a given geographic location on a given day of the year.
     Also encapsulates an instance of `SomeAirCoil`, representing an air-cooling

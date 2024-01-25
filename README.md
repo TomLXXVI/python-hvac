@@ -91,6 +91,12 @@ consumption estimation and a comparison between different candidate VRF-systems
 in relation to the same building have been included in the folder `vrf_system` 
 of `docs/examples`.
 
+**radiant_emitter**<br>
+This subpackage implements two types of radiant heat emitters. Class 
+`PanelRadiator` is for panel radiators and class `RadiantFloorPanel` is for 
+floor heating panels. Both classes can be used for design and analysis.
+
+
 Besides the aforementioned application-oriented packages, `hvac` also includes a 
 number of more basic subpackages which are used throughout the modules of 
 `hvac`:

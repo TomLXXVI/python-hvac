@@ -1,12 +1,17 @@
 """LINEAR THERMAL NETWORK OF AN OPAQUE EXTERIOR BUILDING ELEMENT.
-
+-----------------------------------------------------------------
 Implementation of a linear thermal network (lumped capacitance model) using
 a 2nd-order non-central backward finite difference approximation [1] for the
 derivative dT/dt in the node equations.
 
 This implementation is further used in subpackage `cooling_load_calc` for
-calculating the conduction heat gain through opaque exterior building elements.
+calculating the conduction heat gain through opaque exterior building elements
+in cooling load calculations (see class `ExteriorBuildingElement` in
+`hvac.cooling_load_calc.core.building_element` and class `ConditionedZone` in
+`hvac.cooling_load_calc.building.conditioned_zone`).
 
+References
+----------
 [1] Kiusalaas, J. (2013).
     NUMERICAL METHODS IN ENGINEERING WITH PYTHON3.
     Cambridge University Press.

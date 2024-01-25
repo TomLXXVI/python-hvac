@@ -3,10 +3,14 @@ EXAMPLE 7
 ---------
 CREATING A UNCONDITIONED ZONE AND SOLVING FOR THE ZONE AIR TEMPERATURE.
 
-In an unconditioned zone the zone air temperature is not predetermined as in a
-conditioned zone. Its value depends on a global heat balance of the zone
-air (i.e., the sum of all heat gains to the zone air and the heat extracted from
-the zone air by the cooling system should be zero).
+In an `UnconditionedZone` object the zone air temperature is not predetermined
+as in a `ConditionedZone` object. Its value depends on the global heat balance
+of the zone air (i.e., the sum of all heat gains to the zone air and the heat
+extracted from the zone air by the cooling system should ideally be zero).
+
+In this example the resulting zone air temperature is calculated for each hour of
+the specified day of the year in an unconditioned zone which is located at the
+specified geographic location and has no cooling system.
 """
 import pandas as pd
 
@@ -30,24 +34,14 @@ class ExteriorBuildingElements:
     """Class that holds the exterior building elements of the unconditioned
     zone.
     """
-    def __init__(self):
-        """Creates the exterior building elements."""
-        self.location = Location(
-            fi=Q_(51.183, 'deg'),
-            L_loc=Q_(3.8, 'deg'),
-            altitude=Q_(8, 'm'),
-            climate_type=ClimateType.MID_LATITUDE_SUMMER,
-            timezone='Etc/GMT-1'
-        )
-        self.weather_data = WeatherData.create_from_climatic_design_data(
-            location=self.location,
-            date=ReferenceDates.get_date_for('Jul'),
-            T_db_des=Q_(26.7, 'degC'),
-            T_db_rng=Q_(11.3, 'K'),
-            T_wb_mc=Q_(19.2, 'degC'),
-            T_wb_rng=Q_(4.7, 'K')
-        )
-        # reference zone air temperature for creating the construction assemblies:
+    def __init__(self, weather_data: WeatherData):
+        """Creates the exterior building elements at a given geographic location
+        and for a given day of the year.
+        """
+        self.weather_data = weather_data
+
+        # reference zone air temperature for creating the construction
+        # assemblies:
         self.T_zone = Q_(22, 'degC')
 
         self.south_wall = self._create_south_wall()
@@ -57,7 +51,7 @@ class ExteriorBuildingElements:
         self.roof = self._create_roof()
 
     def _create_south_wall(self):
-        # We use a construction assembly factory function from the wtcb
+        # We use a construction assembly factory function from the `wtcb`
         # subpackage to create a construction assembly with a predefined
         # configuration of the construction layers:
         constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
@@ -185,8 +179,30 @@ class ExteriorBuildingElements:
 
 
 def main():
-    # Get the exterior building elements of the zone:
-    ext_build_elems = ExteriorBuildingElements()
+    # Set the geographic location:
+    location = Location(
+        fi=Q_(51.183, 'deg'),
+        L_loc=Q_(3.8, 'deg'),
+        altitude=Q_(8, 'm'),
+        climate_type=ClimateType.MID_LATITUDE_SUMMER,
+        timezone='Etc/GMT-1'
+    )
+
+    # Get the climatic design information (temperature and solar radiation) for
+    # this location on the specified day of the year:
+    weather_data = WeatherData.create_from_climatic_design_data(
+        location=location,
+        date=ReferenceDates.get_date_for('Jul'),
+        T_db_des=Q_(26.7, 'degC'),
+        T_db_rng=Q_(11.3, 'K'),
+        T_wb_mc=Q_(19.2, 'degC'),
+        T_wb_rng=Q_(4.7, 'K')
+    )
+
+    # Get the exterior building elements of the zone, configured with the
+    # climatic design information for the specified location on the specified
+    # day of the year:
+    ext_build_elems = ExteriorBuildingElements(weather_data)
 
     # Create a ventilation zone where the thermal zone is part of:
     vez = VentilationZone.create(ID='office-ventilation')
@@ -216,11 +232,28 @@ def main():
     unconditioned_zone.add_ventilation()
 
     # Solve the unconditioned zone for the zone air temperature:
+    # Parameter `F_rad` indicates the fraction of conduction heat gain that is
+    # radiative. Recommended values can be found in ASHRAE Fundamentals 2017,
+    # chapter 18.
+    # No cooling system is present, so we can set parameter `Q_dot_sys_fun` to
+    # `None` or simply omit this parameter all together.
+    # The zone air temperature is solved for each hour of the specified day.
+    # This is indicated with parameter `dt_hr`, being the time step of the
+    # calculations.
+    # A cycle refers to one day (i.e. one diurnal cycle). As the nodal thermal
+    # zone model of the unconditioned zone incorporates a system of differential
+    # equations, the calculations start at time 0 assuming initial values for
+    # all the node temperatures in the system. These initial values will
+    # strongly affect the calculation results in the first cycle, but their
+    # effect will diminish when we repeat the diurnal cycle a number of times,
+    # using the last calculated node temperatures from the previous cycle as the
+    # initial values for the next cycle. Parameter `num_cycles` refers to number
+    # of calculated cycles before the final results are returned.
     unconditioned_zone.solve(
         F_rad=Q_(0.46, 'frac'),
-        Q_dot_sys_fun=lambda t_sol_sec: Q_(0, 'W'),
+        Q_dot_sys_fun=None,
         dt_hr=1.0,
-        num_cycles=25
+        num_cycles=12
     )
 
     df = unconditioned_zone.temperature_heat_gain_table()

@@ -122,6 +122,41 @@ class Chart(ABC):
         """Add title at top of the chart."""
         self.axes.set_title(title)
 
+    def add_note(
+        self,
+        text: str,
+        x_pos: float = 0.05,
+        y_pos: float = 0.95,
+        font_size: int = 12,
+        vert_align: str = 'top',
+        hor_align: str = 'left'
+    ) -> None:
+        """Add some text within the chart.
+
+        Parameters
+        ----------
+        text:
+            Text to display.
+        x_pos:
+            Horizontal position of the text box anchor point.
+        y_pos:
+            Vertical position of the text box anchor point.
+        font_size:
+            Size of the text font.
+        vert_align: {'top', 'center', 'bottom', 'baseline', 'center_baseline'}
+            Sets the vertical position of the text box anchor point.
+        hor_align: {'left', 'center', 'right'}
+            Sets the horizontal position of the text box anchor point.
+        """
+        self.y1.axes.text(
+            x_pos, y_pos, text,
+            transform=self.y1.axes.transAxes,
+            fontsize=font_size,
+            horizontalalignment=hor_align,
+            verticalalignment=vert_align,
+            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5}
+        )
+
     def draw(self, with_grid: bool = True):
         """Only draw the chart (but don't show it)."""
         self._draw_xy_data()

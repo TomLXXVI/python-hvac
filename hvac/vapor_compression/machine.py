@@ -38,6 +38,26 @@ class Output:
     """
     Dataclass for grouping the simulation results to be returned when
     a simulation is finished.
+
+    Use attribute `units` to set the desired measuring units of the quantities
+    and the number of decimal places for rounding. Attribute `units` is a
+    dictionary. The keys refer to the physical quantity and map to a tuple
+    containing the unit and the number of decimal places after the decimal point.
+    The default dictionary is:
+    ```
+        self.units: dict[str, tuple[str, int]] = {
+            'm_dot': ('kg / hr', 3),
+            'T': ('degC', 3),
+            'W': ('g / kg', 3),
+            'n': ('1 / min', 3),
+            'dT': ('K', 3),
+            'Q_dot': ('kW', 3),
+            'W_dot': ('kW', 3),
+            'P_rfg': ('bar', 3),
+            'P_air': ('Pa', 3),
+            'h': ('kJ / kg', 3)
+        }
+    ```
     """
     evp_air_m_dot: Quantity | None
     cnd_air_m_dot: Quantity
