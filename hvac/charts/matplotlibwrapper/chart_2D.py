@@ -216,15 +216,15 @@ class FilledLineChart(Chart):
 
     def _draw_xy_data(self):
         for label, dataset in self.datasets.items():
-            if dataset['x1_values']:
-                if dataset['y1_values']:
+            if dataset['x1_values'] is not None:
+                if dataset['y1_values'] is not None:
                     self._y1_img = self.y1.axes.fill_between(
                         dataset['x1_values'],
                         dataset['y1_values'],
                         label=label,
                         **dataset['style_props']
                     )
-                if dataset['y2_values']:
+                if dataset['y2_values'] is not None:
                     self._y2_img = self.y2.axes.fill_between(
                         dataset['x1_values'],
                         dataset['y2_values'],
@@ -237,15 +237,15 @@ class BarChart(Chart):
 
     def _draw_xy_data(self):
         for label, dataset in self.datasets.items():
-            if dataset['x1_values']:
-                if dataset['y1_values']:
+            if dataset['x1_values'] is not None:
+                if dataset['y1_values'] is not None:
                     self._y1_img = self.y1.axes.bar(
                         dataset['x1_values'],
                         dataset['y1_values'],
                         label=label,
                         **dataset['style_props']
                     )
-                if dataset['y2_values']:
+                if dataset['y2_values'] is not None:
                     self._y2_img = self.y2.axes.bar(
                         dataset['x1_values'],
                         dataset['y1_values'],

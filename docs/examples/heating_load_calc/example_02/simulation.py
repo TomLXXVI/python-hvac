@@ -1,20 +1,21 @@
 """EXAMPLE 02 (part 2)
 ----------------------
-SIMULATION OF AN "UNCONDITIONED" ZONE HEATED BY PANEL RADIATORS.
+SIMULATION OF AN "UNCONDITIONED" ZONE HEATED BY PANEL RADIATORS CONTROLLED
+BY AN ON/OFF CONTROLLER.
 
-This example is similar to example_09 in docs/examples/cooling_load_calc, where
-we simulate a space with an air cooling coil in cooling mode operation.
+In this example a simulation is demonstrated of a space with a heating system
+consisting of panel radiators. The heating load calculation of this space under
+design conditions was done in part 1 of this example. The supply water volume
+flow rate to the panel radiators is controlled by an on/off controller.
 
-In this example we simulate a space during winter time. This space is now
-equipped with panel radiators to heat the space.
-
-The weather data for the simulation is taken from a TMY-datafile (csv-format)
+The weather data for this simulation is read from a TMY-datafile (csv-format)
 that we have imported from https://re.jrc.ec.europa.eu/pvg_tools/en/#api_5.2 (see
-also module hvac sun.tmy.py). The program expects to see the same column titles
-as in the csv-file downloaded from this web application. That is:
-- 'G(h)' is the column title for solar irradiance on the horizontal surface
-- 'T2m' is the column title for dry-bulb outdoor air temperature
-- 'RH' is the column title for outdoor air relative humidity.
+also module hvac sun.tmy.py). Note that the code expects to see the same column
+titles as in the csv-file imported from this web application. This means that:
+- 'G(h)' must be the column title for the solar irradiance on the horizontal
+   surface;
+- 'T2m' must be the column title for the dry-bulb outdoor air temperature;
+- 'RH' must be the column title for the outdoor air relative humidity.
 """
 import warnings
 from hvac.fluids import CoolPropWarning
@@ -37,20 +38,30 @@ from hvac.cooling_load_calc import (
     UnconditionedZone
 )
 from hvac.radiant_emitter import PanelRadiator
+from hvac.control.controller import OnOffController
+from hvac.charts import LineChart, BarChart
+
 
 Q_ = Quantity
 
 
 def main():
-    # Get climatic design data for creating and configuring the construction
-    # assemblies based on peak-winter design conditions:
+    # Set the climatic design data and set the indoor design temperature needed
+    # to create and to configure the construction assemblies based on the peak-
+    # winter design conditions:
     climatic_design_data = ClimateDesignData(
+        # design value of outdoor air temperature (in the coldest month):
         T_ext_d=Q_(-5.7, 'degC'),
+        # annual mean outdoor air temperature:
         T_ext_an=Q_(11.5, 'degC'),
+        # average of the daily minimum outdoor air temperatures during the
+        # coldest month:
         T_ext_min=Q_(4.4, 'degC')
     )
+    # design value for the indoor air temperature:
+    T_int_des = Q_(20, 'degC')
 
-    # Get weather data from a TMY-datafile for the simulation:
+    # Get the weather data from a TMY-datafile for doing the simulation:
     weather_data = WeatherData.create_from_tmy_data(
         location=Location(
             fi=Q_(50.911, 'deg'),
@@ -63,22 +74,11 @@ def main():
         tmy_file='tmy_50.911_3.192_2005_2020.csv'
     )
 
-    # Set the indoor design temperature for creating and configuring the
-    # construction assemblies based on peak-winter design conditions::
-    T_int_des = Q_(20, 'degC')
-
-    # Create our single-zone building model:
+    # Create the model of the building with the heating system:
     building = SomeSingleZoneBuilding(climatic_design_data, weather_data, T_int_des)
 
-    # Set the fixed operating conditions of the heating system in the building:
-    # --> We can play with these parameters to see their effect on the zone
-    # air temperature.
-    building.heating_system.set_fixed_operating_conditions(
-        Vw_dot_frac=Q_(75, 'pct'),
-        Tw_sup=Q_(55, 'degC')
-    )
-
-    # Solve for the zone air temperature in the building:
+    # Solve this model for the zone air temperature and the heat losses/gains in
+    # the building during the selected day:
     df = building.solve()
     with pd.option_context(
         'display.max_rows', None,
@@ -87,10 +87,44 @@ def main():
     ):
         print(df)
 
+    # Print the total amount of thermal energy delivered by the heating system
+    # to the zone air:
+    _, Q_sys = building.zone.get_system_heat_transfer()
+    print(
+        f"Thermal energy delivered to the zone by the heating system "
+        f"= {Q_sys.to('kWh'):~P.3f}"
+    )
+
+    # Plot the zone air temperature in a line chart:
+    chart1 = LineChart(size=(8, 6))
+    chart1.add_xy_data(
+        label='T_zone',
+        x1_values=df.index,
+        y1_values=df['T_zone']
+    )
+    chart1.x1.add_title('time index')
+    chart1.y1.add_title('temperature, °C')
+    chart1.show()
+
+    # Plot the heat rate supplied by the system:
+    chart2 = BarChart(size=(8, 6))
+    chart2.add_xy_data(
+        label='Q_dot_sys',
+        x1_values=df.index,
+        y1_values=df['Q_dot_sys'],
+        style_props={
+            'width': 0.8,
+            'align': 'edge'
+        }
+    )
+    chart2.x1.add_title('time index')
+    chart2.y1.add_title('heat rate, W')
+    chart2.show()
+
 
 class ExteriorBuildingElementFactory:
-    """Creates and returns the exterior building elements of the single-zone
-    building.
+    """This is a separate class for creating the exterior building elements of
+    the single-zone building.
     """
     def __init__(
         self,
@@ -98,6 +132,25 @@ class ExteriorBuildingElementFactory:
         weather_data: WeatherData,
         T_int_des: Quantity
     ) -> None:
+        """Instantiate the class with the data that's needed to create the
+        construction assemblies and the exterior building elements of the
+        building.
+
+        Parameters
+        ----------
+        climatic_design_data:
+            Contains the data for creating the construction assemblies: the
+            outdoor air design temperature, the annual average outdoor air
+            temperature, and the average of the minimum outdoor air temperatures
+            during the coldest month.
+        weather_data:
+             Contains the weather data (solar radiation data and outdoor air
+             temperature) for the selected day for doing the simulation.
+        T_int_des:
+            The design-value of the indoor air temperature used in the heating
+            load calculation of the building. We need this to create the
+            construction assemblies.
+        """
         # Input data needed to create the construction assemblies and the
         # exterior building elements:
         self.climatic_design_data = climatic_design_data
@@ -186,6 +239,8 @@ class ExteriorBuildingElementFactory:
     ) -> InteriorBuildingElement:
         # We use an `InteriorBuildingElement` object to represent the floor
         # and assign the ground temperature to its `T_adj` attribute.
+        # For the ground temperature, the average minimum outdoor temperature
+        # during the coldest month is used.
         fl = InteriorBuildingElement.create(
             ID='floor',
             T_zone=lambda t_sol_sec: self.T_int_des,
@@ -235,6 +290,7 @@ class ExteriorBuildingElementFactory:
         W_ext = W_int + 2 * self._ca_ew.thickness
         L_ext = L_int + 2 * self._ca_ew.thickness
         rf = self._create_roof(W_ext, L_ext, self._ca_rf)
+        # Add skylight:
         rf.add_window(
             ID='skylight',
             width=Q_(5, 'm'),
@@ -251,16 +307,21 @@ class ExteriorBuildingElementFactory:
 
 
 class HeatingSystem:
-    """Configures the heating system of our single-zone building.
+    """Represents the heating system in our single-zone building.
 
-    The single-zone building has a design heating load around 8 kW. We will
-    place 4 panel radiators in the zone. From a catalog we select 4 identical
-    panel radiators with a height of 600 mm and a length of 1000 mm, having a
-    nominal heat output of 1.861 kW when the nominal supply water temperature is
-    70 °C, the nominal return water temperature is 50 °C, and the nominal indoor
-    air temperature is 20 °C. The radiator exponent is 1.35.
+    The single-zone building has a design heating load around 8 kW. From a
+    catalog we select 4 identical panel radiators with a height of 600 mm and a
+    length of 1000 mm, having a nominal heat output of 1.861 kW when the nominal
+    supply water temperature is 70 °C, the nominal return water temperature is
+    50 °C, and the nominal indoor air temperature is 20 °C. The radiator
+    exponent is 1.35.
+
+    The setpoint of the on/off controller, which will control the zone air
+    temperature, is 22 °C. The controller has a symmetrical dead band of 1 K
+    around the setpoint (-0.5 K / +0.5 K).
     """
     def __init__(self):
+        # Configure the panel radiator:
         self.radiator = PanelRadiator(
             Qe_dot_nom=Q_(1.861, 'kW'),
             Tw_sup_nom=Q_(70, 'degC'),
@@ -268,24 +329,23 @@ class HeatingSystem:
             Ti_nom=Q_(20, 'degC'),
             n_exp=1.35
         )
+        # Configure the on/off controller:
+        self.controller = OnOffController(
+            SP=Q_(22, 'degC'),
+            HL_offset=Q_(0.5, 'K'),
+            LL_offset=Q_(0.5, 'K'),
+            PV_range=(Q_(0, 'degC'), Q_(50, 'degC')),
+            dt=Q_(1/6, 'hr'),  # --> time step of the control action
+            ctrl_dir='inverse'
+        )
+        # Set the number of panel radiators in the zone:
         self.num_rad: int = 4
-        self.Vw_dot: Quantity | None = None
-        self.Tw_sup: Quantity | None = None
+        # Set the maximum water volume flow rate through one radiator:
+        self.Vw_dot_max = 1.00 * self.radiator.Vw_dot_nom
+        # Set the supply water temperature of the radiators:
+        self.Tw_sup = self.radiator.Tw_sup_nom
 
-    def set_fixed_operating_conditions(self, Vw_dot_frac: Quantity, Tw_sup: Quantity):
-        """Set the fixed operating conditions of the heating system.
-
-        Parameters
-        ----------
-        Vw_dot_frac:
-            Fraction of the nominal water volume flow rate through the radiators.
-        Tw_sup:
-            The supply water temperature of the radiators.
-        """
-        self.Vw_dot = Vw_dot_frac.to('frac').m * self.radiator.Vw_dot_nom
-        self.Tw_sup = Tw_sup
-
-    def Qe_dot(self, _, T_zone: float) -> Quantity:
+    def Qe_dot(self, t_sol_sec: float, T_zone: float) -> Quantity:
         """Returns the heat rate emitted by the panel radiators given the zone
         air temperature `T_zone` in Kelvins.
 
@@ -293,19 +353,34 @@ class HeatingSystem:
         -----
         This function will be coupled to the nodal thermal zone model of our
         single-zone building (see class `SomeSingleZoneBuilding` below, in its
-        method `solve`). This function must satisfy the call signature imposed
-        by the nodal thermal zone model (see docstring of method `solve` of
-        class `UnconditionedZone`).
+        method `solve`). This function must therefore satisfy the call signature
+        imposed by the nodal thermal zone model (see docstring of method `solve`
+        of class `UnconditionedZone`).
 
-        Also note that the heating system supplies heat to the zone air. The
-        implemented sign convention demands that heat supplied by the heating
+        Also note that the heating system supplies heat directly to the zone air.
+        The implemented sign convention demands that heat supplied by the heating
         system to the zone air must be associated with a negative sign (while
         heat extracted from the zone air by a cooling system must be associated
         with a positive sign).
         """
         T_zone = Q_(T_zone, 'K')
-        Qe_dot = self.radiator(T_zone, Vw_dot=self.Vw_dot, Tw_sup=self.Tw_sup)
+        # Get the output signal (being a percentage) from the controller:
+        out = self.controller(t_sol_sec, T_zone)
+        # The water volume flow rate through one radiator:
+        Vw_dot = out * self.Vw_dot_max
+        # The heat rate output of one radiator...
+        Qe_dot = self.radiator(
+            T_zone,
+            Vw_dot=Vw_dot,
+            Tw_sup=self.Tw_sup
+        )
+        # ...is multiplied with the number of radiators in the zone:
         Qe_dot *= self.num_rad
+        # print(
+        #     f"{out.to('pct'):~P.0f}, "
+        #     f"{Vw_dot.to('L / min'):~P.0f}, "
+        #     f"{Qe_dot.to('kW'):~P.3f}"
+        # )
         return -Qe_dot
 
 
@@ -313,8 +388,8 @@ class SomeSingleZoneBuilding:
     """Models a very simple single-zone building with an interior floor area
     of 100 m² and a ceiling height of 3 m. The building has four exterior walls,
     a roof, and a floor. All the walls have the same interior dimensions:
-    length is 10 m and height is equal to the ceiling height. The building has
-    no windows.
+    their length is 10 m and their height is equal to the ceiling height. On the
+    roof, there is a flat skylight with a window area of 25 m².
     """
     def __init__(
         self,
@@ -332,14 +407,15 @@ class SomeSingleZoneBuilding:
             construction assemblies.
         weather_data:
             Instance of class `WeatherData` in subpackage `cooling_load_calc`.
-            Contains the climatic data needed to create the exterior surface of
-            exterior building elements, which are here instances of the class
-            `ExteriorBuildingElement` in subpackage `cooling_load_calc`. Note
-            that this class is completely different from the identically named
-            class in subpackage `heating_load_calc`, which cannot be used for
-            simulation, but only for the calculation of the conduction heat loss
-            through the exterior building envelope according to the implemented
-            heat load calculation method (see standard EN 12831-1).
+            Contains the climatic data needed to determine the sol-air
+            temperature at the exterior surface of the exterior building
+            elements, which are instances of the class `ExteriorBuildingElement`
+            in the subpackage `cooling_load_calc`. Note that this class is
+            completely different from the identically named class in subpackage
+            `heating_load_calc`, which cannot be used for simulation, but only
+            for the calculation of the conduction heat loss through the exterior
+            building envelope under design conditions according to the
+            implemented heat load calculation method (standard EN 12831-1).
         T_int_des:
             The indoor air temperature used in the heating load design
             calculation of the building.
@@ -351,9 +427,9 @@ class SomeSingleZoneBuilding:
             floor_area=Q_(100, 'm**2'),
             height=Q_(3, 'm'),
             ventilation_zone=VentilationZone.create(ID='my-test-ventilation-zone'),
-            C_tsn=Q_(300, 'kJ / (K * m**2)'),
+            C_tsn=Q_(500, 'kJ / (K * m**2)'),
             A_tsn=Q_(100, 'm**2'),
-            R_tsn=Q_(0.015, 'K * m**2 / W')
+            R_tsn=Q_(0.15, 'K * m**2 / W')
         )
 
         # Create the exterior building elements of the zone:
@@ -379,16 +455,24 @@ class SomeSingleZoneBuilding:
         # object.
         self.zone.add_int_build_elem(ebf.get_floor(L_int, L_int))
 
-        # Add the ventilation/infiltration to the zone:
+        # Add ventilation/infiltration to the zone:
         self.zone.add_ventilation()
 
         # Add the heating system to the zone:
         self.heating_system = HeatingSystem()
 
     def solve(self) -> pd.DataFrame:
+        """Solve for the zone air temperature and the heat losses/gains in the
+        zone. Returns a Pandas DataFrame with these results for each "calculation
+        time moment" during the selected day. The calculations always start at
+        midnight of the selected day (0 s). The number of "calculation time
+        moments" will depend on the time step we set.
+        """
         self.zone.solve(
             Q_dot_sys_fun=self.heating_system.Qe_dot,
+            # --> Here we couple the heating system with the thermal zone model.
             num_cycles=15,
+            dt_hr=1/6  # calculation time step = 10 min
         )
         return self.zone.temperature_heat_gain_table()
 

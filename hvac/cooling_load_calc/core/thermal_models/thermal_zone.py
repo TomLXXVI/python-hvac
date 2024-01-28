@@ -7,6 +7,14 @@ temperature. This model is incorporated in class `UnconditionedZone`: see
 In this type of model the zone air temperature is considered to be variable.
 Its value follows from an energy balance of the zone air node, i.e., the
 sum of the heat gains minus the heat rate extracted by the cooling system.
+
+Solving the model means to determine at each time moment of the selected day
+the zone air temperature, the heat gains or losses, and the heat rate extracted
+by the cooling system or supplied by the heating system.
+
+The heat transfer through exterior building elements is modeled by linear
+thermal networks. The interior thermal mass of the zone is represented in the
+model by a single temperature node.
 """
 from __future__ import annotations
 from typing import Callable, TYPE_CHECKING
@@ -585,6 +593,7 @@ class ZoneAirNode(TemperatureNode):
     def create(
         cls,
         ID: str,
+        C: Quantity = Q_(0.0, 'J / (K * m**2)'),
         A: list[Quantity] = Q_(1.0, 'm**2'),
         R1: list[Quantity] = Q_(float('inf'), 'K * m**2 / W'),
         R2: Quantity = Q_(float('inf'), 'K * m**2 / W'),
@@ -603,10 +612,14 @@ class ZoneAirNode(TemperatureNode):
         ----------
         ID:
             Name to identify the node in a linear thermal network.
+        C:
+            The thermal capacity of the node per unit area.
         A:
-            List with the surface areas of the exterior building elements and
-            the last element being the surface area associated with the interior
-            thermal mass.
+            List with the surface areas of the exterior building elements,
+            the second-to-last element being the surface area associated with
+            the interior thermal mass, and the last element the floor area of
+            the zone (used to determine the total thermal capacity of the zone
+            air).
         R1:
             List with the unit thermal resistances between each interior surface
             node and this zone air node.
@@ -653,12 +666,12 @@ class ZoneAirNode(TemperatureNode):
         node = cls()
         node.ID = ID
         node._A = [a.to('m**2').magnitude for a in A]
-        node._C = 0.0
+        node._C = C.to('J / (K * m**2)').magnitude * node._A[-1]
         node._R1 = [
-            r1.to('K * m**2 / W').m / a.to('m**2').m
-            for r1, a in zip(R1, A[:-1])
+            r1.to('K * m**2 / W').m / a
+            for r1, a in zip(R1, node._A[:-2])
         ]
-        node._R2 = R2.to('K * m**2 / W').magnitude / A[-1].to('m**2').m
+        node._R2 = R2.to('K * m**2 / W').magnitude / node._A[-2]
         node._F_rad = F_rad.to('frac').magnitude
         node.windows = windows
         node.ext_doors = ext_doors
@@ -674,7 +687,7 @@ class ZoneAirNode(TemperatureNode):
         """Coefficients in the node equation of the interior surface node
         temperatures connected to this zone air node temperature.
         """
-        a1 = [1 / r1 for r1 in self._R1]
+        a1 = [2 * dt_sec / (r1 * self._C) for r1 in self._R1]
         return a1
 
     @property
@@ -682,7 +695,7 @@ class ZoneAirNode(TemperatureNode):
         """Coefficient in the node equation of the thermal storage node
         temperature.
         """
-        a2 = 1 / self._R2
+        a2 = 2 * dt_sec / (self._R2 * self._C)
         return a2
 
     @property
@@ -712,9 +725,10 @@ class ZoneAirNode(TemperatureNode):
             )
             UA_vent = 0.34 * V_dot
         UA = UA_wnd + UA_edr + UA_ibe + UA_vent
-        a3 = sum(1/r1 for r1 in self._R1)
-        a3 += 1/self._R2
-        a3 += UA
+        a3 = sum(2 * dt_sec / (r1 * self._C) for r1 in self._R1)
+        a3 += 2 * dt_sec / (self._R2 * self._C)
+        a3 += 2 * dt_sec * UA / self._C
+        a3 += 3
         a3 = -a3
         return a3
 
@@ -760,7 +774,11 @@ class ZoneAirNode(TemperatureNode):
             + self.Q_dot_sol_cv(t_sol_sec).to('W').m
             + self.Q_dot_ihg_cv(t_sol_sec).to('W').m
         )
-        r = self.Q_dot_sys(t_sol_sec, T[1]).to('W').m - Q_dot_conv
+        r = (
+            T[0] - 4 * T[1]
+            + (2 * dt_sec / self._C)
+            * (self.Q_dot_sys(t_sol_sec, T[1]).to('W').m - Q_dot_conv)
+        )
         return r
 
     def get_a_coefficients(self) -> list[float]:
@@ -787,6 +805,8 @@ class NodalThermalZoneModelBuilder:
         A_tsn: Quantity = Q_(1.0, 'm**2'),
         C_tsn: Quantity = Q_(0.0, 'J / (K * m**2)'),
         R_tsn: Quantity = Q_(float('inf'), 'K * m**2 / W'),
+        A_zan: Quantity = Q_(1.0, 'm**2'),
+        C_zan: Quantity = Q_(0.0, 'J / (K * m**2)'),
         windows: list[Window] | None = None,
         ext_doors: list[ExteriorBuildingElement] | None = None,
         int_build_elems: list[InteriorBuildingElement] | None = None,
@@ -815,6 +835,10 @@ class NodalThermalZoneModelBuilder:
         R_tsn:
             The unit thermal resistance between the interior thermal mass and
             the zone air.
+        A_zan:
+            The floor area of the zone.
+        C_zan:
+            The thermal capacity of the zone air per unit floor area.
         windows:
             List of the windows that are present in the exterior envelope of
             the zone.
@@ -862,6 +886,8 @@ class NodalThermalZoneModelBuilder:
         self.A_tsn = A_tsn
         self.C_tsn = C_tsn
         self.R_tsn = R_tsn
+        self.A_zan = A_zan
+        self.C_zan = C_zan
         self.windows = windows
         self.ext_doors = ext_doors
         self.int_build_elems = int_build_elems
@@ -1039,9 +1065,12 @@ class NodalThermalZoneModelBuilder:
         A_lst = [ebe_ltn[-1].A for ebe_ltn in self.ebe_ltn_dict.values()]
         # Add the surface area of the thermal storage node to this list:
         A_lst.append(self.A_tsn)
+        # Add the floor area of the zone also to this list:
+        A_lst.append(self.A_zan)
         # Create the zone air node:
         self.zan = ZoneAirNode.create(
             ID='ZAN',
+            C=self.C_zan,
             A=A_lst,
             R1=R1_lst,
             R2=self.R_tsn,
@@ -1090,6 +1119,8 @@ class NodalThermalZoneModel:
         A_tsn: Quantity = Q_(1.0, 'm**2'),
         C_tsn: Quantity = Q_(0.0, 'J / (K * m**2)'),
         R_tsn: Quantity = Q_(float('inf'), 'K * m**2 / W'),
+        A_zan: Quantity = Q_(1.0, 'm**2'),
+        C_zan: Quantity = Q_(0.0, 'J / (K * m**2)'),
         windows: list[Window] | None = None,
         ext_doors: list[ExteriorBuildingElement] | None = None,
         int_build_elems: list[InteriorBuildingElement] | None = None,
@@ -1117,6 +1148,10 @@ class NodalThermalZoneModel:
         R_tsn:
             The unit thermal resistance between the zone's interior thermal mass
             and the zone air.
+        A_zan:
+            The floor area of the zone.
+        C_zan:
+            The thermal capacity of the zone air per unit floor area.
         windows:
             List of the windows that are present in the exterior envelope of
             the zone.
@@ -1165,6 +1200,8 @@ class NodalThermalZoneModel:
             A_tsn=A_tsn,
             C_tsn=C_tsn,
             R_tsn=R_tsn,
+            A_zan=A_zan,
+            C_zan=C_zan,
             windows=windows,
             ext_doors=ext_doors,
             int_build_elems=int_build_elems,

@@ -97,12 +97,16 @@ class PanelRadiator:
         DT_max = Tw_sup - Ti
         Qe_dot_max = rho_sw * cp_sw * Vw_dot * DT_max
 
-        def eq(Qe_dot):
-            DTw = Qe_dot / (rho_sw * cp_sw * Vw_dot)
-            Tw_ret = Tw_sup - DTw
-            DT_min = Tw_ret - Ti
-            lmtd = (DT_max - DT_min) / np.log(DT_max / DT_min)
-            Qe_dot_new = self._UA * lmtd ** self.n_exp
+        def eq(Qe_dot: float) -> float:
+            try:
+                DTw = Qe_dot / (rho_sw * cp_sw * Vw_dot)
+            except ZeroDivisionError:
+                Qe_dot_new = 0.0
+            else:
+                Tw_ret = Tw_sup - DTw
+                DT_min = Tw_ret - Ti
+                lmtd = (DT_max - DT_min) / np.log(DT_max / DT_min)
+                Qe_dot_new = self._UA * lmtd ** self.n_exp
             return Qe_dot - Qe_dot_new
 
         sol = root_scalar(eq, bracket=(1e-9, Qe_dot_max - 1e-9))

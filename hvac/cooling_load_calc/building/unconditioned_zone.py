@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from hvac import Quantity
+from hvac.fluids import Fluid
 from hvac.cooling_load_calc.core import (
     ExteriorBuildingElement,
     InternalHeatGain,
@@ -22,6 +23,8 @@ from hvac.cooling_load_calc.core.thermal_models import (
 )
 
 Q_ = Quantity
+Air = Fluid('Air')
+standard_air = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 
 
 class UnconditionedZone:
@@ -398,6 +401,7 @@ class UnconditionedZone:
         num_steps = int(round(24 / dt_hr))
         windows, ext_doors = self._get_windows_and_ext_doors()
         int_build_elems = self._get_int_build_elems()
+
         # Solar heat gain and internal heat gains are independent of the zone
         # air temperature. The radiative and convective components of the
         # solar and internal heat gain are linearly interpolated and these
@@ -422,6 +426,7 @@ class UnconditionedZone:
             Q_dot_ihg_rd_interp = interp1d(t_axis, Q_dot_ihg_rd.to('W').m)
         else:
             Q_dot_ihg_rd_interp = lambda t_sol_sec: Q_(0, 'W')
+
         # Create the nodal thermal model of the zone:
         self.thz_model = NodalThermalZoneModel.create(
             ext_build_elems=list(self.ext_build_elems.values()),
@@ -429,6 +434,8 @@ class UnconditionedZone:
             A_tsn=self.tsn[0],
             C_tsn=self.tsn[1],
             R_tsn=self.tsn[2],
+            A_zan=self.floor_area,
+            C_zan=standard_air.rho * standard_air.cp * self.height,
             windows=windows,
             ext_doors=ext_doors,
             int_build_elems=int_build_elems,
@@ -439,6 +446,7 @@ class UnconditionedZone:
             Q_dot_ihg_rd=lambda t_sol_sec: Q_(Q_dot_ihg_rd_interp(t_sol_sec), 'W'),
             Q_dot_sys=Q_dot_sys_fun
         )
+
         # Solve the model for the node temperatures:
         self.thz_model.solve(
             num_steps=num_steps,
@@ -572,14 +580,34 @@ class UnconditionedZone:
         Q_dot_itm = A_itm * (T_tsn - T_zone) / R_itm_z
         return Q_dot_itm.to('W')
 
+    def get_system_heat_transfer(self) -> tuple[Quantity, Quantity]:
+        """Returns the heat rate extracted from or supplied to the zone air by
+        the cooling/heating system in the zone at each solar time index of the
+        selected day, after the nodal thermal zone model of the unconditioned
+        zone has been solved.
+        Also returns the total thermal energy extracted from or supplied to the
+        zone air during the selected day.
+        """
+        num_steps = int(round(24 / self.dt_hr))
+        t_sol_axis = 3600 * np.arange(0, num_steps * self.dt_hr, self.dt_hr)  # seconds
+        T_zone_arr = self.get_zone_air_temperature()
+        Q_dot_sys_lst = [
+            abs(self.thz_model.zan.Q_dot_sys(t_sol_sec, T_zone.to('K').m))
+            for t_sol_sec, T_zone in zip(t_sol_axis, T_zone_arr)
+        ]
+        Q_dot_sys = Quantity.from_list(Q_dot_sys_lst)
+        Q_sys = sum(Q_dot_sys * Q_(self.dt_hr, 'hr'))
+        return Q_dot_sys, Q_sys
+
     def temperature_heat_gain_table(
         self,
         units: dict[str, str] | None = None,
         num_decimals: int = 3
     ) -> pd.DataFrame:
-        """Returns a Pandas DataFrame object with the zone air temperature and
-        the heat gains to the zone air at each solar time index of the
-        design day.
+        """Returns a Pandas DataFrame object with the zone air temperature,
+        the heat gains (+) or losses (-) to the zone air, and the heat rate
+        extracted by the cooling system (+) or the heat rate supplied by the
+        heating system (-) at each solar time index of the design day.
 
         Parameters
         ----------
@@ -597,7 +625,7 @@ class UnconditionedZone:
         Q_dot_sol = self.get_solar_heat_gain()
         Q_dot_ihg = self.get_internal_heat_gain()
         Q_dot_itm = self.get_int_thermal_mass_heat_gain()
-        Q_dot_sys = Q_dot_vent + Q_dot_cond + Q_dot_sol + Q_dot_ihg + Q_dot_itm
+        Q_dot_sys, _ = self.get_system_heat_transfer()
         d = {
             'T_zone': T_zone.to(units['T']).magnitude,
             'Q_dot_vent': Q_dot_vent.to(units['Q_dot']).magnitude,

@@ -1,1 +1,1 @@
-from .pint_setup import UNITS, Quantity
+from .pint_setup import Quantity, UNITS

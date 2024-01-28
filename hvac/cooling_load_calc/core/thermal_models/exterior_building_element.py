@@ -74,11 +74,11 @@ class ExteriorBuildingElementNode(ABC):
 
     def __str__(self) -> str:
         return (
-            f"ID: {self.ID}\n"
-            f"- A = {Q_(self._A, 'm**2'):~P.3g}\n"
-            f"- C = {Q_(self._C, 'J / K'):~P.3g}\n"
-            f"- R1 = {Q_(self._R1, 'K / W'):~P.3g}\n"
-            f"- R2 = {Q_(self._R2, 'K / W'):~P.3g}"
+            f"node ID: {self.ID}\n"
+            f"\tA = {Q_(self._A, 'm**2'):~P.3g}\n"
+            f"\tC = {Q_(self._C, 'J / K'):~P.3g}\n"
+            f"\tR1 = {Q_(self._R1, 'K / W'):~P.3g}\n"
+            f"\tR2 = {Q_(self._R2, 'K / W'):~P.3g}"
         )
 
     @classmethod
