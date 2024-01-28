@@ -32,7 +32,7 @@ It uses a lumped capacitance model to take the thermal inertia of flat, opaque
 building components and the interior thermal mass of a zone into account. 
 
 **sun**<br>
-This subpackage is about solar radiation on surfaces. It implements different 
+This subpackage is about solar radiation on surfaces. It implements a number of
 sky-models (isotropic, anisotropic Perez, anisotropic HDKR, KT) to estimate the 
 solar radiation incident on exterior surfaces.
 It can generate solar radiation data based on the clear-sky model or it can use
@@ -96,6 +96,12 @@ This subpackage implements two types of radiant heat emitters. Class
 `PanelRadiator` is for panel radiators and class `RadiantFloorPanel` is for 
 floor heating panels. Both classes can be used for design and analysis.
 
+**control**<br>
+This subpackage implements different types of controllers: on/off, PID, and PWM.
+Together with class `UnconditionedZone` in subpackage `cooling_load_calc`, these
+controller classes can be used to simulate a zone with a temperature controlled 
+heating/cooling system. Script `example_02.py` in 
+`docs/examples/heating_load_calc` shows an example with an on/off controller.
 
 Besides the aforementioned application-oriented packages, `hvac` also includes a 
 number of more basic subpackages which are used throughout the modules of 
