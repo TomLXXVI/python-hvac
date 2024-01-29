@@ -98,9 +98,9 @@ floor heating panels. Both classes can be used for design and analysis.
 
 **control**<br>
 This subpackage implements different types of controllers: on/off, PID, and PWM.
-Together with class `UnconditionedZone` in subpackage `cooling_load_calc`, these
-controller classes can be used to simulate a zone with a temperature controlled 
-heating/cooling system. Script `example_02.py` in 
+Together with class `VariableTemperatureZone` in subpackage `cooling_load_calc`,
+these controller classes can be used to simulate a zone with a temperature 
+controlled heating/cooling system. Script `example_02.py` in 
 `docs/examples/heating_load_calc` shows an example with an on/off controller.
 
 Besides the aforementioned application-oriented packages, `hvac` also includes a 

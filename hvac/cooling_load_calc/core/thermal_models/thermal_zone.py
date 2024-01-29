@@ -1,7 +1,7 @@
 """NODAL THERMAL ZONE MODEL
 ---------------------------
 Lumped capacitance model of a thermal zone or space with a variable zone air
-temperature. This model is incorporated in class `UnconditionedZone`: see
+temperature. This model is incorporated in class `VariableTemperatureZone`: see
 `hvac.building.unconditioned_zone.py`.
 
 In this type of model the zone air temperature is considered to be variable.

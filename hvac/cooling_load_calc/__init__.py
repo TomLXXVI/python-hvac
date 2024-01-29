@@ -30,5 +30,5 @@ from .building import (
     ConditionedZone,
     SpaceVentilation,
     VentilationZone,
-    UnconditionedZone
+    VariableTemperatureZone
 )

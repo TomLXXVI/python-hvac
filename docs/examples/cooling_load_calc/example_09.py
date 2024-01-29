@@ -3,7 +3,7 @@ EXAMPLE 09
 ----------
 SIMULATION OF AN "UNCONDITIONED" ZONE WITH AN AIR COOLING COIL.
 
-The class `UnconditionedZone` represents a thermal model of a zone (a space or
+The class `VariableTemperatureZone` represents a thermal model of a zone (a space or
 a single-zone building) in which the zone air temperature is not fixed, but
 depends on the heat gains in the zone. The actual zone air temperature at a
 given time during the specified day will follow from an energy balance
@@ -61,7 +61,7 @@ from hvac.cooling_load_calc import (
     wtcb,
     ConstructionAssembly,
     HeatFlowDirection,
-    UnconditionedZone,
+    VariableTemperatureZone,
     VentilationZone
 )
 from hvac.charts import LineChart
@@ -137,7 +137,7 @@ class SomeAirCoil:
 
 
 class SomeZone:
-    """Encapsulates an `UnconditionedZone` object, representing a small
+    """Encapsulates an `VariableTemperatureZone` object, representing a small
     single zone conditioned building consisting of 4 exterior walls and a roof
     at a given geographic location on a given day of the year.
     Also encapsulates an instance of `SomeAirCoil`, representing an air-cooling
@@ -233,8 +233,8 @@ class SomeZone:
             ext_wall = ExteriorBuildingElement.create(
                 ID='south_wall',
                 T_zone=lambda t_sol_sec: self.T_zone_des,
-                # Note: in a `UnconditionedZone` object this parameter is
-                # actually of no importance, as in a `UnconditionedZone` object
+                # Note: in a `VariableTemperatureZone` object this parameter is
+                # actually of no importance, as in a `VariableTemperatureZone` object
                 # the zone air temperature is an unknown and it will be determined
                 # from a energy balance of the zone air node in the thermal model
                 # of the zone. However, the method `create` of class
@@ -323,7 +323,7 @@ class SomeZone:
             return roof
 
     def __init__(self, weather_data: WeatherData) -> None:
-        """Creates the `UnconditionedZone` object and the `SomeAirCoil` object
+        """Creates the `VariableTemperatureZone` object and the `SomeAirCoil` object
         to model the single-zone building, equipped with an air-cooling coil.
         """
         width = Q_(10, 'm')   # interior width of the space
@@ -332,7 +332,7 @@ class SomeZone:
 
         floor_area = width * length
 
-        self.zone = UnconditionedZone.create(
+        self.zone = VariableTemperatureZone.create(
             ID='zone',
             weather_data=weather_data,
             floor_area=floor_area,

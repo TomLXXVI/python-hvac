@@ -3,7 +3,7 @@ EXAMPLE 7
 ---------
 CREATING A UNCONDITIONED ZONE AND SOLVING FOR THE ZONE AIR TEMPERATURE.
 
-In an `UnconditionedZone` object the zone air temperature is not predetermined
+In an `VariableTemperatureZone` object the zone air temperature is not predetermined
 as in a `ConditionedZone` object. Its value depends on the global heat balance
 of the zone air (i.e., the sum of all heat gains to the zone air and the heat
 extracted from the zone air by the cooling system should ideally be zero).
@@ -24,7 +24,7 @@ from hvac.cooling_load_calc import (
     HeatFlowDirection,
     VentilationZone
 )
-from hvac.cooling_load_calc import UnconditionedZone
+from hvac.cooling_load_calc import VariableTemperatureZone
 
 
 Q_ = Quantity
@@ -208,7 +208,7 @@ def main():
     vez = VentilationZone.create(ID='office-ventilation')
 
     # Create the unconditioned zone:
-    unconditioned_zone = UnconditionedZone.create(
+    unconditioned_zone = VariableTemperatureZone.create(
         ID='unconditioned-office',
         weather_data=ext_build_elems.weather_data,
         floor_area=Q_(100, 'm**2'),

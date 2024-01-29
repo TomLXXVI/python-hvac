@@ -27,7 +27,7 @@ Air = Fluid('Air')
 standard_air = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 
 
-class UnconditionedZone:
+class VariableTemperatureZone:
     """Represents a space or a group of spaces in a building of which the zone
     air temperature can vary in time depending on the momentary heat gains and
     the heat rate extracted from the zone air by the cooling system (if present).
@@ -35,7 +35,7 @@ class UnconditionedZone:
     The purpose of this class is for simulation, i.e., to determine the zone air
     temperature as function of time based on the momentary energy balance of the
     heat gains in the zone and the heat rate extracted by the cooling system.
-    The sensible and latent heat gains are calculated at several time moments
+    The sensible and latent heat gains are calculated at regular time moments
     during the considered day (see method `solve`). By default, the time step is
     one hour, which means that the heat gains and cooling loads are calculated
     at each hour of the considered day.
@@ -65,8 +65,8 @@ class UnconditionedZone:
         C_tsn: Quantity = Q_(100, 'kJ / (K * m**2)'),
         A_tsn: Quantity = Q_(1.0, 'm**2'),
         R_tsn: Quantity = Q_(float('inf'), 'K * m**2 / W')
-    ) -> UnconditionedZone:
-        """Creates a `UnconditionedZone` object.
+    ) -> VariableTemperatureZone:
+        """Creates a `VariableTemperatureZone` object.
 
         Parameters
         ----------

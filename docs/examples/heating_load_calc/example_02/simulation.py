@@ -35,7 +35,7 @@ from hvac.cooling_load_calc import (
     InteriorBuildingElement,
     ConstructionAssembly,
     VentilationZone,
-    UnconditionedZone
+    VariableTemperatureZone
 )
 from hvac.radiant_emitter import PanelRadiator
 from hvac.control.controller import OnOffController
@@ -199,8 +199,8 @@ class ExteriorBuildingElementFactory:
         ew = ExteriorBuildingElement.create(
             ID=f'exterior-wall-{name}',
             T_zone=lambda t_sol_sec: self.T_int_des,
-            # Note: in a `UnconditionedZone` object this parameter is
-            # actually of no importance, as in a `UnconditionedZone` object
+            # Note: in a `VariableTemperatureZone` object this parameter is
+            # actually of no importance, as in a `VariableTemperatureZone` object
             # the zone air temperature is an unknown and it will be determined
             # from a energy balance of the zone air node in the thermal model
             # of the zone. However, the method `create` of class
@@ -355,7 +355,7 @@ class HeatingSystem:
         single-zone building (see class `SomeSingleZoneBuilding` below, in its
         method `solve`). This function must therefore satisfy the call signature
         imposed by the nodal thermal zone model (see docstring of method `solve`
-        of class `UnconditionedZone`).
+        of class `VariableTemperatureZone`).
 
         Also note that the heating system supplies heat directly to the zone air.
         The implemented sign convention demands that heat supplied by the heating
@@ -420,8 +420,8 @@ class SomeSingleZoneBuilding:
             The indoor air temperature used in the heating load design
             calculation of the building.
         """
-        # Create the `UnconditionedZone` object:
-        self.zone = UnconditionedZone.create(
+        # Create the `VariableTemperatureZone` object:
+        self.zone = VariableTemperatureZone.create(
             ID='my-test-zone',
             weather_data=weather_data,
             floor_area=Q_(100, 'm**2'),

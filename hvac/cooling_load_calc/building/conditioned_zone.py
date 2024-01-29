@@ -21,14 +21,15 @@ Q_ = Quantity
 
 class ConditionedZone:
     """Represents a space or a group of spaces in a building of which the
-    air temperature is controlled by a single thermostat. Aim is to find the
-    required rate at which the cooling system must extract heat from the zone
-    air to keep the zone air temperature at its setpoint value, i.e., the
-    cooling load of the zone.
+    air temperature is perfectly held at its setpoint by the control action of
+    the zone thermostat.
+    This class is meant to be used in cooling load calculations, i.e., to find
+    the required rate at which the cooling system must extract heat from the
+    zone air to keep the zone air temperature fixed at its setpoint value.
     The sensible and latent heat gains and corresponding cooling loads are
-    calculated at different time moments during the design day (see method
+    calculated at regular time moments during the design day (see method
     `solve`). By default, the time step is one hour, which means that the
-    heat gains and cooling loads are calculated on each hour of the design
+    heat gains and cooling loads are calculated for each hour of the design
     day.
     """
     def __init__(self):
@@ -440,7 +441,10 @@ class ConditionedZone:
         num_cycles: int = 5,
         unit: str = 'W'
     ) -> pd.DataFrame:
-        """Calculates the sensible and latent cooling load of the zone.
+        """Calculates the sensible and latent heat gains in the zone and its
+        resulting cooling load, i.e. the heat rate that the cooling system needs
+        to extract from the zone air to keep the zone air temperature at its
+        setpoint value.
 
         Parameters
         ----------
@@ -451,6 +455,9 @@ class ConditionedZone:
         num_cycles:
             Number of diurnal calculation cycles before the results of the last
             diurnal cycle are returned.
+            Each new cycle starts with the node temperatures from the last two
+            time indexes k-2 and k-1 of the previous cycle as the initial values.
+            Only the last cycle is kept.
         unit:
             The measuring unit in which heat flows need to be expressed. The
             default unit is Watts (W).
