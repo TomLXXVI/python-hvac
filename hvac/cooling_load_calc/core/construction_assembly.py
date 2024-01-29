@@ -554,7 +554,10 @@ class ConstructionAssembly:
             Name to identify the construction assembly.
         layers: list of `ConstructionLayer` objects, optional, default None
             A construction assembly is thought to be composed of successive
-            layers, arranged from the outdoor to the indoor environment.
+            construction layers, arranged from the outdoor to the indoor
+            environment.
+            Note that it is expected that a construction assembly always has an
+            exterior and an interior surface film.
         U: Quantity, default None
             U-value of the construction assembly per unit area. Can be used if
             the layered composition of the construction assembly is unknown.
