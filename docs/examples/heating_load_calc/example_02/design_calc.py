@@ -3,14 +3,20 @@
 HEATING LOAD DESIGN CALCULATION
 
 In this example the heating load under design conditions is calculated for a
-very simple, small single-zone building. Based on this heat load, the heating
-system can be sized. In part 2 of this example, we will then simulate this
-building together with its heating system on a winter day. The heating system
-will consist of panel radiators. With the simulation we can analyze the effect
-of the water volume flow rate through the radiators and of the water supply
-temperature on the space air temperature.
+(very) simple, small single-zone building. Based on this heat load, the heating
+system can be sized.
+
+Then, in part 2 of this example, we will simulate the operation of this
+building's heating system on a winter day.
+
+And in the final part 3 of this example, we will estimate the heating energy
+consumption of this building using the bin table method with TMY data valid for
+the geographic location where the building is situated.
 """
+import warnings
+from dataclasses import dataclass
 from hvac import Quantity
+from hvac.fluids import Fluid, CoolPropWarning
 from hvac.heating_load_calc import (
     ClimateDesignData,
     Building,
@@ -20,11 +26,37 @@ from hvac.heating_load_calc import (
 from hvac.cooling_load_calc import wtcb
 
 
+warnings.filterwarnings('ignore', category=CoolPropWarning)
 Q_ = Quantity
+Air = Fluid('Air')
+
+
+@dataclass
+class DesignInfo:
+    Q_dot_tot: Quantity
+    Q_dot_trm: Quantity
+    Q_dot_ven: Quantity
+    H_trm: Quantity
+    V_dot_ven: Quantity
+    T_int_des: Quantity
+    T_ext_des: Quantity
+
+    def __str__(self) -> str:
+        s = (
+            f"outdoor/indoor design temperature = "
+            f"{self.T_ext_des.to('degC'):~P.1f}/{self.T_int_des.to('degC'):~P.1f}\n"
+            f"total design heat loss = {self.Q_dot_tot.to('kW'):~P.3f}\n"
+            f"transmission heat loss = {self.Q_dot_trm.to('kW'):~P.3f}\n"
+            f"ventilation/infiltration heat loss = {self.Q_dot_ven.to('kW'):~P.3f}\n"
+            f"transmission heat loss coefficient = {self.H_trm.to('kW / K'):~P.3f}\n"
+            f"ventilation/infiltration air volume flow rate = {self.V_dot_ven.to('m**3/hr'):~P.3f}"
+        )
+        return s
 
 
 def main():
-    """Creates the model of a simplified single-zone building and prints it
+    """
+    Creates the model of a simplified single-zone building and prints it
     heating load on the peak-winter design day.
     """
     # Specify the climatic data that applies to the geographic location where the
@@ -41,8 +73,8 @@ def main():
     # Create the model of our building:
     building = SomeSingleZoneBuilding(climatic_design_data, T_int_des)
 
-    # Print the heating load of this building:
-    print(building.get_heat_load())
+    #
+    print(building.get_design_load_info())
 
 
 class ConstructionAssemblyFactory:
@@ -98,7 +130,9 @@ class SomeSingleZoneBuilding:
         climatic_design_data: ClimateDesignData,
         T_int_des: Quantity
     ) -> None:
-        """Creates the single-zone building."""
+        """
+        Creates the single-zone building.
+        """
         # Create the building hierarchy:
         self.building = Building.create(
             ID='my-test-building',
@@ -116,7 +150,7 @@ class SomeSingleZoneBuilding:
             area=Q_(100, 'm**2')
         )
 
-        # Instantiate the `ConstructionAssemblyFactory` to create the
+        # Instantiate the `ConstructionAssemblyFactory` and create the
         # construction assemblies:
         self.constr_assem_factory = ConstructionAssemblyFactory(
             climatic_design_data=climatic_design_data,
@@ -154,15 +188,28 @@ class SomeSingleZoneBuilding:
             z=Q_(0, 'm')
         )
 
+        # Add the skylight to the roof:
         self.roof.add_building_element(
             ID='skylight',
             area=Q_(25, 'm**2'),
             constr_assem=wtcb.WindowPropertiesShelf.load('window-5a-operable-wood/vinyl'),
         )
 
-    def get_heat_load(self) -> Quantity:
+    def get_design_load_info(self) -> DesignInfo:
         """Returns the heating load of the single-zone building."""
-        return self.space.get_heat_load()
+        delta_T_des = self.space.T_int_d - self.space.T_ext_d
+        Q_dot_trm = self.space.get_transmission_heat_loss()
+        Q_dot_ven = self.space.get_ventilation_heat_loss()
+        Q_dot_tot = self.space.get_heat_load()
+        H_trm = Q_dot_trm / delta_T_des
+        H_ven = Q_dot_ven / delta_T_des
+        outdoor_air = Air(T=self.space.T_ext_d, P=Q_(101.325, 'kPa'))
+        V_dot_ven = H_ven / (outdoor_air.rho * outdoor_air.cp)
+        return DesignInfo(
+            Q_dot_tot, Q_dot_trm, Q_dot_ven,
+            H_trm, V_dot_ven, self.space.T_int_d,
+            self.space.T_ext_d
+        )
 
 
 if __name__ == '__main__':

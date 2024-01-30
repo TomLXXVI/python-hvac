@@ -42,7 +42,7 @@ class EnergyEstimator:
             r = []
             for j, time_segment in enumerate(self.bin_table.columns):
                 load = self.loads[j]
-                load.To = Q_(To, T_unit)
+                load.T_ext = Q_(To, T_unit)
                 load.num_hours = self.bin_table.loc[T_bin, time_segment]
                 r.append(load.E.to(E_unit).m)
             self._E_load_table.append(r)
@@ -65,7 +65,7 @@ class EnergyEstimator:
             r = []
             for j, time_segment in enumerate(self.bin_table.columns):
                 load = self.loads[j]
-                load.To = Q_(To, T_unit)
+                load.T_ext = Q_(To, T_unit)
                 self.heat_pump.load = load
                 self.heat_pump.To = Q_(To, T_unit)
                 self.heat_pump.num_hours = self.bin_table.loc[T_bin, time_segment]

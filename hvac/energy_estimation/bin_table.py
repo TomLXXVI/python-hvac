@@ -1,6 +1,5 @@
 from typing import Optional, Dict, Union, Tuple, List
 from enum import IntEnum
-from datetime import datetime
 from dataclasses import dataclass
 import pandas as pd
 import numpy as np
@@ -41,17 +40,17 @@ class TimeSegment:
 
 
 class BinTableCreator:
-    """Create monthly temperature bin tables from a TMY-file (csv) containing
+    """Creates monthly temperature bin tables from a TMY-file (csv) containing
     the hourly average outside air temperature of each hour of every day of the
     year.
     """
     _default_time_segments: Dict[str, TimeSegment] = {
-        '0 - 3 h': TimeSegment('0 - 3 h', (0, 4)),
-        '4 - 7 h': TimeSegment('4 - 7 h', (4, 8)),
-        '8 - 11 h': TimeSegment('8 - 11 h', (8, 12)),
-        '12 - 15 h': TimeSegment('12 - 15 h', (12, 16)),
-        '16 - 19 h': TimeSegment('16 - 19 h', (16, 20)),
-        '20 - 23 h': TimeSegment('20 - 23 h', (20, 24))
+        '0h-4h': TimeSegment('0h-3h', (0, 4)),  # 04:00 not included
+        '4h-8h': TimeSegment('4h-7h', (4, 8)),
+        '8h-12h': TimeSegment('8h-11h', (8, 12)),
+        '12h-16h': TimeSegment('12h-15h', (12, 16)),
+        '16h-20h': TimeSegment('16h-19h', (16, 20)),
+        '20h-24h': TimeSegment('20h-23h', (20, 24))
     }
 
     def __init__(
@@ -65,21 +64,23 @@ class BinTableCreator:
         time_segments: Optional[List[TimeSegment]] = None,
         T_unit: str = 'degC',
     ) -> None:
-        """Creates a dictionary of monthly temperature bin tables from a csv-file
-        with TMY hourly averaged outdoor air temperatures. After instantiation,
-        use method `get_bin_table` to get the bin table of a given month. A bin
-        table is represented as a Pandas DataFrame object. Each temperature bin
-        contains the number of hours the hourly averaged outdoor air temperature
-        resides in that temperature bin.
+        """Creates a dictionary of monthly temperature bin tables from a
+        csv-file with TMY hourly average outdoor air temperatures. After
+        instantiation, use method `get_bin_table` to get the bin table of a
+        given month. A bin table is represented as a Pandas DataFrame object.
+        Each temperature bin contains the number of hours the hourly average
+        outdoor air temperature resides in that temperature bin.
 
         Parameters
         ----------
         file_path: str
             Path of the csv-file with TMY data.
         date_time_column_name: str
-            The column title name in which date-time values are present.
+            Title of the column in the csv-file that contains the date-time
+            values.
         temperature_column_name: str
-            The column title name in which temperature values are present.
+            Title of the column in the csv-file that contains the temperature
+            values.
         bin_limits: Tuple[Quantity, Quantity], default (-10 °C, 40 °C)
             The lower and upper limit of the temperature bins.
         bin_width: Quantity, default 2 K
@@ -97,10 +98,8 @@ class BinTableCreator:
 
         Notes
         -----
-        The temperature measurement unit used to specify the bin limits is
-        considered to be the unit desired by the user. If `T_unit` is different
-        from the desired unit, the temperature values in the TMY datafile are
-        converted from `T_unit` to the desired unit.
+        The temperature unit used in parameter `bin_limits` is the unit in which
+        temperature values in the bin tables are expressed.
         """
         self._file_path = file_path
         self._date_time_column_name = date_time_column_name
@@ -123,25 +122,25 @@ class BinTableCreator:
         self._create_bin_tables()
 
     def get_bin_table(self, month: Union[Month, int]) -> pd.DataFrame:
-        """Get the temperature bin table of the specified month."""
+        """Gets the temperature bin table of the specified month."""
         return self._monthly_bin_tables[month]
 
     def _create_bin_tables(self) -> None:
         """Reads the TMY-data file and creates the temperature bin table for
-         each month of the year."""
+         each month of the year.
+         """
         self._read_file()
         self._group_by_month()
         for m in range(1, 13):
             self._monthly_bin_tables[m] = self._create_monthly_bin_table(m)
 
     def _read_file(self) -> None:
-        """Read TMY data from csv-file."""
+        """Reads the TMY data from the csv-file."""
         self._yearly_tmy_data = pd.read_csv(
             self._file_path,
             parse_dates=[0],
-            infer_datetime_format=True,
             dayfirst=True,
-            date_parser=lambda dt_str: datetime.strptime(dt_str, self._date_time_fmt)
+            date_format=self._date_time_fmt
         )
         # convert temperature values if wanted
         T_unit_desired = self._bin_limits[0].units
@@ -151,15 +150,15 @@ class BinTableCreator:
             self._yearly_tmy_data[self._temperature_column_name] = T_column_converted
 
     def _group_by_month(self) -> None:
-        """Split yearly TMY data into monthly groups."""
+        """Splits the yearly TMY data into monthly groups."""
         self._monthly_tmy_data = self._yearly_tmy_data.groupby(
             self._yearly_tmy_data[self._date_time_column_name].dt.month
         )
 
     def _create_monthly_bin_table(self, month_index: int) -> pd.DataFrame:
-        """Create a temperature bin table for the month specified by its
-        month of the year index (1...12)."""
-
+        """Creates a temperature bin table for the month specified by its
+        index (1...12).
+        """
         # get dataframe of month specified by `month_index`
         month = self._monthly_tmy_data.get_group(month_index)
 
@@ -180,9 +179,11 @@ class BinTableCreator:
         # each time segment in a list
         bin_table = []
         for key, time_segment in time_segments.items():
-            bin_series = pd.value_counts(
-                pd.cut(x=time_segment[self._temperature_column_name], bins=T_bins)
+            bin_series = pd.cut(
+                x=time_segment[self._temperature_column_name],
+                bins=T_bins
             )
+            bin_series = bin_series.value_counts()
             bin_series.name = key
             bin_table.append(bin_series)
 
@@ -190,7 +191,6 @@ class BinTableCreator:
         # dataframe and sort the bins from low to high
         bin_table = pd.concat(bin_table, axis=1)
         bin_table = bin_table.sort_index()
-
         return bin_table
 
     def _get_time_segment_dict(self, hour_groups) -> Dict[str, pd.DataFrame]:

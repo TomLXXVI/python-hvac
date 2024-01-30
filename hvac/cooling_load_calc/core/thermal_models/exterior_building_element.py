@@ -1,7 +1,7 @@
 """LINEAR THERMAL NETWORK OF AN OPAQUE EXTERIOR BUILDING ELEMENT.
 -----------------------------------------------------------------
 Implementation of a linear thermal network (lumped capacitance model) using
-a 2nd-order non-central backward finite difference approximation [1] for the
+a 2nd-order, non-central, backward finite difference approximation [1] for the
 derivative dT/dt in the node equations.
 
 This implementation is further used in subpackage `cooling_load_calc` for

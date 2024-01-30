@@ -116,14 +116,14 @@ class HeatPump:
         """
         def eq(To: float) -> float:
             To = Quantity(To, self.units['T'])
-            self._load.To = To
+            self._load.T_ext = To
             self.To = To
             Q_load = self._load.Q
             Q_hp = self.Q
             out = (Q_hp - Q_load).to(self.units['Q']).m
             return out
 
-        To_min = self._load.To_min.to(self.units['T']).m
+        To_min = self._load.T_ext_min.to(self.units['T']).m
         T_bal_load = self._load.T_bal.to(self.units['T']).m
         T_bal_hp = optimize.brentq(eq, To_min, T_bal_load)
         T_bal_hp = Q_(T_bal_hp, self.units['T'])
