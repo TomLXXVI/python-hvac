@@ -20,7 +20,7 @@ ntp_air = Air(T=Q_(20, 'degC'), P=Q_(101_325, 'Pa'))
 @dataclass
 class Season:
     """Dataclass that holds the design-day data and calculation results of a
-    zone for, either the cooling season (summer), or the heating season
+    zone for either the cooling season (summer), or the heating season
     (winter).
 
     Parameters
@@ -157,7 +157,7 @@ class VAVSystem:
             V_vent: Quantity,
             system: 'VAVSystem'
         ) -> None:
-            """Creates the `Summer` design stage of the VAV system.
+            """Creates the `Summer` design part of the VAV system.
 
             Parameters
             ----------
@@ -579,7 +579,7 @@ class VAVSystem:
         def determine_m_supply(self) -> None:
             """Determines the required mass flow rate of supply air to each zone.
 
-            Any air exhausted locally to the outdoor in a zone is also
+            Any air in a zone exhausted locally to the outdoor is also
             added the required mass flow rate of supply air of this zone.
             """
             for zone in self.system.zones:

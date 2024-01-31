@@ -82,9 +82,9 @@ def create_construction_assembly(
     # unit thermal resistance of the air layer.
     air_layer_temp_solver = AirLayerTemperatureSolver(
         T_ext=T_ext,
-        T_zone=T_zone,
+        T_int=T_zone,
         R_ea=ext_film.R + outer_leaf.R,
-        R_az=inner_leaf.R + gypsum_layer.R + int_film.R
+        R_ai=inner_leaf.R + gypsum_layer.R + int_film.R
     )
     *_, dT, T_mn = air_layer_temp_solver.solve(
         T_ae_guess=T_ext.to('K') - Q_(3, 'K'),

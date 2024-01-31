@@ -17,7 +17,7 @@ class Building:
 
     @classmethod
     def create(cls, ID: str) -> Building:
-        """Creates a `BuildingEntity` object.
+        """Creates a `Building` object.
 
         Parameters
         ----------

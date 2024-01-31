@@ -148,9 +148,9 @@ class ConstructionAssemblies:
         # `AirLayerTemperatureSolver`.
         air_layer_temp_solver = AirLayerTemperatureSolver(
             T_ext=T_ext,
-            T_zone=T_int,
+            T_int=T_int,
             R_ea=ext_surf_film.R + cement_plaster.R + chipboard.R,
-            R_az=insulation.R + plasterboard.R + int_surf_film.R
+            R_ai=insulation.R + plasterboard.R + int_surf_film.R
         )
         *_, dT, T_mn = air_layer_temp_solver.solve(
             T_ae_guess=T_ext.to('K') - Q_(3, 'K'),

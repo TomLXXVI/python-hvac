@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 import pandas as pd
 from hvac import Quantity
 
@@ -32,10 +32,10 @@ class BuildingEntity:
         obj.ID = ID
         return obj
 
-    def add_ventilation_zone(self, ventilation_zone: VentilationZone):
-        """Adds a ventilation zone to the building entity."""
-        self.ventilation_zones[ventilation_zone.ID] = ventilation_zone
-        ventilation_zone.building_entity = self
+    def add_ventilation_zone(self, *vez: VentilationZone) -> None:
+        """Adds a ventilation zone (or multiple zones) to the building entity."""
+        for vez_ in vez: vez_.building_entity = self
+        self.ventilation_zones.update({vez_.ID: vez_ for vez_ in vez})
 
     def get_cooling_load_table(
         self,

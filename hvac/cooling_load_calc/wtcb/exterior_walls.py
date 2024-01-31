@@ -15,7 +15,7 @@ from hvac.cooling_load_calc.core import (
     MechanicalFastening,
     ConstructionAssembly
 )
-
+from hvac.cooling_load_calc.core.utils import AirLayerTemperatureSolver
 from hvac.cooling_load_calc.wtcb.setup import (
     MaterialShelf,
     ConstructionAssemblyShelf,
@@ -25,6 +25,64 @@ from hvac.cooling_load_calc.wtcb.setup import (
 Q_ = Quantity
 
 
+def _create_air_layer(
+    T_ext: Quantity,
+    T_int: Quantity,
+    R_ea: Quantity,
+    R_ai: Quantity,
+    t: Quantity,
+    surf_emissivities: tuple[Quantity, Quantity] = (Q_(0.9, 'frac'), Q_(0.9, 'frac'))
+) -> tuple[AirLayer, Quantity]:
+    """Internal helper function to create an `AirLayer` object.
+
+    Parameters
+    ----------
+    T_ext:
+        Exterior temperature.
+    T_int:
+        Interior temperature.
+    R_ea:
+        Unit thermal resistance between exterior and outer air layer side.
+    R_ai:
+        Unit thermal resistance between inner air layer side and interior.
+    t:
+        The thickness of the air gap.
+    surf_emissivities:
+        A tuple with the emissivities of the exterior side surface and the
+        interior side surface.
+
+    Returns
+    -------
+    `AirLayer` object and average air gap temperature.
+    """
+    ats = AirLayerTemperatureSolver(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=R_ea,
+        R_ai=R_ai
+    )
+    if T_ext < T_int:
+        dT = T_int.to('K') - T_ext.to('K')
+        T_ae_ini = T_ext.to('K') + dT / 2 - Q_(2.5, 'K')
+        T_ai_ini = T_int.to('K') - dT / 2 + Q_(2.5, 'K')
+    else:
+        dT = T_ext.to('K') - T_int.to('K')
+        T_ae_ini = T_ext.to('K') - dT / 2 + Q_(2.5, 'K')
+        T_ai_ini = T_int.to('K') + dT / 2 - Q_(2.5, 'K')
+    *_, dT_asp, T_asp = ats.solve(T_ae_ini, T_ai_ini)
+
+    air_space = AirLayer.create(
+        ID='air_space',
+        geometry=Geometry(t=t),
+        dT=dT_asp,
+        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
+        T_mn=T_asp,
+        surf_emissivities=surf_emissivities,
+        angle=Q_(0.0, 'deg')
+    )
+    return air_space, T_asp
+
+
 # ------------------------------------------------------------------------------
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
@@ -32,8 +90,6 @@ def create_ext_wall_wtcb_F1(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -49,15 +105,7 @@ def create_ext_wall_wtcb_F1(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -79,6 +127,13 @@ def create_ext_wall_wtcb_F1(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5, 'cm')
+    )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F1_t_ins={t_ins.to("cm"):~P.0f}',
         layers=[
@@ -91,12 +146,14 @@ def create_ext_wall_wtcb_F1(
             int_surf_film
         ]
     )
+
     ext_wall = ext_wall.apply_ventilated_layer_correction(
         ventilated_layer_ID=air_space.ID,
         area_of_openings=Q_(1000, 'mm ** 2'),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_asp
     )
+
     ext_wall = ext_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
         insulation_level=2,
@@ -107,6 +164,7 @@ def create_ext_wall_wtcb_F1(
             length=t_ins
         )
     )
+
     ext_wall.layers['outer_leaf'].num_slices = 10
     ext_wall.layers['insulation'].num_slices = 5
     ext_wall.layers['inner_leaf'].num_slices = 15
@@ -121,8 +179,6 @@ def create_ext_wall_wtcb_F2(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -138,15 +194,7 @@ def create_ext_wall_wtcb_F2(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -168,6 +216,15 @@ def create_ext_wall_wtcb_F2(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
+
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5, 'cm')
+    )
+
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F2_t_ins={t_ins.to("cm"):~P.0f}',
         layers=[
@@ -210,8 +267,6 @@ def create_ext_wall_wtcb_F3(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -227,15 +282,7 @@ def create_ext_wall_wtcb_F3(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -256,6 +303,13 @@ def create_ext_wall_wtcb_F3(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F3_t_ins={t_ins.to("cm"):~P.0f}',
@@ -299,8 +353,6 @@ def create_ext_wall_wtcb_F4(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -316,15 +368,7 @@ def create_ext_wall_wtcb_F4(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -345,6 +389,13 @@ def create_ext_wall_wtcb_F4(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F4_t_ins={t_ins.to("cm"):~P.0f}',
@@ -388,8 +439,6 @@ def create_ext_wall_wtcb_F5(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -405,15 +454,7 @@ def create_ext_wall_wtcb_F5(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -434,6 +475,13 @@ def create_ext_wall_wtcb_F5(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F5_t_ins={t_ins.to("cm"):~P.0f}',
@@ -477,8 +525,6 @@ def create_ext_wall_wtcb_F6(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -494,15 +540,7 @@ def create_ext_wall_wtcb_F6(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -523,6 +561,13 @@ def create_ext_wall_wtcb_F6(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F6_t_ins={t_ins.to("cm"):~P.0f}',
@@ -566,8 +611,6 @@ def create_ext_wall_wtcb_F7(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -583,15 +626,7 @@ def create_ext_wall_wtcb_F7(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -612,6 +647,13 @@ def create_ext_wall_wtcb_F7(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F7_t_ins={t_ins.to("cm"):~P.0f}',
@@ -655,8 +697,6 @@ def create_ext_wall_wtcb_F8(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -672,15 +712,7 @@ def create_ext_wall_wtcb_F8(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -701,6 +733,13 @@ def create_ext_wall_wtcb_F8(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F8_t_ins={t_ins.to("cm"):~P.0f}',
@@ -744,8 +783,6 @@ def create_ext_wall_wtcb_F9(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -761,15 +798,7 @@ def create_ext_wall_wtcb_F9(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -790,6 +819,13 @@ def create_ext_wall_wtcb_F9(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F9_t_ins={t_ins.to("cm"):~P.0f}',
@@ -833,8 +869,6 @@ def create_ext_wall_wtcb_F10(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -850,15 +884,7 @@ def create_ext_wall_wtcb_F10(
         geometry=Geometry(t=Q_(10.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -879,6 +905,13 @@ def create_ext_wall_wtcb_F10(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F10_t_ins={t_ins.to("cm"):~P.0f}',
@@ -922,8 +955,6 @@ def create_ext_wall_wtcb_F11(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -939,15 +970,7 @@ def create_ext_wall_wtcb_F11(
         geometry=Geometry(t=Q_(9.0, 'cm')),
         material=MaterialShelf.load('concrete-medium-solid-block-1800kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -968,6 +991,13 @@ def create_ext_wall_wtcb_F11(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F11_t_ins={t_ins.to("cm"):~P.0f}',
@@ -1011,8 +1041,6 @@ def create_ext_wall_wtcb_F12(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1028,15 +1056,7 @@ def create_ext_wall_wtcb_F12(
         geometry=Geometry(t=Q_(9.0, 'cm')),
         material=MaterialShelf.load('concrete-medium-solid-block-1800kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -1057,6 +1077,13 @@ def create_ext_wall_wtcb_F12(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F12_t_ins={t_ins.to("cm"):~P.0f}',
@@ -1100,8 +1127,6 @@ def create_ext_wall_wtcb_F13(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1117,15 +1142,7 @@ def create_ext_wall_wtcb_F13(
         geometry=Geometry(t=Q_(9.0, 'cm')),
         material=MaterialShelf.load('concrete-medium-solid-block-1800kg/m3'),
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -1146,6 +1163,13 @@ def create_ext_wall_wtcb_F13(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F13_t_ins={t_ins.to("cm"):~P.0f}',
@@ -1189,8 +1213,6 @@ def create_ext_wall_wtcb_F14(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1210,15 +1232,7 @@ def create_ext_wall_wtcb_F14(
             c=Q_(1.17, 'kJ / (kg * K)')
         )
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=t_ins),
@@ -1239,6 +1253,13 @@ def create_ext_wall_wtcb_F14(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + wood_siding.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F14_t_ins={t_ins.to("cm"):~P.0f}',
@@ -1377,8 +1398,6 @@ def create_ext_wall_wtcb_F16(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1394,15 +1413,7 @@ def create_ext_wall_wtcb_F16(
         geometry=Geometry(t=Q_(9.0, 'cm')),
         material=MaterialShelf.load('terracotta-brick-1500kg/m3')
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     OSB_board = SolidLayer.create(
         ID='OSB_board',
         geometry=Geometry(t=Q_(2.0, 'cm')),
@@ -1423,6 +1434,13 @@ def create_ext_wall_wtcb_F16(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + outer_leaf.R,
+        R_ai=OSB_board.R + insulation.R + gypsum_board.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F16_t_ins={t_ins.to("cm"):~P.0f}',
@@ -1465,8 +1483,6 @@ def create_ext_wall_wtcb_F17(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1486,15 +1502,7 @@ def create_ext_wall_wtcb_F17(
             c=Q_(1.17, 'kJ / (kg * K)')
         )
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     OSB_board = SolidLayer.create(
         ID='OSB_board',
         geometry=Geometry(t=Q_(2.0, 'cm')),
@@ -1515,6 +1523,13 @@ def create_ext_wall_wtcb_F17(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + wood_siding.R,
+        R_ai=OSB_board.R + insulation.R + gypsum_board.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F17_t_ins={t_ins.to("cm"):~P.0f}',
@@ -1842,8 +1857,6 @@ def create_ext_wall_wtcb_F22(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1863,15 +1876,7 @@ def create_ext_wall_wtcb_F22(
             c=Q_(250.0, 'J / (kg * K)')
         )
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     outer_leaf = SolidLayer.create(
         ID='outer_leaf',
         geometry=Geometry(t=Q_(29.0, 'cm')),
@@ -1892,6 +1897,13 @@ def create_ext_wall_wtcb_F22(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + vinyl_siding.R,
+        R_ai=outer_leaf.R + insulation.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F22_t_ins={t_ins.to("cm"):~P.0f}',
@@ -1935,8 +1947,6 @@ def create_ext_wall_wtcb_F23(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1956,15 +1966,7 @@ def create_ext_wall_wtcb_F23(
             c=Q_(250.0, 'J / (kg * K)')
         )
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     outer_leaf = SolidLayer.create(
         ID='outer_leaf',
         geometry=Geometry(t=Q_(29.0, 'cm')),
@@ -1985,6 +1987,13 @@ def create_ext_wall_wtcb_F23(
         geometry=Geometry(),
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
+    )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + vinyl_siding.R,
+        R_ai=outer_leaf.R + insulation.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
         ID=f'ext_wall_wtcb_F22_t_ins={t_ins.to("cm"):~P.0f}',

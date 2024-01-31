@@ -1,15 +1,18 @@
-"""Steady-state analysis on an hourly basis of a single-zone VAV air heating and
+"""
+Steady-state analysis on an hourly basis of a single-zone VAV air heating and
 humidification system during a selected winter day.
 """
 import warnings
 import pathlib
+
 from hvac.fluids import CoolPropWarning
 warnings.filterwarnings('ignore', category=CoolPropWarning)
 
 from concurrent.futures import ProcessPoolExecutor
+
 from hvac import Quantity
 from hvac.fluids import HumidAir
-from hvac.climate import TMY
+from hvac.sun.tmy import TMY
 from hvac.air_conditioning.single_zone.vav_heating_sim import (
     DesignData, VAVSingleZoneAirHeatingSystem, Output
 )

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Sequence, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 import pandas as pd
 from hvac import Quantity
 from hvac.fluids import HumidAir
@@ -10,7 +10,6 @@ from hvac.cooling_load_calc.core import (
     ThermalStorageNode,
     InternalHeatGain
 )
-from hvac.cooling_load_calc.core.utils import convert_to_clock_time
 
 if TYPE_CHECKING:
     from .ventilation_zone import VentilationZone
@@ -103,28 +102,16 @@ class ConditionedZone:
             zone.vez.add_thermal_zone(zone)
         return zone
 
-    def add_ext_build_elem(
-        self,
-        ebe: ExteriorBuildingElement | Sequence[ExteriorBuildingElement]
-    ) -> None:
+    def add_ext_build_elem(self, *ebe: ExteriorBuildingElement) -> None:
         """Adds an exterior building element or a sequence of exterior building
         elements to the zone.
         """
-        if isinstance(ebe, Sequence):
-            self.ext_build_elems.update({ebe_.ID: ebe_ for ebe_ in ebe})
-        else:
-            self.ext_build_elems[ebe.ID] = ebe
+        self.ext_build_elems.update({ebe_.ID: ebe_ for ebe_ in ebe})
 
-    def add_int_build_elem(
-        self,
-        ibe: InteriorBuildingElement | Sequence[InteriorBuildingElement]
-    ) -> None:
+    def add_int_build_elem(self, *ibe: InteriorBuildingElement) -> None:
         """Adds an interior building element or a sequence of interior building
         elements to the zone."""
-        if isinstance(ibe, Sequence):
-            self.int_build_elems.update({ibe_.ID: ibe_ for ibe_ in ibe})
-        else:
-            self.int_build_elems[ibe.ID] = ibe
+        self.int_build_elems.update({ibe_.ID: ibe_ for ibe_ in ibe})
 
     def add_thermal_storage_node(
         self,
@@ -220,17 +207,11 @@ class ConditionedZone:
             T_trf=T_trf
         )
 
-    def add_internal_heat_gain(
-        self,
-        ihg: InternalHeatGain | Sequence[InternalHeatGain]
-    ) -> None:
+    def add_internal_heat_gain(self, *ihg: InternalHeatGain) -> None:
         """Adds an internal heat gain or a sequence of internal heat gains to
         the zone (see cooling_load_calc.core.internal_heat_gains).
         """
-        if isinstance(ihg, Sequence):
-            self.int_heat_gains.update({ihg_.ID: ihg_ for ihg_ in ihg})
-        else:
-            self.int_heat_gains[ihg.ID] = ihg
+        self.int_heat_gains.update({ihg_.ID: ihg_ for ihg_ in ihg})
 
     @property
     def envelope_area(self) -> Quantity:
@@ -464,8 +445,9 @@ class ConditionedZone:
 
         Returns
         -------
-        A Pandas DataFrame with the heat gains and the total zone load for each
-        time index k of the design day.
+        A Pandas DataFrame with the heat gains (including both the convective and
+        radiative component) and the total zone load for each time index k of
+        the design day.
         """
         # CONDUCTION HEAT GAIN
         # Get the total conductive heat gain in the zone, and its convective and
@@ -540,19 +522,7 @@ class ConditionedZone:
         # - latent ventilation heat gain
         # - latent internal heat gain
         # - latent zone load
-        n = len(Q_dot_cnd)
-        loc_time, sol_time = zip(*[
-            convert_to_clock_time(
-                time_index=k,
-                dt_hr=dt_hr,
-                date=self.weather_data.date,
-                L_loc=self.weather_data.location.L_loc,
-                tz_loc=self.weather_data.location.timezone
-            ) for k in range(n)
-        ])
         d = {
-            'sol_time': sol_time,
-            f'std_time {self.weather_data.location.timezone}': loc_time,
             'Q_dot_cnd': Q_dot_cnd.to(unit).m,
             'Q_dot_sol': Q_dot_sol.to(unit).m,
             'Q_dot_sen_vent': Q_dot_sen_vent.to(unit).m,

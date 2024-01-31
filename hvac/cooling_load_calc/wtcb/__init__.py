@@ -7,5 +7,6 @@ from . import (
     exterior_walls,
     interior_walls,
     roofs,
-    floors
+    floors,
+    windows
 )

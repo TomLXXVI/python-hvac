@@ -10,8 +10,8 @@ Q_ = Quantity
 
 class VAVSystem:
     """Class that implements the analysis of a VAV system under part-load
-    conditions. Only part-load analysis during summer (cooling season)
-    has been implemented.
+    conditions. Only part-load analysis during summer (cooling) has been
+    implemented.
     """
 
     class Summer:
@@ -52,13 +52,14 @@ class VAVSystem:
             outdoor_air:
                 State of outdoor air under part-load conditions.
             V_vent:
-                Minimum required outdoor air volume flow rate for ventilating
-                the building (design value).
+                Minimum required outdoor air volume flow rate for ventilation
+                of the building (design value).
             """
             self.system = system
             self.T_supply_des = T_supply_des
             self.outdoor_air = outdoor_air
             self.m_vent = V_vent * outdoor_air.rho
+
             self.m_supply: Optional[Quantity] = None
             self.V_supply: Optional[Quantity] = None
             self.supply_air: Optional[HumidAir] = None
@@ -83,7 +84,7 @@ class VAVSystem:
                     T_ao=zone.summer.zone_air.Tdb,
                     Q_sen=zone.summer.Q_sen
                 )
-                # Mass flow rate supplied to a zone at part-load cannot be
+                # Supply air mass flow rate to a zone at part-load cannot be
                 # reduced below 60 % of the full-load design value:
                 zone.summer.m_supply = max(
                     0.6 * zone.summer.m_supply_des,  # --> full-load design value

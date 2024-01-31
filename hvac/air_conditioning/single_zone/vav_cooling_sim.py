@@ -853,8 +853,9 @@ class VAVSingleZoneAirCoolingSystem:
 
 
 class CoolingSimData:
-    """Helper class to prepare the simulation data needed to analyze the
-    `VAVSingleZoneAirCoolingSystem` model on an hourly basis on a given day.
+    """Helper class to prepare the cooling load data of the single-zone building
+    needed to analyze the `VAVSingleZoneAirCoolingSystem` model on an hourly
+    basis on a given day.
     """
     def __init__(
         self,
@@ -928,8 +929,8 @@ class CoolingSimData:
         -   the corresponding relative latent cooling load (ratio of the latent
             part-load to the latent design-load)
 
-        These tuples can be used as arguments in the method `analyze` of class
-        `VAVSingleZoneAirCoolingSystem`.
+        These tuples will be used as arguments when calling method `analyze` of
+        class `VAVSingleZoneAirCoolingSystem`.
         """
         return zip(
             self.outdoor_air_rng,
@@ -943,7 +944,7 @@ class CoolingSimData:
         hour: int,
         is_relative: bool = True
     ) -> tuple[HumidAir, Quantity, Quantity, Quantity]:
-        """Returns for the given hour (index 0 to 23) a tuple of three elements:
+        """Returns for the given hour (index 0 to 23) a tuple of four elements:
         -   the state of outdoor air
         -   the zone air setpoint temperature
         -   the corresponding relative sensible cooling load (ratio of the

@@ -2,19 +2,19 @@
 ANALYSIS OF A MULTI-ZONE VAV SYSTEM UNDER SUMMER PART-LOAD CONDITIONS
 -------------------------------------------------------------------
 
-To analyze the summer part-load operation of a multi-zone VAV system, one can
+To analyze the summer part-load operation of a multi-zone VAV system, we
 use the module `part_load` in subpackage `hvac.air_conditioning.multi_zone`.
 
-In this script, a part-load analysis is performed of a two-zone system, zone A
-and zone B.
+In this script, a part-load analysis is demonstrated of system having two zones,
+zone A and zone B.
 
 Inside the `__init__()`-method of class `PeakSummerDesign`, we first run the
 design calculations under peak summer design conditions. See the line:
 `self.results_summer = self.vav_system.design_summer(...)`
 
 This `PeakSummerDesign` object is then passed to the `__init__()`-method of
-class `PartLoadSummerAnalysis`, together with a specification of the current
-part-load conditions: the state of outdoor air, and the sensible and latent zone
+class `PartLoadSummerAnalysis`, together with a specification about the current
+part-load conditions: the state of outdoor air and the sensible and latent zone
 loads, which are expressed as fractions of the peak summer design loads. On
 instantiation of a `PartLoadSummerAnalysis` object, the part-load analysis
 routine is called:
@@ -39,7 +39,6 @@ from hvac.fluids import HumidAir, Fluid
 from hvac.air_conditioning.multi_zone import Zone, Season
 import hvac.air_conditioning.multi_zone.design as design
 import hvac.air_conditioning.multi_zone.part_load as analysis
-from hvac.charts import PsychrometricChart
 
 
 Q_ = Quantity
@@ -47,8 +46,13 @@ Water = Fluid('Water')
 
 
 class PeakSummerDesign:
+    """Peak-summer design calculations."""
 
     def __init__(self):
+        # Create zone A:
+        # From the design cooling and heating load calculations of the zone, we
+        # have the cooling / heating load of the zone under design conditions
+        # at the desired state of the zone air.
         self.zone_A = Zone(
             name='zone A',
             summer=Season(
@@ -62,6 +66,7 @@ class PeakSummerDesign:
                 zone_air=HumidAir(Tdb=Q_(22, 'degC'), RH=Q_(50, 'pct'))
             )
         )
+        # Create zone B:
         self.zone_B = Zone(
             name='zone B',
             summer=Season(
@@ -75,12 +80,14 @@ class PeakSummerDesign:
                 zone_air=HumidAir(Tdb=Q_(22, 'degC'), RH=Q_(50, 'pct'))
             )
         )
+        # Create the VAV system:
         self.vav_system = design.VAVSystem(
             zones=[self.zone_A, self.zone_B],
             outdoor_air_summer=HumidAir(Tdb=Q_(28.9, 'degC'), Twb=Q_(20.1, 'degC')),
             outdoor_air_winter=HumidAir(Tdb=Q_(-5.7, 'degC'), Twb=Q_(-6.7, 'degC')),
             V_vent=Q_(1225, 'm**3 / hr'),
         )
+        # Design the VAV system for peak-summer operation:
         self.results_summer = self.vav_system.design_summer(
             eta_fan_sup=Q_(60, 'pct'),
             dP_fan_sup=Q_(746, 'Pa')

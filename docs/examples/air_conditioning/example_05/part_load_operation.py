@@ -75,13 +75,13 @@ airco_system = VAVSingleZoneAirCoolingSystem(
 
 # We use hourly TMY-data for a certain day of the year to get outdoor air
 # temperatures and to determine the part-load zone loads for each hour of the
-# day. See class `TMY` in module `tmy` of subpackage `climate` for more
+# day. See class `TMY` in module `tmy` of subpackage `sun` for more
 # information.
 
 # We also need a thermal model of our single-zone building to calculate the zone
-# loads at part-load. For this, we use the model `ExpositionHall` we created in
-# example_01 of the cooling load calculation examples (see docs/examples/
-# cooling_load_calc).
+# loads at part-load. For this, we use the model of the exposition hall we
+# created in example_08 of the cooling load calculation examples (see docs/
+# examples/cooling_load_calc).
 
 # The function `get_simulation_data` returns for a specified day (indicated by
 # a month and day index) a `CoolingSimData` object. See module `vav_cooling_sim`
@@ -133,7 +133,7 @@ def get_simulation_data(
 # ------------------------------------------------------------------------------
 # The function `save_data` is just a helper function to pickle some results
 # of the simulation for later use in other scripts. It is not really necessary
-# to use this function in a simulation.
+# to use this function in the simulation.
 
 def save_data(outputs: list[Output], file_path: str) -> None:
     data = [
@@ -204,14 +204,16 @@ def create_output_table(outputs: list[Output]) -> pd.DataFrame:
 # SIMULATION OF PART-LOAD OPERATION AT A GIVEN DAY
 
 def main(month: int, day: int):
-    # We will save the line charts generated further on this function to a
+    # We will save the line charts generated further on in this function to a
     # subfolder in the current working directory.
-    # The results we will pickle with the function `save_data` will be saved in
-    # another subfolder (this can be omitted).
     chart_folder = "./charts/"
+
+    # The results we will pickle with the function `save_data`, will be saved in
+    # another subfolder (this can be omitted).
     data_folder = "./data/"
 
-    # Get the simulation working data for the given month and day:
+    # Get the cooling load simulation data of the single-zone building for the
+    # given month and day:
     sim_data = get_simulation_data(
         month, day,
         BuildingModeler,

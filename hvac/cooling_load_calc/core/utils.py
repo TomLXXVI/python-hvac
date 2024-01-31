@@ -5,16 +5,6 @@ import pytz
 import numpy as np
 from scipy.optimize import minimize
 from hvac import Quantity
-from hvac.cooling_load_calc.core.construction_assembly import (
-    ConstructionAssembly,
-    ConstructionLayer
-)
-from hvac.cooling_load_calc.core.thermal_models import (
-    ExteriorSurfaceNode,
-    BuildingMassNode,
-    InteriorSurfaceNode,
-    ExteriorBuildingElementLTN
-)
 from hvac.sun.time import (
     decimal_hour_to_time,
     solar_to_clock_time,
@@ -45,9 +35,9 @@ class AirLayerTemperatureSolver:
     def __init__(
         self,
         T_ext: Quantity,
-        T_zone: Quantity,
+        T_int: Quantity,
         R_ea: Quantity,
-        R_az: Quantity
+        R_ai: Quantity
     ) -> None:
         """Creates an `AirLayerTemperatureSolver` instance.
 
@@ -55,17 +45,17 @@ class AirLayerTemperatureSolver:
         ----------
         T_ext:
             Exterior temperature.
-        T_zone:
-            Zone air temperature.
+        T_int:
+            Interior temperature.
         R_ea:
             Unit thermal resistance between exterior and outer air layer side.
-        R_az:
-            Unit thermal resistance between inner air layer side and zone air.
+        R_ai:
+            Unit thermal resistance between inner air layer side and interior.
         """
         self.T_ext = T_ext.to('K').m
-        self.T_zone = T_zone.to('K').m
+        self.T_int = T_int.to('K').m
         self.R_ea = R_ea.to('K * m**2 / W').m
-        self.R_az = R_az.to('K * m**2 / W').m
+        self.R_ai = R_ai.to('K * m**2 / W').m
 
     def _eq1(self, T_ae: float) -> float:
         """Heat flow from the exterior to the outer side of the air layer."""
@@ -73,7 +63,7 @@ class AirLayerTemperatureSolver:
 
     def _eq2(self, T_ai: float) -> float:
         """Heat flow from the inner side of the air layer to the interior zone."""
-        return (T_ai - self.T_zone) / self.R_az
+        return (T_ai - self.T_int) / self.R_ai
 
     def _sys_eqs(self, unknowns: np.ndarray) -> float:
         T_ae = unknowns[0]
@@ -88,8 +78,8 @@ class AirLayerTemperatureSolver:
         T_ae_guess: Quantity,
         T_ai_guess: Quantity
     ) -> tuple[Quantity, ...]:
-        """Solves for the temperatures the temperatures on the outer and the inner
-        side of the air layer.
+        """Solves for the temperatures on the outer and the inner side of the
+        air layer.
 
         Parameters
         ----------
@@ -110,7 +100,7 @@ class AirLayerTemperatureSolver:
         sol = minimize(self._sys_eqs, np.array([ini_T_ae, ini_T_ai]))
         T_ae = Q_(sol.x[0], 'K')
         T_ai = Q_(sol.x[1], 'K')
-        dT = T_ae - T_ai
+        dT = abs(T_ae - T_ai)
         T_avg = (T_ae + T_ai) / 2
         return T_ae, T_ai, dT, T_avg
 

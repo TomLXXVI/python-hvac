@@ -2,16 +2,15 @@
 
 > See script *part_load_operation.py* in *docs/examples/air_conditioning/example_05*
 
-After the cooling load calculation of the single-zone building and the design of
-the air-cooling system, the operation of the air-cooling system under part-load 
+After calculating the cooling load of the single-zone building and designing the
+air-cooling system, the operation of the air-cooling system under part-load 
 conditions can be simulated on an hourly basis during a selected day of the year.
 
-For this, we will need a thermal model of the single-zone building to enable the
-calculation of the hourly cooling loads in the building. We will use 
-our `ExpositionHall`-model that we developed in the script *exposition_hall.py* 
-(see *docs/examples/cooling_load_calc/example_01*).
+For this, we need the thermal model of the single-zone building to enable the
+calculation of the hourly cooling loads in the building. In this example we will
+take the thermal model of the exposition hall in *docs/examples/cooling_load_calc/example_08*.
 
-Let us consider a single-zone air-cooling system with an additional heating coil
+We consider a single-zone air-cooling system with an additional heating coil
 downstream of the cooling coil.
 
 From the cooling load calculation of the building and the design calculation 

@@ -28,11 +28,15 @@ Q_ = Quantity
 
 def create_floor_wtcb_F1(
     t_ins: Quantity,
-    heat_flow_dir: HeatFlowDirection,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
+    heat_flow_dir = (
+        HeatFlowDirection.DOWNWARDS
+        if T_ext < T_int
+        else HeatFlowDirection.UPWARDS
+    )
     ext_surf_film = SurfaceFilm.create(
         ID='ext_surf_film',
         geometry=Geometry(),
@@ -89,10 +93,14 @@ def create_floor_wtcb_F1(
 
 def create_floor_wtcb_F2(
     t_ins: Quantity,
-    heat_flow_dir: HeatFlowDirection,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
+    heat_flow_dir = (
+        HeatFlowDirection.DOWNWARDS
+        if T_ext < T_int
+        else HeatFlowDirection.UPWARDS
+    )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
@@ -147,10 +155,14 @@ def create_floor_wtcb_F2(
 
 def create_floor_wtcb_F3(
     t_ins: Quantity,
-    heat_flow_dir: HeatFlowDirection,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
 ) -> ConstructionAssembly:
+    heat_flow_dir = (
+        HeatFlowDirection.DOWNWARDS
+        if T_ext < T_int
+        else HeatFlowDirection.UPWARDS
+    )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
@@ -205,9 +217,14 @@ def create_floor_wtcb_F3(
 
 def create_floor_wtcb_F4(
     t_ins: Quantity,
-    heat_flow_dir: HeatFlowDirection,
+    T_grd: Quantity,
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
+    heat_flow_dir = (
+        HeatFlowDirection.DOWNWARDS
+        if T_grd < T_int
+        else HeatFlowDirection.UPWARDS
+    )
     floor_slab = SolidLayer.create(
         ID='floor_slab',
         geometry=Geometry(t=Q_(12, 'cm')),
@@ -250,12 +267,11 @@ def create_floor_wtcb_F4(
 
 def main():
     t_ins = Q_(12, 'cm')
-    hfd = HeatFlowDirection.UPWARDS
 
-    ca_floor_wtcb_F1 = create_floor_wtcb_F1(t_ins, hfd)
-    ca_floor_wtcb_F2 = create_floor_wtcb_F2(t_ins, hfd)
-    ca_floor_wtcb_F3 = create_floor_wtcb_F3(t_ins, hfd)
-    ca_floor_wtcb_F4 = create_floor_wtcb_F4(t_ins, hfd)
+    ca_floor_wtcb_F1 = create_floor_wtcb_F1(t_ins)
+    ca_floor_wtcb_F2 = create_floor_wtcb_F2(t_ins)
+    ca_floor_wtcb_F3 = create_floor_wtcb_F3(t_ins)
+    ca_floor_wtcb_F4 = create_floor_wtcb_F4(t_ins, T_grd=Q_(0, 'degC'))
 
     ConstructionAssemblyShelf.add(
         ca_floor_wtcb_F1,

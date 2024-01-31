@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+from typing_extensions import Unpack
 
 import pandas as pd
 
@@ -100,10 +101,10 @@ class VentilationZone:
         obj.f_iz = f_iz
         return obj
 
-    def add_thermal_zone(self, thz: ConditionedZone) -> None:
-        """Adds a conditioned zone the ventilation zone."""
-        self.thermal_zones[thz.ID] = thz
-        thz.vez = self
+    def add_thermal_zone(self, *thz: ConditionedZone) -> None:
+        """Adds a conditioned zone (or multiple zones) to the ventilation zone."""
+        for thz_ in thz: thz_.vez = self
+        self.thermal_zones.update({thz_.ID: thz_ for thz_ in thz})
 
     def get_cooling_load_table(
         self,
