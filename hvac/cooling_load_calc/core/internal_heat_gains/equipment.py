@@ -19,7 +19,7 @@ class Equipment(ABC):
 
     def __init__(self):
         self.ID: str = ''
-        self.schedule: Callable[[float], bool | float] | None = None
+        self.schedule: Callable[[float], float] | None = None
         self.F_rad: Quantity = Q_(0, 'frac')
         self.Q_dot_sen_rd: Quantity = Q_(0, 'W')
         self.Q_dot_sen_cv: Quantity = Q_(0, 'W')
@@ -31,7 +31,7 @@ class Equipment(ABC):
         ...
 
     @abstractmethod
-    def heat_gain(self) -> None:
+    def calculate_heat_gain(self, t_sol_sec: float) -> None:
         """Calculates the convective sensible, the radiative sensible and the
         latent heat gain of the equipment or appliance, but doesn't return any
         results. The results are stored in attributes `Q_dot_sen_cv` (convective
@@ -63,7 +63,7 @@ class Machine(Equipment):
         P_motor: Quantity,
         eta_motor: Quantity,
         configuration: Configuration,
-        schedule: Callable[[float], bool],
+        schedule: Callable[[float], float],
         F_rad: Quantity = Q_(0.5, 'frac')
     ) -> 'Machine':
         """Creates a `Machine` object.
@@ -86,10 +86,10 @@ class Machine(Equipment):
                space (e.g. a fan in the conditioned space that exhausts air
                outside that space).
         schedule:
-            Function with signature `f(t_sol_sec: float) -> bool` that takes the
+            Function with signature `f(t_sol_sec: float) -> float` that takes the
             solar time `t_sol_sec` in seconds from midnight (0 s) and returns
-            a boolean which is `True` when the machine in on, and `False` when
-            the machine is off.
+            a float between 0 and 1, where 0 stands for completely off and 1
+            for running at full power.
         F_rad:
             The radiative fraction is the radiative part of the machine heat
             gain that goes to the room.
@@ -103,13 +103,15 @@ class Machine(Equipment):
         machine.F_rad = F_rad.to('frac')
         return machine
 
-    def heat_gain(self) -> None:
+    def calculate_heat_gain(self, t_sol_sec: float) -> None:
         if self.configuration == self.Configuration.ONLY_MACHINE:
             Q_dot_sen = self.P_motor
         elif self.configuration == self.Configuration.ONLY_MOTOR:
             Q_dot_sen = (1.0 - self.eta_motor) * (self.P_motor / self.eta_motor)
         else:
             Q_dot_sen = self.P_motor / self.eta_motor
+        div_fac = self.schedule(t_sol_sec)
+        Q_dot_sen *= div_fac
         self.Q_dot_sen_rd = self.F_rad * Q_dot_sen
         self.Q_dot_sen_cv = Q_dot_sen - self.Q_dot_sen_rd
 
@@ -131,7 +133,7 @@ class HoodedCookingAppliance(Equipment):
         P_rated: Quantity,
         F_U: Quantity,
         F_rad: Quantity,
-        schedule: Callable[[float], bool]
+        schedule: Callable[[float], float]
     ) -> 'HoodedCookingAppliance':
         """Creates a `HoodedCookingAppliance` object.
         (See ASHRAE Fundamentals 2017, Chapter 18, Tables 5A to 5E).
@@ -149,10 +151,10 @@ class HoodedCookingAppliance(Equipment):
             The radiative fraction is the radiative part of the cooking
             appliance heat gain that goes to the space.
         schedule:
-            Function with signature `f(t_sol_sec: float) -> bool` that takes the
+            Function with signature `f(t_sol_sec: float) -> float` that takes the
             solar time `t_sol_sec` in seconds from midnight (0 s) and returns
-            a boolean which is `True` when the appliance in on, and `False` when
-            the appliance is off.
+            a float between 0 and 1, where 0 stands for completely off and 1
+            for running at full power.
         """
         appliance = HoodedCookingAppliance()
         appliance.ID = ID
@@ -162,9 +164,10 @@ class HoodedCookingAppliance(Equipment):
         appliance.schedule = schedule
         return appliance
 
-    def heat_gain(self):
+    def calculate_heat_gain(self, t_sol_sec: float):
+        div_fac = self.schedule(t_sol_sec)
         self.Q_dot_sen_cv = Q_(0.0, 'W')
-        self.Q_dot_sen_rd = self.F_rad * self.F_U * self.P_rated
+        self.Q_dot_sen_rd = div_fac * self.F_rad * self.F_U * self.P_rated
 
 
 class OfficeAppliance(Equipment):
@@ -175,7 +178,7 @@ class OfficeAppliance(Equipment):
 
     def __init__(self):
         super().__init__()
-        self.P_cons: Quantity = Q_(0.0, 'W')
+        self.P_peak: Quantity = Q_(0.0, 'W')
 
     @classmethod
     def create(
@@ -183,7 +186,7 @@ class OfficeAppliance(Equipment):
         ID: str,
         P_peak: Quantity,
         F_rad: Quantity,
-        schedule: Callable[[float], bool],
+        schedule: Callable[[float], float],
     ) -> 'OfficeAppliance':
         """Creates an `OfficeAppliance` object.
 
@@ -212,21 +215,23 @@ class OfficeAppliance(Equipment):
             The radiative fraction is the radiative part of the office appliance
             heat gain that goes to the space.
         schedule:
-            Function with signature `f(t_sol_sec: float) -> bool` that takes the
+            Function with signature `f(t_sol_sec: float) -> float` that takes the
             solar time `t_sol_sec` in seconds from midnight (0 s) and returns
-            a boolean which is `True` when the appliance in on, and `False` when
-            the appliance is off.
+            a float between 0 and 1, where 0 stands for completely off and 1
+            for running at full power.
         """
         appliance = OfficeAppliance()
         appliance.ID = ID
-        appliance.P_cons = P_peak
+        appliance.P_peak = P_peak
         appliance.schedule = schedule
         appliance.F_rad = F_rad
         return appliance
 
-    def heat_gain(self):
-        self.Q_dot_sen_rd = self.F_rad * self.P_cons
-        self.Q_dot_sen_cv = self.P_cons - self.Q_dot_sen_rd
+    def calculate_heat_gain(self, t_sol_sec: float):
+        div_fac = self.schedule(t_sol_sec)
+        P_peak = div_fac * self.P_peak
+        self.Q_dot_sen_rd = self.F_rad * P_peak
+        self.Q_dot_sen_cv = P_peak - self.Q_dot_sen_rd
 
 
 class OfficeEquipment(Equipment):
@@ -276,8 +281,9 @@ class OfficeEquipment(Equipment):
         eqp.F_rad = F_rad
         return eqp
 
-    def heat_gain(self):
-        Q_dot_sen = self.heat_density * self.A_floor
+    def calculate_heat_gain(self, t_sol_sec: float):
+        div_fac = self.schedule(t_sol_sec)
+        Q_dot_sen = div_fac * self.heat_density * self.A_floor
         self.Q_dot_sen_rd = self.F_rad * Q_dot_sen
         self.Q_dot_sen_cv = Q_dot_sen - self.Q_dot_sen_rd
 
@@ -296,7 +302,7 @@ class GenericAppliance(Equipment):
         Q_dot_sen_rd: Quantity,
         Q_dot_sen_cv: Quantity,
         Q_dot_lat: Quantity,
-        schedule: Callable[[float], bool]
+        schedule: Callable[[float], float]
     ) -> 'GenericAppliance':
         """Creates a `GenericAppliance` object of which the heat gain components
         are already known.
@@ -312,10 +318,10 @@ class GenericAppliance(Equipment):
         Q_dot_lat:
             The latent heat gain from the appliance.
         schedule:
-            Function with signature `f(t_sol_sec: float) -> bool` that takes the
+            Function with signature `f(t_sol_sec: float) -> float` that takes the
             solar time `t_sol_sec` in seconds from midnight (0 s) and returns
-            a boolean which is `True` when the appliance in on, and `False` when
-            the appliance is off.
+            a float between 0 and 1, where 0 stands for completely off and 1
+            for running at full power.
         """
         eqp = cls()
         eqp.ID = ID
@@ -325,5 +331,7 @@ class GenericAppliance(Equipment):
         eqp.schedule = schedule
         return eqp
 
-    def heat_gain(self):
-        pass
+    def calculate_heat_gain(self, t_sol_sec: float):
+        div_fac = self.schedule(t_sol_sec)
+        self.Q_dot_sen_cv *= div_fac
+        self.Q_dot_sen_rd *= div_fac

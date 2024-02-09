@@ -63,8 +63,8 @@ class VentilationZone:
             of 50 Pa between the interior and exterior with any ATDs closed or
             sealed (see EN 12831-1 (2017), B.2.10).
         dP_ATD_d:
-            Design pressure difference of the ATDs in the zone
-            (see EN 12831-1 (2017), B.2.12).
+            Design pressure difference of the ATDs in the zone (see EN 12831-1
+            (2017), B.2.12).
         v_leak: float
             Pressure exponent for air leakages (see EN 12831-1 (2017), B.2.13).
         f_fac: float
@@ -72,11 +72,10 @@ class VentilationZone:
             (see EN 12831-1 (2017), B.2.15). The default value applies to
             more than 1 exposed facade.
         f_V: float
-            Coefficient for the volume flow ratio of the zone
-            (see EN 12831-1 (2017), B.2.11, Table B.8).
-            The default value applies to more than 1 exposed facade, the height
-            of the zone above ground level between 0 and 50 m, normal shielding,
-            and a zone height between 5 and 10 m.
+            Coefficient for the volume flow ratio of the zone (see EN 12831-1
+            (2017), B.2.11, Table B.8). The default value applies to more than
+            1 exposed facade, height of the zone above ground level between 0
+            and 50 m, normal shielding, and a zone height between 5 and 10 m.
         f_dir: float
             Factor for the orientation of the zone (see EN 12831-1 (2017),
             B.2.14). Default value according to B.2.14.

@@ -366,8 +366,7 @@ class VariableTemperatureZone:
         dt_hr: float = 1.0,
         num_cycles: int = 1,
     ) -> None:
-        """Creates the nodal thermal zone model of the unconditioned space and
-        solves it.
+        """Creates the nodal thermal zone model of the space and solves it.
 
         Parameters
         ----------
@@ -384,7 +383,7 @@ class VariableTemperatureZone:
             is associated with a positive sign. Should instead the system supply
             heat to the zone, this must be associated with a negative sign.
             If this parameter is left to None, it is assumed that no (operating)
-            cooling system is present in the zone, i.e. the zone is truly
+            cooling or heating system is present in the zone, i.e. the zone is
             unconditioned.
         dt_hr: optional
             The time step width in hours between two successive time moments

@@ -45,6 +45,7 @@ class ConditionedZone:
         self.ventilation: SpaceVentilation | None = None
         self.vez: VentilationZone | None = None
         self.int_heat_gains: dict[str, InternalHeatGain] = {}
+        self.thermal_storage_effect: dict[str, Quantity] = {}
 
     @classmethod
     def create(
@@ -481,8 +482,16 @@ class ConditionedZone:
                 dt_hr=dt_hr,
                 num_cycles=num_cycles
             )
-            # T_tsn = self.tsn.get_node_temperatures()
+            # Keep the thermal node temperatures, the heat rate absorbed by
+            # the thermal storage node, and the heat rate released to the
+            # zone air in a dictionary.
             Q_dot_tsn = self.tsn.get_heat_flows()
+            T_tsn = self.tsn.get_node_temperatures()
+            self.thermal_storage_effect = {
+                'T_tsn': T_tsn,
+                'Q_dot_rad': Q_dot_rad,
+                'Q_dot_tsn': Q_dot_tsn
+            }
         else:
             Q_dot_tsn = None
 
@@ -538,6 +547,7 @@ class ConditionedZone:
         })
         df = pd.DataFrame(d)
         df['Q_dot_zone'] = df['Q_dot_sen_zone'] + df['Q_dot_lat_zone']
+        df.loc['MAX'] = df.max()
         return df
 
 
@@ -590,9 +600,11 @@ class SpaceVentilation:
             External air volume flow rate into the space through large openings
             (EN 12831-1, Annex G).
         V_dot_ATD_d:
-            Design air volume flow rate of the ATDs in the room
-            (EN 12831-1, B.2.12). Only relevant if ATDs are used for
-            ventilation.
+            Design air volume flow rate of the ATDs in the room (EN 12831-1,
+            B.2.12). Only relevant if ATDs (Air Terminal Devices) are used for
+            ventilation (i.e., passive devices that allow air flow through a
+            building element; it does not include the air out- or inlets of fan-
+            assisted ventilation systems).
         V_dot_sup:
             Supply air volume flow rate from the ventilation system into the
             space.

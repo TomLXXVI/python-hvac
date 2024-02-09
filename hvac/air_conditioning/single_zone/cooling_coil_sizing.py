@@ -15,14 +15,14 @@ class DxAirCoolingCoilSizer:
     """Class for sizing a DX air-cooling coil used for cooling and dehumidifying
      air in a single-zone air-cooling system.
 
-    The DX air cooler is selected from a catalog, and it has a known set of
-    operating conditions taken from its datasheet.
+    The DX air cooler is selected from a catalog/datasheet having a known
+    cooling capacity at the specified operating conditions.
     The design procedure determines the required face area of this air cooler,
-    while face velocity and refrigerant temperature remain at the values given
-    in the datasheet.
-    In this way, the heat and mass transfer effectiveness of the air cooler can
-    be assumed to remain identical to the values that are valid for the given
-    set of operating conditions in the datasheet.
+    while keeping the face velocity and the refrigerant temperature (evaporation
+    temperature at the specified values given in the datasheet. As such, the
+    heat and the mass transfer effectiveness of the air cooler can be assumed
+    to remain the same as the values that are valid under the given set of
+    operating conditions in the datasheet.
     """
     class WetDxAirCooler:
 
@@ -245,10 +245,9 @@ class DxAirCoolingCoilSizer:
 
     def _determine_supply_air_flow_rate(self) -> tuple[Quantity, Quantity]:
         # Determine the mass flow rate of supply air from a sensible heat
-        # balance of the zone.
-        # This is the mass flow rate of supply air that is needed to maintain the
-        # desired zone air temperature and compensates for the sensible cooling
-        # load of the zone.
+        # balance of the zone. This is the mass flow rate of supply air that is
+        # needed to maintain the desired zone air temperature and compensates
+        # for the sensible cooling load of the zone.
         zone = AirConditioningProcess(
             air_in=self.supply_air,
             T_ao=self.zone_air.Tdb,

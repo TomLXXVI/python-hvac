@@ -150,7 +150,7 @@ class ConstructionLayer:
         self.geometry: Geometry = Geometry()
         self.R: Quantity | None = None
         self.C: Quantity = Q_(0.0, 'J / (K * m ** 2)')
-        self.num_slices: int = 1  # usage: see `utils.ExteriorBuildingElementLTNBuilder`
+        self.num_slices: int = 1
 
     @property
     def U(self) -> Quantity:

@@ -726,7 +726,9 @@ class ThermalStorageNode:
         storage node temperatures calculated at each time index from the last
         calculation cycle (see parameter `num_cycles` of method `solve()`).
         """
-        return Q_(self._T_node_list, 'K')
+        return Q_(self._T_node_list[2:], 'K')
+        # first two elements are the initial values that were taken from the
+        # previous calculation cycle
 
     def get_heat_flows(self) -> Quantity:
         """Returns a `Quantity` array containing the values of the heat

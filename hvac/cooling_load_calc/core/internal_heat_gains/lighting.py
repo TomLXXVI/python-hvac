@@ -15,7 +15,7 @@ class Lighting(ABC):
 
     def __init__(self):
         self.ID: str = ''
-        self.schedule: Callable[[float], bool | float] | None = None
+        self.schedule: Callable[[float], float] | None = None
         self.F_space: Quantity = Q_(0.0, 'frac')
         self.F_rad: Quantity = Q_(0.0, 'frac')
         self.Q_dot_light: Quantity = Q_(0.0, 'W')
@@ -26,7 +26,7 @@ class Lighting(ABC):
         ...
 
     @abstractmethod
-    def heat_gain(self):
+    def calculate_heat_gain(self, t_sol_sec: float) -> None:
         ...
 
 
@@ -48,7 +48,7 @@ class LightingFixture(Lighting):
         F_allowance: Quantity,
         F_use: Quantity,
         F_rad: Quantity,
-        schedule: Callable[[float], bool],
+        schedule: Callable[[float], float],
     ) -> 'LightingFixture':
         """Creates a `LightingFixture` object.
         (see ASHRAE Fundamentals 2017, Chapter 18, 2.2 Lighting).
@@ -78,8 +78,8 @@ class LightingFixture(Lighting):
         schedule:
             Function with signature `f(t_sol_sec: float) -> bool` that takes the
             solar time `t_sol_sec` in seconds from midnight (0 s) and returns
-            a boolean which is `True` when the light in on, and `False` when the
-            light is off.
+            a float between 0 and 1, where 0 stands for completely turned off
+            and 1 for maximum lighting power.
 
         Notes
         -----
@@ -95,8 +95,9 @@ class LightingFixture(Lighting):
         fixture.F_rad = F_rad.to('frac')
         return fixture
 
-    def heat_gain(self):
-        self.Q_dot_light = self.F_space * self.P_lamp * self.F_allowance
+    def calculate_heat_gain(self, t_sol_sec: float):
+        div_fac = self.schedule(t_sol_sec)
+        self.Q_dot_light = div_fac * self.F_space * self.P_lamp * self.F_allowance
 
 
 class SpaceLighting(Lighting):
@@ -152,5 +153,6 @@ class SpaceLighting(Lighting):
         lighting.F_rad = F_rad.to('frac')
         return lighting
 
-    def heat_gain(self):
-        self.Q_dot_light = self.F_space * self.power_density * self.A_floor
+    def calculate_heat_gain(self, t_sol_sec: float):
+        div_fac = self.schedule(t_sol_sec)
+        self.Q_dot_light = div_fac * self.F_space * self.power_density * self.A_floor

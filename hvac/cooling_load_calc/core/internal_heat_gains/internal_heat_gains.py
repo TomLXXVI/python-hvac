@@ -57,11 +57,10 @@ class EquipmentHeatGain(InternalHeatGain):
         Q_dot_sen_cv = 0.0
         Q_dot_lat = 0.0
         for eqp in self.equipment.values():
-            if eqp.schedule(t_sol_sec):
-                eqp.heat_gain()
-                Q_dot_sen_rd += eqp.Q_dot_sen_rd.to('W').m
-                Q_dot_sen_cv += eqp.Q_dot_sen_cv.to('W').m
-                Q_dot_lat += eqp.Q_dot_lat.to('W').m
+            eqp.calculate_heat_gain(t_sol_sec)
+            Q_dot_sen_rd += eqp.Q_dot_sen_rd.to('W').m
+            Q_dot_sen_cv += eqp.Q_dot_sen_cv.to('W').m
+            Q_dot_lat += eqp.Q_dot_lat.to('W').m
         return Q_dot_sen_cv, Q_dot_sen_rd, Q_dot_lat
 
 
@@ -98,11 +97,10 @@ class LightingHeatGain(InternalHeatGain):
         Q_dot_sen_rd = 0.0
         Q_dot_sen_cv = 0.0
         for light in self.lighting.values():
-            if light.schedule(t_sol_sec):
-                light.heat_gain()
-                Q_dot_light = light.Q_dot_light.to('W').m
-                Q_dot_sen_rd += light.F_rad.m * Q_dot_light
-                Q_dot_sen_cv += Q_dot_light - Q_dot_sen_rd
+            light.calculate_heat_gain(t_sol_sec)
+            Q_dot_light = light.Q_dot_light.to('W').m
+            Q_dot_sen_rd += light.F_rad.m * Q_dot_light
+            Q_dot_sen_cv += Q_dot_light - Q_dot_sen_rd
         return Q_dot_sen_cv, Q_dot_sen_rd, 0.0
 
 

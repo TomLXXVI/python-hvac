@@ -263,7 +263,7 @@ class AircoSystem:
             self.m_dot_supply, self.m_dot_vent, self.m_dot_recir,
             self.outdoor_air, self.mixed_air, self.cooled_air,
             self.supply_air, self.return_air, self.zone_air,
-            self.Q_dot_zone_sen, self.Q_dot_zone_lat,
+            self.Q_dot_zone_sen, self.Q_dot_zone_lat, self.SHR_zone,
             self.Q_dot_cc, self.SHR_cc, None, self.units
         )
 

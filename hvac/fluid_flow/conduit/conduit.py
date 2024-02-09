@@ -652,10 +652,11 @@ class Conduit(AbstractConduit):
                 header[3]: []
             }
             for fitting in self._fittings.values():
+                zeta = float(fitting.zeta)
                 table[header[0]].append(self.ID)
                 table[header[1]].append(fitting.ID)
-                table[header[2]].append(fitting.zeta)
-                table[header[3]].append(fitting.zeta * self.velocity_pressure.to(pressure_unit).magnitude)
+                table[header[2]].append(zeta)
+                table[header[3]].append(zeta * self.velocity_pressure.to(pressure_unit).magnitude)
             return pd.DataFrame(table)
 
     @property

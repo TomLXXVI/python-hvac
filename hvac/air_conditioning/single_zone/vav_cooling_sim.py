@@ -1,6 +1,7 @@
 """
-Steady-state part-load analysis of a single-zone VAV air-cooling system equipped
-with a DX air-cooling coil and optionally an air-heating coil.
+Steady-state part-load analysis of a single-zone VAV air-cooling system that can
+both cool and heat the supply air to keep the zone air temperature fixed at its
+setpoint value at all times.
 """
 from collections.abc import Iterator
 import warnings
@@ -52,6 +53,10 @@ class DesignData:
         Required state of zone air.
     supply_air:
         Required state of supply air at design conditions.
+    Q_cc:
+        Cooling coil load at design conditions.
+    SHR_cc:
+        Sensible heat ratio of cooling coil load at design conditions.
     ----------------------------------------------------------------------------
     m_dot_vent:
         Outdoor ventilation air mass flow rate. Internally calculated.
@@ -69,6 +74,8 @@ class DesignData:
     outdoor_air: HumidAir
     zone_air: HumidAir
     supply_air: HumidAir
+    Q_cc: Quantity
+    SHR_cc: Quantity
 
     def __post_init__(self):
         self.m_dot_vent = self.V_dot_vent_ntp * standard_air.rho
@@ -79,48 +86,20 @@ class DesignData:
 
 class VAVSingleZoneAirCoolingSystem:
     """
-    Model for analyzing the steady-state part-load operation of a single-zone
-    VAV air-cooling system equipped with an air-cooling coil and optionally an
-    air-heating coil.
-
-    The aim is to maintain the zone air setpoint temperature under the given
-    set of external conditions (outdoor air state, sensible and latent zone
-    load). To accomplish this, the mass flow rate of supply air is modulated,
-    while the cooled air leaving the cooling coil remains at a fixed state
-    (it is assumed that both temperature and humidity remain fixed).
-    However, the supply air mass flow rate cannot drop below a certain minimum
-    limit (to ensure proper mixing of supply air with zone air), and it also
-    cannot become greater than the maximum capacity of the supply fan.
-    If the minimum limit of the supply air mass flow is reached, the cooled air
-    needs to be heated if a heating coil is present or the setpoint temperature
-    of the cooled air needs to be increased. Otherwise, the zone air temperature
-    will decrease below its setpoint.
-    If the maximum limit of the supply air mass flow rate is reached, the zone
-    air temperature will increase beyond its setpoint, unless the setpoint
-    temperature of the cooled air can be decreased. Otherwise, the zone air
-    temperature will increase above its setpoint.
-
-    Mixing control (economizer operation) may allow reaching the cooling air
-    temperature setpoint without mechanical cooling if outdoor air temperature
-    is lower than this cooling air temperature setpoint.
-    If outdoor air temperature is between the cooling air temperature setpoint
-    and the zone air setpoint temperature, the temperature of the mixed air will
-    be higher than the outdoor air temperature, and it will cost more cooling
-    energy to cool this air to the cooling air temperature setpoint. Therefore,
-    recirculation of return air is set to a minimum (zero), and all supply air
-    to the zone will come from outdoors.
-    If outdoor air temperature is above the zone air temperature setpoint, the
-    outdoor air flow rate is restricted to what's required for zone ventilation
-    only and recirculation of return air is now at its maximum.
+    Implements the control strategy of a single-zone VAV air-cooling system:
+    - supply fan control
+    - mixing control
+    - cooling control
+    - heating control
     """
     def __init__(
         self,
         design_data: DesignData,
         T_set_cool: Quantity | None = None,
         W_set_cool: Quantity | None = None,
-        heating_coil_present: bool = True,
-        variable_cooling_setpoint: bool = False,
         rel_m_dot_supply_min: Quantity = Q_(60, 'pct'),
+        has_rev_heatpump: bool = False,
+        has_var_cooling_setpoint: bool = False,
         units: dict[str, tuple[str, int]] | None = None
     ) -> None:
         """
@@ -132,22 +111,22 @@ class VAVSingleZoneAirCoolingSystem:
             `DesignData` instance that groups the design data of the AC system
             (see class `DesignData` in this module).
         T_set_cool: optional
-            Setpoint temperature of the air leaving the cooling coil. If None,
-            the supply air temperature in `design_data` will be used.
+            (Nominal) setpoint temperature of the air leaving the cooling coil. 
+            If None, the supply air temperature in `design_data` will be used.
         W_set_cool: optional
             The humidity ratio of the air leaving the cooling coil that belongs
             with the setpoint temperature of the cooled air. If None, the supply
             air humidity ratio in `design_data` will be used.
-        heating_coil_present: default True
-            Indicates if a heating coil is present downstream of the cooling
-            coil or not.
-        variable_cooling_setpoint: default False
-            Indicates if the setpoint of the cooling air at the cooling coil
-            outlet can be shifted in case no heating coil is present.
         rel_m_dot_supply_min: default 60 %
             The minimum mass flow rate of supply air to ensure proper mixing
             with zone air expressed as a fraction of the supply air mass flow
             rate determined for summer peak design conditions.
+        has_rev_heatpump: default False
+            Indicates if the airco-system has a reversible heat pump instead
+            of a separate cooling coil and a separate heating coil.
+        has_var_cooling_setpoint: default False
+            Indicates if the cooling coil/heatpump controller has a variable 
+            setpoint for the air leaving the cooling coil, or not.
         units: optional
             Units to be used for displaying the results. Keys are:
             'm_dot' for mass flow rate, 'V_dot' for volume flow rate, 'Q_dot'
@@ -158,7 +137,10 @@ class VAVSingleZoneAirCoolingSystem:
             displayed (an int).
         """
         self.design_data = design_data
-        # Set the normal cooling coil setpoint:
+        self.has_rev_heatpump = has_rev_heatpump
+        self.has_var_cooling_setpoint = has_var_cooling_setpoint
+
+        # Set the nominal cooling coil operating point:
         self.T_set_cool = (
             T_set_cool if T_set_cool is not None
             else self.design_data.supply_air.Tdb
@@ -167,14 +149,7 @@ class VAVSingleZoneAirCoolingSystem:
             W_set_cool if W_set_cool is not None
             else self.design_data.supply_air.W
         )
-        # Indicate the control configuration of the air-cooling system:
-        self.heating_coil_present = heating_coil_present
-        if not self.heating_coil_present and variable_cooling_setpoint:
-            self.variable_cooling_setpoint = True
-        else:
-            # If a heating coil is present, the cooling coil setpoint is always
-            # fixed, even if the user should have indicated otherwise.
-            self.variable_cooling_setpoint = False
+
         # Set the allowable minimum flow rate of the supply air:
         self.rel_m_dot_supply_min = rel_m_dot_supply_min
         # The minimum supply air mass flow rate must not be less than the
@@ -185,13 +160,18 @@ class VAVSingleZoneAirCoolingSystem:
             self.design_data.m_dot_vent,
             rel_m_dot_supply_min * self.design_data.m_dot_supply
         )
+
+        # Set the maximum flow rate of the supply air:
+        self.m_dot_supply_max = self.design_data.m_dot_supply
         # The maximum supply air mass flow rate is limited to its design value,
         # which is considered to be the maximum flow rate that the supply fan can
-        # displace:
-        self.m_dot_supply_max = self.design_data.m_dot_supply
+        # displace.
+
         # Determine the ADP of the cooling coil at design conditions.
-        # It will be assumed that the ADP of the cooling coil is a constant.
-        # (--> To what extent is this assumption correct?)
+        # It will be assumed that the ADP of the cooling coil is constant
+        # (unless the absolute humidity ratio of this ADP is higher than the
+        # absolute humidity ratio of the inlet air --> see method
+        # `_cooling_coil_control`).
         mixing_chamber_des = AdiabaticMixing(
             in1=AirStream(
                 state=self.design_data.outdoor_air,
@@ -208,12 +188,14 @@ class VAVSingleZoneAirCoolingSystem:
             air_in=mixed_air_des,
             air_out=self.design_data.supply_air,
             m_da=self.design_data.m_dot_supply,
-            Q_sen=self.design_data.Q_zone_sen,
-            Q_lat=self.design_data.Q_zone_lat
+            Q=self.design_data.Q_cc,
+            SHR=self.design_data.SHR_cc
         )
         self.ADP_cc = cooling_coil_des.ADP
-        # Set the wanted measuring units of the output values:
+
+        # Set the desired measuring units of the output values:
         self.units = units or {}
+
         # Define internal instance variables:
         self.outdoor_air: HumidAir | None = None
         self.rel_Q_zone_sen: Quantity | None = None
@@ -237,9 +219,8 @@ class VAVSingleZoneAirCoolingSystem:
         self,
         supply_air: HumidAir,
     ) -> tuple[Quantity, HumidAir, HumidAir]:
-        """Determines with the given state of supply air, the supply air mass
-        flow rate to maintain the zone air setpoint temperature.
-
+        """Determines from the given state of supply air, the required supply
+        air mass flow rate to maintain the zone air setpoint temperature.
         However, the supply air mass flow rate cannot become smaller than the
         minimum limit, neither become greater than the maximum limit. If one
         of both limiting cases is met, the required state of supply air will
@@ -252,19 +233,18 @@ class VAVSingleZoneAirCoolingSystem:
             setpoint temperature, or the minimum or maximum limit of the supply
             air mass flow rate.
         supply_air:
-            The final state of supply air needed to maintain the zone air
-            temperature (if possible, depending on the resulting supply air mass
-            flow rate and the configuration of the air-cooling control system.)
+            The state of supply air needed to maintain the zone air
+            temperature.
         return_air:
             The state of the return air that depends on the sensible and
             latent cooling load of the zone, the supply air mass flow rate, and
-            the final state of the supply air.
+            the state of the supply air.
         """
         # Calculate the mass flow rate of supply air needed to maintain the
         # zone air setpoint temperature with the cooling coil being operated at
-        # its normal setpoint.
-        # The moisture content of the zone and return air will depend on the
-        # moisture content of the supply air and on the latent load of the zone.
+        # its normal setpoint. The moisture content of the zone and return air
+        # will depend on the moisture content of the supply air and on the
+        # latent load of the zone.
         zone = AirConditioningProcess(
             air_in=supply_air,
             T_ao=self.T_zone_sp,
@@ -274,97 +254,44 @@ class VAVSingleZoneAirCoolingSystem:
         )
         m_dot_supply = zone.m_da
         return_air = zone.air_out
+
+        # The mass flow rate of supply air cannot become smaller than its
+        # minimum limit.
         if m_dot_supply < self.m_dot_supply_min:
-            # The mass flow rate of supply air cannot be smaller than the minimum
-            # limit.
             m_dot_supply = self.m_dot_supply_min
-            # We also need to recalculate the required state of supply air to
-            # maintain the zone air temperature and the resulting state of the
-            # return air from the zone (its humidity) depending on the
-            # configuration of the air-cooling control system.
-            if self.heating_coil_present:
-                # To maintain the zone air setpoint temperature, the supply air
-                # needs to be heated (see `_control_heating_coil`).
-                # Heating the supply-air does not change its moisture content,
-                # only its temperature is raised.
-                zone = AirConditioningProcess(
-                    W_ai=supply_air.W,
-                    T_ao=self.T_zone_sp,
-                    m_da=m_dot_supply,
-                    Q_sen=self.Q_dot_zone_sen,
-                    Q_lat=self.Q_dot_zone_lat,
-                    h_w=Q_(0, 'J / kg')
-                )
-                supply_air = zone.air_in  # new required state of supply air
-                return_air = zone.air_out
-            elif self.variable_cooling_setpoint:
-                # If no heating coil is present, but the cooling coil controller
-                # is able to increase the cooling coil setpoint temperature to
-                # maintain the zone air setpoint temperature.
-                # (--> To what extent is this always possible?)
-                zone = AirConditioningProcess(
-                    W_ai=supply_air.W,
-                    # Actually, `W_ai` will also change because the cooling
-                    # process line is sloped --> see `_control_cooling_coil`.
-                    T_ao=self.T_zone_sp,
-                    m_da=m_dot_supply,
-                    Q_sen=self.Q_dot_zone_sen,
-                    Q_lat=self.Q_dot_zone_lat,
-                    h_w=Q_(0, 'J / kg')
-                )
-                supply_air = zone.air_in  # new required state of supply air
-                return_air = zone.air_out
-            else:
-                # The zone air setpoint temperature cannot be maintained.
-                # Use outdoor air as supply air and turn off the cooling
-                # coil --> see `_control_cooling_coil`.
-                supply_air = self.outdoor_air  # new state of supply air
-                zone = AirConditioningProcess(
-                    air_in=supply_air,
-                    m_da=m_dot_supply,
-                    Q_sen=self.Q_dot_zone_sen,
-                    Q_lat=self.Q_dot_zone_lat,
-                    h_w=Q_(0, 'J / kg')
-                )
-                return_air = zone.air_out
-                try:
-                    _ = return_air.RH
-                except ValueError:
-                    return_air = HumidAir(
-                        Tdb=return_air.Tdb,
-                        RH=Q_(100, 'pct')
-                    )
-        # The mass flow rate of supply air cannot be greater than the minimum
-        # limit:
+            # To maintain the zone air setpoint temperature, the supply air
+            # needs to be heated (see `_control_heating_coil`), unless the
+            # mixed air has a higher temperature than the required supply air
+            # temperature.
+            zone = AirConditioningProcess(
+                W_ai=supply_air.W,
+                T_ao=self.T_zone_sp,
+                m_da=m_dot_supply,
+                Q_sen=self.Q_dot_zone_sen,
+                Q_lat=self.Q_dot_zone_lat,
+                h_w=Q_(0, 'J / kg')
+            )
+            supply_air = zone.air_in  # new required state of supply air
+            return_air = zone.air_out
+
+        # The mass flow rate of supply air cannot become greater than its
+        # maximum limit:
         if m_dot_supply > self.m_dot_supply_max:
             m_dot_supply = self.m_dot_supply_max
-            if self.variable_cooling_setpoint:
-                # The cooling coil controller is able to decrease the cooling
-                # coil setpoint temperature to maintain the zone air setpoint
-                # temperature.(--> To what extent is this possible?)
-                zone = AirConditioningProcess(
-                    W_ai=supply_air.W,
-                    # Actually, `W_ai` will also change because the cooling
-                    # process line is sloped --> see `_control_cooling_coil`.
-                    T_ao=self.T_zone_sp,
-                    m_da=m_dot_supply,
-                    Q_sen=self.Q_dot_zone_sen,
-                    Q_lat=self.Q_dot_zone_lat,
-                    h_w=Q_(0, 'J / kg')
-                )
-                supply_air = zone.air_in  # new required state of supply air
-                return_air = zone.air_out
-            else:
-                # The zone air temperature will inevitably raise above its
-                # setpoint.
-                zone = AirConditioningProcess(
-                    air_in=supply_air,
-                    m_da=m_dot_supply,
-                    Q_sen=max(Q_(1e-12, 'W'), self.Q_dot_zone_sen),
-                    Q_lat=self.Q_dot_zone_lat,
-                    h_w=Q_(0, 'J / kg')
-                )
-                return_air = zone.air_out
+            # To maintain the zone air setpoint temperature, the supply air
+            # will need to be cooled extra (see `_control_cooling_coil`).
+            zone = AirConditioningProcess(
+                W_ai=supply_air.W,
+                # Actually, `W_ai` will also change because the cooling
+                # process line is sloped.
+                T_ao=self.T_zone_sp,
+                m_da=m_dot_supply,
+                Q_sen=self.Q_dot_zone_sen,
+                Q_lat=self.Q_dot_zone_lat,
+                h_w=Q_(0, 'J / kg')
+            )
+            supply_air = zone.air_in  # new required state of supply air
+            return_air = zone.air_out
         return m_dot_supply, return_air, supply_air
 
     def _control_mixing_air(
@@ -403,11 +330,10 @@ class VAVSingleZoneAirCoolingSystem:
             The mass flow rate of supply air recirculated from the zone.
         """
         if self.outdoor_air.Tdb >= self.T_zone_sp:
-            # If the outdoor air temperature is equal or higher than the zone air
-            # setpoint temperature: outdoor ventilation air flow rate is
-            # restricted to the minimum ventilation rate required (determined
-            # when designing the system) --> OA damper in its minimum open
-            # position (NC) and RA damper in its maximum open position (NO).
+            # Ventilation air flow rate is limited to its minimum required
+            # rate (determined when designing the system).
+            # --> OA damper in its minimum open position
+            # --> RA damper in its maximum open position
             m_dot_vent = self.design_data.m_dot_vent
             m_dot_recir = m_dot_supply - m_dot_vent
             mixing_chamber = AdiabaticMixing(
@@ -423,18 +349,13 @@ class VAVSingleZoneAirCoolingSystem:
             )
             mixed_air = mixing_chamber.stream_out.state
         elif self.outdoor_air.Tdb <= self.T_set_cool:
-            # If outdoor air temperature is equal or less than the cooling coil
-            # setpoint temperature, no mechanical cooling needed. Outdoor air is
-            # mixed with return air to get at the cooling coil setpoint
-            # temperature --> the mixing controller controls the position of the
-            # OA and RA damper.
+            # Outdoor air is mixed with return air to reach the cooling coil
+            # setpoint temperature.
+            # --> the mixing controller controls the position of the OA and RA
+            # damper.
             mixing_chamber = AdiabaticMixing(
-                in1=AirStream(
-                    state=return_air
-                ),
-                in2=AirStream(
-                    state=self.outdoor_air
-                ),
+                in1=AirStream(state=return_air),
+                in2=AirStream(state=self.outdoor_air),
                 out=AirStream(Tdb=self.T_set_cool, m_da=m_dot_supply)
             )
             m_dot_vent = mixing_chamber.stream_in2.m_da
@@ -446,9 +367,10 @@ class VAVSingleZoneAirCoolingSystem:
             # attain the cooling coil setpoint temperature, because mixing
             # outdoor air with return air would inevitably raise the mixed air
             # temperature more above the cooling coil setpoint temperature.
-            # In fact, it will cost less energy to cool the outdoor air to the
-            # cooling coil temperature. So, no mixing takes place --> OA damper
-            # in its maximum open and RA damper in its minimum open position.
+            # It will cost less energy to cool the outdoor air to the cooling
+            # coil temperature. So, no mixing takes place.
+            # --> OA damper in its maximum open position
+            # --> RA damper in its minimum open position.
             m_dot_vent = m_dot_supply
             m_dot_recir = Q_(0.0, 'kg / s')
             mixed_air = self.outdoor_air
@@ -458,23 +380,21 @@ class VAVSingleZoneAirCoolingSystem:
         self,
         m_dot_supply: Quantity,
         mixed_air: HumidAir,
-        supply_air_req: HumidAir
+        req_supply_air: HumidAir
     ) -> tuple[HumidAir, AirConditioningProcess | None]:
-        """Determines if the cooling coil can be operational, and the state of
-        air leaving the cooling coil.
+        """Determines the operation of the cooling coil.
 
         Parameters
         ----------
         m_dot_supply:
             The mass flow rate of supply air to the zone that flows through the
-            cooling coil. This was determined in method `_control_supply fan()`.
+            cooling coil. This was determined in method `_control_supply_fan`.
         mixed_air:
             The state of air leaving the mixing chamber and entering the cooling
-            coil. This was determined in method `_control_mixing_air()`.
-        supply_air_req:
+            coil. This was determined in method `_control_mixing_air`.
+        req_supply_air:
             The state of supply air required to maintain the zone air setpoint
-            temperature, considered to be also the state of air leaving the
-            cooling coil. This was determined in method `_control_supply fan()`.
+            temperature. This was determined in method `_control_supply_fan`.
 
         Returns
         -------
@@ -482,66 +402,33 @@ class VAVSingleZoneAirCoolingSystem:
             The state of air leaving the cooling coil and entering the heating
             coil if it is present in the air-cooling system.
         cooling_coil:
-            If mechanical cooling is possible, the cooling coil, being an
-            `AirConditioningProcess` object is returned. Otherwise, None is
+            If mechanical cooling is possible, the cooling coil (an
+            `AirConditioningProcess` object) is returned. Otherwise, None is
             returned.
         """
-        if (m_dot_supply == self.m_dot_supply_min) and not self.heating_coil_present:
-            # If the mass flow rate of supply air is at its minimum limit and
-            # no heating coil is present, the zone air temperature will drop
-            # below its setpoint if the cooling coil is active, unless the
-            # cooling coil controller can increase the cooling coil setpoint
-            # temperature to the required supply air temperature that's needed
-            # to maintain the zone air setpoint temperature.
-            if self.variable_cooling_setpoint:
-                if mixed_air.Tdb > supply_air_req.Tdb:
-                    # Only if the mixed air has a higher temperature than the
-                    # required supply air temperature, the mixed air can be
-                    # cooled to the required supply air temperature.
-                    cooling_coil = AirConditioningProcess(
-                        air_in=mixed_air,
-                        m_da=m_dot_supply,
-                        T_ao=supply_air_req.Tdb,
-                        ADP=self.ADP_cc
-                    )
-                    cooled_air = cooling_coil.air_out
-                else:
-                    cooling_coil = None
-                    cooled_air = mixed_air
+        if self.has_var_cooling_setpoint:
+            # The cooling coil controller controls the leaving air temperature
+            # to the required supply air temperature.
+            T_set_cool = req_supply_air.Tdb
+        else:
+            # The cooling coil controller controls the leaving air temperature
+            # to a fixed value.
+            T_set_cool = self.T_set_cool
+        if mixed_air.Tdb > T_set_cool:
+            # Only if the mixed air temperature is higher than the leaving air
+            # temperature, the cooling coil can cool the air.
+            if self.ADP_cc.W > mixed_air.W:
+                # The ADP humidity ratio cannot be higher than the humidity
+                # ratio of the entering air, as this would mean that the air
+                # is humidified in the cooling coil.
+                ADP_cc = HumidAir(Tdb=mixed_air.Tdp, RH=Q_(100, 'pct'))
             else:
-                # The cooling coil is turned off when no heating coil is present
-                # to prevent the zone air temperature of becoming too low,
-                # whatever the temperature of the mixed air might be.
-                cooling_coil = None
-                cooled_air = mixed_air
-        elif (m_dot_supply == self.m_dot_supply_max) and self.variable_cooling_setpoint:
-            # If the mass flow rate of supply air is at its maximum limit, the
-            # zone air temperature will raise above its setpoint, unless the
-            # cooling coil controller can decrease the cooling coil setpoint
-            # temperature to the required supply air temperature that's needed
-            # to maintain the zone air setpoint temperature.
-            if mixed_air.Tdb > supply_air_req.Tdb:
-                cooling_coil = AirConditioningProcess(
-                    air_in=mixed_air,
-                    m_da=m_dot_supply,
-                    T_ao=supply_air_req.Tdb,
-                    ADP=self.ADP_cc
-                )
-                cooled_air = cooling_coil.air_out
-            else:
-                cooling_coil = None
-                cooled_air = mixed_air
-        elif mixed_air.Tdb > self.T_set_cool:
-            # If the mass flow rate of supply air is between its minimum and
-            # maximum limit, and the mixed air temperature is higher than the
-            # cooling air setpoint temperature, the cooling coil controller
-            # keeps the temperature of the cooled air fixed at its normal setpoint
-            # temperature `T_set_cool`.
+                ADP_cc = self.ADP_cc
             cooling_coil = AirConditioningProcess(
                 air_in=mixed_air,
                 m_da=m_dot_supply,
-                T_ao=self.T_set_cool,
-                ADP=self.ADP_cc
+                T_ao=T_set_cool,
+                ADP=ADP_cc
             )
             cooled_air = cooling_coil.air_out
         else:
@@ -550,43 +437,35 @@ class VAVSingleZoneAirCoolingSystem:
             cooled_air = mixed_air
         return cooled_air, cooling_coil
 
+    @staticmethod
     def _control_heating_coil(
-        self,
         m_dot_supply: Quantity,
         cooled_air: HumidAir,
         supply_air_req: HumidAir,
     ) -> tuple[HumidAir, AirConditioningProcess | None]:
-        """If a heating coil is present, determines if it needs to be
-        operational. Also returns the state of air leaving the heating coil, or,
-        if no heating coil is present, that is leaving the cooling coil.
+        """Determines the operation of the heating coil.
 
         Parameters
         ----------
         m_dot_supply:
             The mass flow rate of supply air to the zone that flows through the
-            cooling coil. This was determined in method `_control_supply fan()`.
+            heating coil. This was determined in method `_control_supply fan`.
         cooled_air:
-            The state of air leaving the cooling coil and entering the heating
-            coil.
+            The state of air leaving the cooling coil.
         supply_air_req:
             The state of supply air required to maintain the zone air setpoint
-            temperature, considered to be also the state of air leaving the
-            cooling coil. This was determined in method `_control_supply fan()`.
+            temperature. This was determined in method `_control_supply fan()`.
 
         Returns
         -------
         supply_air:
-            The state of air leaving the heating coil if present. Otherwise,
-            the state of air leaving the cooling coil is returned. This is also
-            the state of air entering the zone.
+            The state of air leaving the heating coil.
         heating_coil:
-            If a heating coil is present and the heating coil needs to be active
-            to get at the required supply air temperature to maintain the zone
-            air setpoint temperature, the heating coil, being an
-            `AirConditioningProcess` object is returned. Otherwise, None is
-            returned.
+            If the heating coil needs to be active to reach the required supply
+            air temperature, the heating coil (`AirConditioningProcess` object)
+            is returned. Otherwise, None is returned.
         """
-        if self.heating_coil_present and (cooled_air.Tdb < supply_air_req.Tdb):
+        if cooled_air.Tdb < supply_air_req.Tdb:
             # If the cooling coil outlet air temperature is less than the
             # required supply air temperature to maintain the setpoint zone air
             # temperature, supply air is heated to keep the zone air temperature
@@ -598,12 +477,26 @@ class VAVSingleZoneAirCoolingSystem:
                 m_da=m_dot_supply
             )
         else:
-            # If no heating coil is present or the cooled air leaving the cooling
-            # coil doesn't need heating, return the state of air entering the
-            # heating coil unaltered.
+            # If the cooled air leaving the cooling coil doesn't need heating,
+            # return the state of air entering the heating coil:
             supply_air = cooled_air
             heating_coil = None
         return supply_air, heating_coil
+
+    def _control_reversible_heat_pump(
+        self,
+        m_dot_supply: Quantity,
+        mixed_air: HumidAir,
+        supply_air_req: HumidAir
+    ) -> tuple[HumidAir, AirConditioningProcess | None]:
+        if supply_air_req.Tdb > mixed_air.Tdb:
+            # requires heating
+            return self._control_heating_coil(m_dot_supply, mixed_air, supply_air_req)
+        elif supply_air_req.Tdb < mixed_air.Tdb:
+            # requires cooling
+            return self._control_cooling_coil(m_dot_supply, mixed_air, supply_air_req)
+        else:
+            return HumidAir(Tdb=supply_air_req.Tdb, W=mixed_air.W), None
 
     def _zone_air(
         self,
@@ -619,7 +512,7 @@ class VAVSingleZoneAirCoolingSystem:
         ----------
         m_dot_supply:
             The mass flow rate of supply air to the zone that flows through the
-            cooling coil. This was determined in method `_control_supply fan()`.
+            cooling coil. This was determined in method `_control_supply fan`.
         supply_air:
             The final state of air entering the zone.
         """
@@ -675,92 +568,52 @@ class VAVSingleZoneAirCoolingSystem:
         self.SHR_zone = self.Q_dot_zone_sen / (self.Q_dot_zone_sen + self.Q_dot_zone_lat)
         self.T_zone_sp = T_zone_sp if T_zone_sp is not None else self.design_data.zone_air.Tdb
 
-        # We initially assume that the cooling coil is active and that the
-        # cooling coil controller keeps the temperature of the air leaving
-        # the cooling coil and being supplied to the zone at its normal setpoint.
-        supply_air_ini = HumidAir(Tdb=self.T_set_cool, W=self.W_set_cool)
-        logger.debug(
-            "supply air (initial): "
-            f"{supply_air_ini.Tdb.to('degC'):~P.2f} DB, "
-            f"{supply_air_ini.W.to('g / kg'):~P.2f} AH "
-            f"({supply_air_ini.RH.to('pct'):~P.0f} RH)"
-        )
-        # With the initial supply air state being selected, we determine (1) the
-        # needed mass flow rate of supply air to maintain the zone air
-        # temperature at its setpoint, (2) the resulting state of return air,
-        # and (3) the required new state of supply air if the needed mass flow
-        # rate of supply air cannot be attained with the initially assumed state
-        # of supply air (i.e., if the supply air mass flow rate would be below
-        # its minimum or above its maximum limit).
-        m_dot_supply, return_air, supply_air_req = self._control_supply_fan(supply_air_ini)
-        logger.debug(
-            "supply air (required): "
-            f"{supply_air_req.Tdb.to('degC'):~P.2f} DB, "
-            f"{supply_air_req.W.to('g / kg'):~P.2f} AH "
-            f"({supply_air_req.RH.to('pct'):~P.0f} RH)"
-        )
-        logger.debug(
-            "return air (initial): "
-            f"{return_air.Tdb.to('degC'):~P.2f} DB, "
-            f"{return_air.W.to('g / kg'):~P.2f} AH "
-            f"({return_air.RH.to('pct'):~P.0f} RH)"
-        )
+        # Initially assume that air being supplied to the zone has its nominal
+        # state:
+        supply_air = HumidAir(Tdb=self.T_set_cool, W=self.W_set_cool)
+
+        # Determine:
+        # (1) the supply air mass flow rate to maintain the zone air temperature
+        #     at its setpoint,
+        # (2) the resulting state of the return air, and
+        # (3) the required, new state of the supply air, should the supply air
+        #     mass flow rate be below its minimum or above its maximum limit.
+        m_dot_supply, return_air, req_supply_air = self._control_supply_fan(supply_air)
+
         # Mixing control:
         mixed_air, m_dot_vent, m_dot_recir = self._control_mixing_air(
             m_dot_supply,
             return_air
         )
-        per_m_dot_recir = m_dot_recir.to('kg / hr') / m_dot_supply.to('kg / hr')
-        per_m_dot_vent = m_dot_vent.to('kg / hr') / m_dot_supply.to('kg / hr')
-        logger.debug(
-            "percent mass flow rate recirculated air: "
-            f"{per_m_dot_recir.to('pct'):~P.0f}"
-        )
-        logger.debug(
-            "percent mass flow rate outdoor air: "
-            f"{per_m_dot_vent.to('pct'):~P.0f}"
-        )
-        logger.debug(
-            "mixed air: "
-            f"{mixed_air.Tdb.to('degC'):~P.2f} DB, "
-            f"{mixed_air.W.to('g / kg'):~P.2f} AH "
-            f"({mixed_air.RH.to('pct'):~P.0f} RH)"
-        )
-        # Cooling coil control:
-        cooled_air, cooling_coil = self._control_cooling_coil(
-            m_dot_supply,
-            mixed_air,
-            supply_air_req
-        )
-        logger.debug(
-            "cooled air: "
-            f"{cooled_air.Tdb.to('degC'):~P.2f} DB, "
-            f"{cooled_air.W.to('g / kg'):~P.2f} AH "
-            f"({cooled_air.RH.to('pct'):~P.0f} RH)"
-        )
-        # Heating coil control:
-        supply_air, heating_coil = self._control_heating_coil(
-            m_dot_supply,
-            cooled_air,
-            supply_air_req
-        )
-        logger.debug(
-            "supply air (final): "
-            f"{supply_air.Tdb.to('degC'):~P.2f} DB, "
-            f"{supply_air.W.to('g / kg'):~P.2f} AH "
-            f"({supply_air.RH.to('pct'):~P.0f} RH)"
-        )
+
+        if not self.has_rev_heatpump:
+            # Cooling coil control:
+            cooled_air, cooling_coil = self._control_cooling_coil(
+                m_dot_supply,
+                mixed_air,
+                req_supply_air
+            )
+            # Heating coil control:
+            supply_air, heating_coil = self._control_heating_coil(
+                m_dot_supply,
+                cooled_air,
+                req_supply_air
+            )
+        else:
+            cooled_air = mixed_air
+            supply_air, heat_pump = self._control_reversible_heat_pump(
+                m_dot_supply,
+                mixed_air,
+                req_supply_air
+            )
+            cooling_coil = heating_coil = heat_pump
+
         # Zone:
         return_air = self._zone_air(
             m_dot_supply,
             supply_air
         )
-        logger.debug(
-            "return air (final): "
-            f"{return_air.Tdb.to('degC'):~P.2f} DB, "
-            f"{return_air.W.to('g / kg'):~P.2f} AH "
-            f"({return_air.RH.to('pct'):~P.0f} RH)"
-        )
+
         # Assign the results to the instance variables of this object:
         self.m_dot_supply = m_dot_supply
         self.m_dot_vent = m_dot_vent
@@ -773,22 +626,12 @@ class VAVSingleZoneAirCoolingSystem:
             self.Q_dot_cc = Q_(0.0, 'W')
             self.SHR_cc = Q_(0.0, 'frac')
         else:
-            self.Q_dot_cc = -cooling_coil.Q
+            self.Q_dot_cc = -cooling_coil.Q if cooling_coil.Q < 0 else Q_(0.0, 'W')
             self.SHR_cc = cooling_coil.SHR
         if heating_coil is None:
             self.Q_dot_hc = Q_(0.0, 'W')
         else:
-            self.Q_dot_hc = heating_coil.Q_sen
-        # If both `cooling_coil` and `heating_coil` are None, the air-cooling
-        # system is not operating. In that case, the actual state of the zone
-        # air and the return air cannot be calculated from steady-state
-        # equations, as the single-zone building will evolve towards a thermal
-        # equilibrium with its outdoor environment.
-        if cooling_coil is None and heating_coil is None:
-            self.return_air = HumidAir(
-                Tdb=self.outdoor_air.Tdb,
-                W=self.return_air.W
-            )
+            self.Q_dot_hc = heating_coil.Q_sen if heating_coil.Q > 0 else Q_(0.0, 'W')
         return Output(
             self.m_dot_supply, self.m_dot_vent, self.m_dot_recir,
             self.outdoor_air, self.mixed_air, self.cooled_air,
@@ -868,11 +711,17 @@ class CoolingSimData:
         ----------
         zone:
             `ConditionedZone` object that represents the thermal model of the
-            single-zone building.
+            single-zone building, which is already initialized with the
+            weather data for the day the simulation is to be run.
         design_data:
             `DesignData` object that contains data from the design
             calculations of the single-zone VAV air-cooling system, including
             the sensible and latent design cooling load.
+
+        On instantiation of the `CoolingSimData` object the cooling load of the
+        zone is calculated for each hour of the selected day. Also the relative
+        sensible and latent cooling loads are calculated with respect to the
+        design cooling load given in `design_data`.
         """
         # Get the outdoor air dry-bulb and wet-bulb temperatures for each hour
         # of the day (index 0 to 23):
@@ -884,10 +733,8 @@ class CoolingSimData:
             zone.T_zone(t * 3600)
             for t in range(len(self.T_outdoor_db_rng))
         ]
-        # Get the dataframe with the zone loads (heat gains) for each hour of
-        # the day:
-        self.df_Q_zone = zone.solve(unit='kW')
-        self.design_data = design_data
+        # Calculate the zone loads (heat gains) for each hour of the day:
+        self.df_Q_zone = zone.solve(unit='kW', num_cycles=10)
         # Combine outdoor air dry-bulb and wet-bulb temperatures in `HumidAir`
         # objects:
         self.outdoor_air_rng = [
@@ -909,6 +756,7 @@ class CoolingSimData:
         ]
         # Determine the relative sensible zone loads (i.e., as a fraction of the
         # design load):
+        self.design_data = design_data
         self.rel_Q_zone_sen_rng = [
             Q_zone_sen.to('kW') / self.design_data.Q_zone_sen.to('kW')
             for Q_zone_sen in self.Q_zone_sen_rng

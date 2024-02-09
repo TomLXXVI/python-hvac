@@ -65,9 +65,9 @@ airco_system = VAVSingleZoneAirCoolingSystem(
         outdoor_air=HumidAir(Tdb=Q_(26.7, 'degC'), Twb=Q_(19.2, 'degC')),
         zone_air=HumidAir(Tdb=Q_(26.0, 'degC'), RH=Q_(50, 'pct')),
         supply_air=HumidAir(Tdb=Q_(14, 'degC'), W=Q_(7.783, 'g / kg')),
-    ),
-    heating_coil_present=True,
-    # variable_cooling_setpoint=True
+        Q_cc=Q_(51.392, 'kW'),
+        SHR_cc=Q_(0.626, 'frac')
+    )
 )
 
 # ------------------------------------------------------------------------------
