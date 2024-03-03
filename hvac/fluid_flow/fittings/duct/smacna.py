@@ -1911,7 +1911,7 @@ class DivergingJunctionA11T(AbstractFitting):
         [3.20, 4.00, 9999.9, 9999.9, 9999.9]
     ])
 
-    def __init__(self, duct_b: Duct, duct_c: Duct, duct_s: Duct, theta: Quantity, ID):
+    def __init__(self, duct_b: Duct, duct_c: Duct, duct_s: Duct, theta: Quantity, ID: str = ''):
         super().__init__(ID)
         self.duct_b = duct_b
         self.duct_c = duct_c
@@ -1926,9 +1926,9 @@ class DivergingJunctionA11T(AbstractFitting):
         self.vs_on_vc = vs / vc
         self.theta = theta.to('deg').magnitude
         self.interp_zeta_b = interpolate.interp2d(self._vb_on_vc, self._theta, self._zeta_b)
-        if 15 <= theta <= 60:
+        if 15 <= self.theta <= 60:
             self.interp_zeta_c_1d = interpolate.interp1d(self._vs_on_vc, self._zeta_c_th15_60)
-        if theta == 90:
+        if self.theta == 90:
             self.interp_zeta_c_2d = interpolate.interp2d(self._As_on_Ac, self._vs_on_vc, self._zeta_c_th90)
 
     @property

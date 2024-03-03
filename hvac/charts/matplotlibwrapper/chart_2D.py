@@ -129,7 +129,9 @@ class Chart(ABC):
         y_pos: float = 0.95,
         font_size: int = 12,
         vert_align: str = 'top',
-        hor_align: str = 'left'
+        hor_align: str = 'left',
+        use_normalized_coordinates: bool = True,
+        bbox_props: dict | None | bool = None
     ) -> None:
         """Add some text within the chart.
 
@@ -147,15 +149,33 @@ class Chart(ABC):
             Sets the vertical position of the text box anchor point.
         hor_align: {'left', 'center', 'right'}
             Sets the horizontal position of the text box anchor point.
+        use_normalized_coordinates:
+            Instead of data coordinates, use normalized axes coordinates, i.e.
+            the bottom-left corner of the axes is at (0,0) and the top-right
+            corner is at (1, 1).
+        bbox_props:
+            If `None` or `False`, no bounding box is drawn around the text. If
+            `True` a bounding box with default properties is drawn around the
+            text. Otherwise, pass the bounding box properties as a dict. The
+            default properties of the bounding box are specified as:
+            `{'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5}`.
         """
-        self.y1.axes.text(
-            x_pos, y_pos, text,
-            transform=self.y1.axes.transAxes,
-            fontsize=font_size,
-            horizontalalignment=hor_align,
-            verticalalignment=vert_align,
-            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.5}
-        )
+        kwargs = {
+            'fontsize': font_size,
+            'horizontalalignment': hor_align,
+            'verticalalignment': vert_align,
+        }
+        if use_normalized_coordinates:
+            kwargs['transform'] = self.y1.axes.transAxes
+        if isinstance(bbox_props, dict):
+            kwargs['bbox'] = bbox_props
+        elif bbox_props is True:
+            kwargs['bbox'] = {
+                'boxstyle': 'round',
+                'facecolor': 'wheat',
+                'alpha': 0.5
+            }
+        self.y1.axes.text(x_pos, y_pos, text, **kwargs)
 
     def draw(self, with_grid: bool = True):
         """Only draw the chart (but don't show it)."""
