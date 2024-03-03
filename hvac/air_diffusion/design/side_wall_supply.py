@@ -15,8 +15,8 @@ import numpy as np
 from scipy.optimize import root_scalar
 from hvac import Quantity
 from hvac.fluids import Fluid, FluidState, CoolPropWarning
-from air_diffusion.air_jets.air_jets import CompactJet
-from air_diffusion.air_jets.archimedes_number import archimedes_number
+from hvac.air_diffusion.air_jets.air_jets import CompactJet
+from hvac.air_diffusion.air_jets.archimedes_number import archimedes_number
 
 warnings.filterwarnings('ignore', category=CoolPropWarning)
 
@@ -350,9 +350,9 @@ class SideWallSupply:
     ) -> Output:
         """Calculates the supply air volume flow rate, the supply/room air
         temperature difference, and the effective size of the supply opening
-        based on the critical room Archimedes number and a throw length to 0.5
-        m/s equal to `L_th_frac` x the room length an allowable range
-        for the mean room air speed
+        based on the critical room Archimedes number, a throw length to 0.5
+        m/s being equal to `L_th_frac` x the room length, and an allowable range
+        for the mean room air speed.
 
         Parameters
         ----------
@@ -421,11 +421,20 @@ class SideWallSupply:
             self._compact_jet = CompactJet(A_o, U_o, supply_air, self._room.air, self._K1)
             L_th = self._throw(U_x)
         else:
-            raise ValueError(
-                f"A throw length factor to {U_x:~P.2f} of {L_th_frac} "
-                f"cannot be attained for any mean room air speed "
-                f"between {v_r_min:~P} and {v_r_max:~P}."
-            )
+            if np.sign(dev_min) < -0.5:
+                raise ValueError(
+                    f"The throw length factor of {L_th_frac} "
+                    f"cannot be attained for mean room air velocities "
+                    f"between {v_r_min:~P} and {v_r_max:~P}. "
+                    "Try a smaller throw length factor..."
+                )
+            else:
+                raise ValueError(
+                    f"The throw length factor of {L_th_frac} "
+                    f"cannot be attained for mean room air velocities "
+                    f"between {v_r_min:~P} and {v_r_max:~P}. "
+                    "Try a larger throw length factor..."
+                )
 
         # Determine the effective height of the supply opening based on the
         # required effective area and the required aspect ratio of the supply

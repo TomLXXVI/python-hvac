@@ -25,6 +25,11 @@ A package about air-conditioning processes and systems that can be used to
 design and analyze single-zone or multi-zone CAV and VAV air conditioning
 systems.
 
+**air_diffusion**<br>
+A package about supplying air to a room. Implements free air jets and some
+procedures for designing air supply to a room which come from *Awbi, H. B. (2003).
+VENTILATION OF BUILDINGS. Taylor & Francis. Chapter 6.*
+
 **cooling_load_calc**<br>
 A package for doing cooling load calculations of a building, based upon ASHRAE's
 Radiant-Times-Series (RTS) method. 
@@ -32,7 +37,7 @@ It uses a lumped capacitance model to take the thermal inertia of flat, opaque
 building components and the interior thermal mass of a zone into account. 
 
 **sun**<br>
-This subpackage is about solar radiation on surfaces. It implements a number of
+This package is about solar radiation on surfaces. It implements a number of
 sky-models (isotropic, anisotropic Perez, anisotropic HDKR, KT) to estimate the 
 solar radiation incident on exterior surfaces.
 It can generate solar radiation data based on the clear-sky model or it can use
