@@ -263,7 +263,7 @@ def design_sill_supply(
     v_r: Quantity = Q_(0.2, 'm / s'),
 ) -> Output:
     """Calculates the air supply rate, the temperature difference between
-    supply and room, and the dimensions of the supply opening.
+    supply and room air, and the dimensions of the supply opening.
     The routine starts with the given initial guess of the supply/return air
     temperature difference `dT_o`, which is to be considered as a
     maximum value. It then tries to find the `dT_o` for which the

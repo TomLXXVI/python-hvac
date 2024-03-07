@@ -51,7 +51,7 @@ import numpy as np
 import pandas as pd
 from hvac import Quantity
 from hvac.fluids import Fluid, FluidState, HumidAir
-from hvac.heat_exchanger.fintube.continuous_fin import (
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin import (
     PlainFinTubeAirToWaterCounterFlowHeatExchanger as AirCoil
 )
 from hvac.sun import Location, ClimateType, ReferenceDates

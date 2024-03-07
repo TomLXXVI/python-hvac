@@ -6,9 +6,9 @@ from hvac import Quantity
 from hvac.fluids import Fluid, HumidAir, CoolPropWarning, FluidState
 from hvac.heat_transfer.forced_convection.internal_flow import CircularTube
 from hvac.heat_transfer.finned_surface.fins import Fin, PlainContinuousFin
-import hvac.heat_exchanger.general.eps_ntu_wet as wet
-import hvac.heat_exchanger.general.eps_ntu as dry
-from hvac.heat_exchanger.general import corrections
+import hvac.heat_exchanger.recuperator.general.eps_ntu_wet as wet
+import hvac.heat_exchanger.recuperator.general.eps_ntu as dry
+from hvac.heat_exchanger.recuperator.general import corrections
 from .geometry import ContinuousFinStaggeredTubeBank
 from .correlations import PlainContinuousFinStaggeredTubeBank as correlations
 

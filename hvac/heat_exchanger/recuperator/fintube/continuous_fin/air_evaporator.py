@@ -6,8 +6,8 @@ from hvac.logging import ModuleLogger
 from hvac.fluids import FluidState, HumidAir, CP_HUMID_AIR
 import hvac.heat_transfer.forced_convection.internal_flow as single_phase_flow
 import hvac.heat_transfer.boiling.flow_boiling as boiling_flow
-from hvac.heat_exchanger.general import eps_ntu as dry
-from hvac.heat_exchanger.general import eps_ntu_wet as wet
+from hvac.heat_exchanger.recuperator.general import eps_ntu as dry
+from ...general import eps_ntu_wet as wet
 from .geometry import ContinuousFinStaggeredTubeBank
 from .air_to_water import ExternalSurface
 

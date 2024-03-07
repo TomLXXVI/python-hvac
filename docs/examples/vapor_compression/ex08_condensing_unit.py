@@ -22,7 +22,7 @@ from hvac import Quantity
 from hvac.logging import ModuleLogger
 from hvac.charts import LineChart
 from hvac.fluids import Fluid, HumidAir, CoolPropWarning
-from hvac.heat_exchanger.fintube.continuous_fin import (
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin import (
     PlainFinTubeCounterFlowAirCondenser
 )
 from hvac.vapor_compression import (

@@ -7,7 +7,7 @@ through the cooling coil.
 from scipy import optimize
 from hvac import Quantity
 from hvac.fluids import Fluid, HumidAir, FluidState
-from hvac.heat_exchanger.fintube.continuous_fin import PlainFinTubeAirToWaterCounterFlowHeatExchanger
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin import PlainFinTubeAirToWaterCounterFlowHeatExchanger
 from hvac.charts import LineChart, PsychrometricChart
 
 

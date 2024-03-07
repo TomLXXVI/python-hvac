@@ -26,17 +26,17 @@ def find_target(target: Quantity, values: Quantity) -> int:
 
 def main():
     room = RoomInfo(
-        L=Q_(23 / 4, 'm'),
-        B=Q_(11, 'm'),
+        L=Q_(11, 'm'),
+        B=Q_(23 / 2, 'm'),
         H=Q_(6, 'm'),
         Z=Q_(1.8, 'm'),
         T_r=Q_(26, 'degC'),
-        Q_dot=Q_(25.452 / 4, 'kW')
+        Q_dot=Q_(25.452 / 2, 'kW')
     )
     print(f"room load per unit area: {room.q_dot.to('W / m**2'):~P.3f}")
 
     # Throw constant of supply outlet:
-    K1 = 0.5
+    K1 = 2.0
     # Height between upper edge of supply opening and ceiling:
     d = Q_(0.5, 'm')
 
@@ -44,9 +44,10 @@ def main():
     # The critical room Archimedes number depends on the ratio room length to
     # room height: see e.g. Awbi, H. B. (2003). Ventilation of Buildings.
     # Taylor & Francis. p. 246, table 6.2.
+
     output = sws.design(
         h_o=Q_(0.4, 'm'),
-        L_th_frac=0.50,
+        L_th_frac=0.75,
         v_r_minmax=(Q_(0.1, 'm / s'), Q_(0.3, 'm / s'))
     )
     print(output)

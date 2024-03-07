@@ -21,7 +21,7 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid, STANDARD_TEMPERATURE, STANDARD_PRESSURE
-from hvac.heat_exchanger.fintube.continuous_fin import (
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin import (
     PlainFinTubeAirToWaterCounterFlowHeatExchanger as AirCoil
 )
 from hvac.air_conditioning import AirConditioningProcess

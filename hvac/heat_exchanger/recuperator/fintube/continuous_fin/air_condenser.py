@@ -6,7 +6,7 @@ from hvac.logging import ModuleLogger
 from hvac.fluids import HumidAir, FluidState, CoolPropError, CP_HUMID_AIR
 import hvac.heat_transfer.forced_convection.internal_flow as single_phase_flow
 import hvac.heat_transfer.condensation.flow_condensation as condensing_flow
-from hvac.heat_exchanger.general.eps_ntu import CounterFlowHeatExchanger
+from hvac.heat_exchanger.recuperator.general.eps_ntu import CounterFlowHeatExchanger
 from .geometry import ContinuousFinStaggeredTubeBank
 from .air_to_water import ExternalSurface
 

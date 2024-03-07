@@ -14,11 +14,11 @@ from hvac.fluids import HumidAir, Fluid, FluidState
 from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
 from hvac.logging import ModuleLogger
 
-from hvac.heat_exchanger.fintube.continuous_fin.air_evaporator import (
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin.air_evaporator import (
     PlainFinTubeCounterFlowAirEvaporator,
     EvaporatorError
 )
-from hvac.heat_exchanger.fintube.continuous_fin.air_condenser import (
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin.air_condenser import (
     PlainFinTubeCounterFlowAirCondenser,
     CondenserError
 )

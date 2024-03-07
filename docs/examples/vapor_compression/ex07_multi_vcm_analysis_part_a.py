@@ -42,7 +42,7 @@ from hvac.vapor_compression.machine import (
     Output,
     logger
 )
-from hvac.heat_exchanger.fintube.continuous_fin import (
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin import (
     PlainFinTubeCounterFlowAirEvaporator,
     PlainFinTubeCounterFlowAirCondenser
 )
