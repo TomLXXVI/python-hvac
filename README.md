@@ -70,14 +70,23 @@ correlations were taken from *Nellis G. F. , & Klein S. A.  (2021).
 INTRODUCTION TO ENGINEERING HEAT TRANSFER. Cambridge University Press*.
 
 **heat_exchanger**<br>
-Implements the effectiveness-NTU method for both dry and wet air cooling/heating
-coils.
-Contains a model to analyze and simulate an air-to-water cooling coil.
-Contains a model of an air evaporator and an air condenser, that can be used to 
-simulate the performance of air-to-air, single stage vapor compression machines.
-The implementations are based on solving methods described in *Shah, 
+Contains two subpackages: **recuperator** and **regenerator**.
+
+Subpackage *recuperator* is about heat exchangers in which the hot and cold 
+fluid are separated by a heat transfer wall. 
+It implements the effectiveness-NTU method for both dry and wet air 
+cooling/heating coils. 
+It contains (at this moment) some models of continuous fin-tube heat exchangers
+(air condenser, air evaporator, air-to-water cooling coil) for analysis and 
+simulation. Implementations are based on solving methods described in *Shah, 
 R. K. , & Sekulic, D. P.  (2003). FUNDAMENTALS OF HEAT EXCHANGER 
 DESIGN. John Wiley & Sons*.
+
+Subpackage *regenerator* implements the effectiveness-NTU method for a 
+counterflow rotary regenerator (e.g. a sensible heat recovery wheel) as outlined
+in *Shah, R. K. , & Sekulic, D. P.  (2003). FUNDAMENTALS OF HEAT 
+EXCHANGER DESIGN. John Wiley & Sons*, Chapter 5: *Thermal Design Theory for
+Regenerators*.
 
 **vapor_compression**<br>
 Contains models to represent fixed- and variable speed compressors, and a model

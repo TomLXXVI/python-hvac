@@ -5,7 +5,7 @@ EPSILON-NTUo METHOD (ONLY FOR SENSIBLE HEAT TRANSFER).
 Class `CounterFlowRotaryRegenerator` can be used to calculate the effectiveness
 of a counterflow rotary regenerator, given the needed specifications of the
 matrix, and of the hot and cold fluid (gas) at the hot/cold entrance of the
-regenerator. Besides the effectiveness, the class can also return the heat
+regenerator. Besides the effectiveness, the class also returns the heat
 transfer rate between the hot and cold fluid, and the outlet temperatures of
 the hot and the cold fluid.
 
