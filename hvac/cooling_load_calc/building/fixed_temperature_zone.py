@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from typing import Callable, TYPE_CHECKING
+
 import pandas as pd
+
 from hvac import Quantity
-from hvac.fluids import HumidAir
 from hvac.cooling_load_calc.core import (
     WeatherData,
     ExteriorBuildingElement,
@@ -10,6 +12,7 @@ from hvac.cooling_load_calc.core import (
     ThermalStorageNode,
     InternalHeatGain
 )
+from hvac.fluids import HumidAir
 
 if TYPE_CHECKING:
     from .ventilation_zone import VentilationZone
@@ -18,7 +21,7 @@ if TYPE_CHECKING:
 Q_ = Quantity
 
 
-class ConditionedZone:
+class FixedTemperatureZone:
     """Represents a space or a group of spaces in a building of which the
     air temperature is perfectly held at its setpoint by the control action of
     the zone thermostat.
@@ -42,8 +45,8 @@ class ConditionedZone:
         self.ext_build_elems: dict[str, ExteriorBuildingElement] = {}
         self.int_build_elems: dict[str, InteriorBuildingElement] = {}
         self.tsn: ThermalStorageNode | None = None
-        self.ventilation: SpaceVentilation | None = None
-        self.vez: VentilationZone | None = None
+        self.local_ventilation: LocalVentilation | None = None
+        self.ventilation_zone: VentilationZone | None = None
         self.int_heat_gains: dict[str, InternalHeatGain] = {}
         self.thermal_storage_effect: dict[str, Quantity] = {}
 
@@ -58,7 +61,7 @@ class ConditionedZone:
         RH_zone: Quantity = Q_(50, 'pct'),
         ventilation_zone: VentilationZone | None = None,
         T_zone_des: Quantity = Q_(24, 'degC')
-    ) -> ConditionedZone:
+    ) -> FixedTemperatureZone:
         """Creates a `ConditionedZone` object.
 
         Parameters
@@ -98,9 +101,9 @@ class ConditionedZone:
         zone.floor_area = floor_area
         zone.height = height
         zone.RH_zone = RH_zone
-        zone.vez = ventilation_zone
+        zone.ventilation_zone = ventilation_zone
         if ventilation_zone is not None:
-            zone.vez.add_thermal_zone(zone)
+            zone.ventilation_zone.add_thermal_zone(zone)
         return zone
 
     def add_ext_build_elem(self, *ebe: ExteriorBuildingElement) -> None:
@@ -116,7 +119,7 @@ class ConditionedZone:
 
     def add_thermal_storage_node(
         self,
-        C: Quantity = Q_(100, 'kJ / m**2'),
+        C: Quantity = Q_(100, 'kJ / (K * m**2)'),
         A: Quantity = Q_(1.0, 'm**2'),
         R_tz: Quantity = Q_(float('inf'), 'K * m**2 / W')
     ) -> None:
@@ -195,7 +198,7 @@ class ConditionedZone:
             space; otherwise, it is equal to mean air temperature of the other
             space (see EN 12831-1, 6.3.8.3).
         """
-        self.ventilation = SpaceVentilation.create(
+        self.local_ventilation = LocalVentilation.create(
             thz=self,
             n_min=n_min,
             V_dot_open=V_dot_open,
@@ -255,6 +258,7 @@ class ConditionedZone:
         - a `Quantity`-array with the radiative components
         """
         d = {'Q_dot': [], 'Q_dot_conv': [], 'Q_dot_rad': []}
+
         # Get the conductive heat gain from all exterior building elements,
         # windows and doors:
         for ebe in self.ext_build_elems.values():
@@ -272,6 +276,7 @@ class ConditionedZone:
                 d['Q_dot'].append(Q_dot)
                 d['Q_dot_conv'].append(Q_dot_cv)
                 d['Q_dot_rad'].append(Q_dot_rd)
+
         # Get the conductive heat gain from all interior building elements and
         # doors:
         for ibe in self.int_build_elems.values():
@@ -284,12 +289,17 @@ class ConditionedZone:
                 d['Q_dot'].append(Q_dot)
                 d['Q_dot_conv'].append(Q_dot_cv)
                 d['Q_dot_rad'].append(Q_dot_rd)
+
         # Sum the collected conductive heat gains and their convective and
         # radiative components:
-        Q_dot_cond = sum(d['Q_dot'])
-        Q_dot_conv = sum(d['Q_dot_conv'])
-        Q_dot_rad = sum(d['Q_dot_rad'])
-        return Q_dot_cond, Q_dot_conv, Q_dot_rad
+        if d['Q_dot']:
+            Q_dot = sum(d['Q_dot'])
+            Q_dot_conv = sum(d['Q_dot_conv'])
+            Q_dot_rad = sum(d['Q_dot_rad'])
+        else:
+            num_steps = int(round(24 / dt_hr))
+            Q_dot = Q_dot_conv = Q_dot_rad = Q_([0.0] * num_steps, 'W')
+        return Q_dot, Q_dot_conv, Q_dot_rad
 
     def _solar_heat_gain(
         self,
@@ -297,7 +307,7 @@ class ConditionedZone:
     ) -> tuple[Quantity, Quantity, Quantity]:
         """Returns the solar heat gain through all the windows of the zone,
         and also its radiative and convective components, for each time index
-        k of the design day.
+        of the design day.
 
         Parameters
         ----------
@@ -320,10 +330,14 @@ class ConditionedZone:
                 d['Q_dot'].append(Q_dot)
                 d['Q_dot_conv'].append(Q_dot_cv)
                 d['Q_dot_rad'].append(Q_dot_rd)
-        Q_dot_cond = sum(d['Q_dot'])
-        Q_dot_conv = sum(d['Q_dot_conv'])
-        Q_dot_rad = sum(d['Q_dot_rad'])
-        return Q_dot_cond, Q_dot_conv, Q_dot_rad
+        if d['Q_dot']:
+            Q_dot = sum(d['Q_dot'])
+            Q_dot_conv = sum(d['Q_dot_conv'])
+            Q_dot_rad = sum(d['Q_dot_rad'])
+        else:
+            num_steps = int(round(24 / dt_hr))
+            Q_dot = Q_dot_conv = Q_dot_rad = Q_([0.0] * num_steps, 'W')
+        return Q_dot, Q_dot_conv, Q_dot_rad
 
     def _ventilation_heat_gain(
         self,
@@ -347,13 +361,13 @@ class ConditionedZone:
         """
         num_steps = int(round(24 / dt_hr))
         dt_sec = dt_hr * 3600
-        if self.ventilation is not None:
+        if self.local_ventilation is not None:
             Q_dot_sen_vent = Q_([
-                self.ventilation.Q_dot_sen(k * dt_sec)
+                self.local_ventilation.Q_dot_sen(k * dt_sec)
                 for k in range(num_steps)
             ], 'W')
             Q_dot_lat_vent = Q_([
-                self.ventilation.Q_dot_lat(k * dt_sec)
+                self.local_ventilation.Q_dot_lat(k * dt_sec)
                 for k in range(num_steps)
             ], 'W')
             return Q_dot_sen_vent, Q_dot_lat_vent
@@ -393,28 +407,35 @@ class ConditionedZone:
             'Q_dot_sen_rd': [],
             'Q_dot_lat': []
         }
-        for k in range(num_steps):
-            d_k = {
-                'Q_dot_sen': [],
-                'Q_dot_sen_cv': [],
-                'Q_dot_sen_rd': [],
-                'Q_dot_lat': []
-            }
-            for ihg in self.int_heat_gains.values():
-                Q_dot_sen_cv, Q_dot_sen_rd, Q_dot_lat = ihg.Q_dot(k * dt_sec)
-                Q_dot_sen = Q_dot_sen_cv + Q_dot_sen_rd
-                d_k['Q_dot_sen'].append(Q_dot_sen)
-                d_k['Q_dot_sen_cv'].append(Q_dot_sen_cv)
-                d_k['Q_dot_sen_rd'].append(Q_dot_sen_rd)
-                d_k['Q_dot_lat'].append(Q_dot_lat)
-            d['Q_dot_sen'].append(sum(d_k['Q_dot_sen']))
-            d['Q_dot_sen_cv'].append(sum(d_k['Q_dot_sen_cv']))
-            d['Q_dot_sen_rd'].append(sum(d_k['Q_dot_sen_rd']))
-            d['Q_dot_lat'].append(sum(d_k['Q_dot_lat']))
-        Q_dot_sen = Q_(d['Q_dot_sen'], 'W')
-        Q_dot_sen_cv = Q_(d['Q_dot_sen_cv'], 'W')
-        Q_dot_sen_rd = Q_(d['Q_dot_sen_rd'], 'W')
-        Q_dot_lat = Q_(d['Q_dot_lat'], 'W')
+        if self.int_heat_gains:
+            for k in range(num_steps):
+                d_k = {
+                    'Q_dot_sen': [],
+                    'Q_dot_sen_cv': [],
+                    'Q_dot_sen_rd': [],
+                    'Q_dot_lat': []
+                }
+                for ihg in self.int_heat_gains.values():
+                    Q_dot_sen_cv, Q_dot_sen_rd, Q_dot_lat = ihg.Q_dot(k * dt_sec)
+                    Q_dot_sen = Q_dot_sen_cv + Q_dot_sen_rd
+                    d_k['Q_dot_sen'].append(Q_dot_sen)
+                    d_k['Q_dot_sen_cv'].append(Q_dot_sen_cv)
+                    d_k['Q_dot_sen_rd'].append(Q_dot_sen_rd)
+                    d_k['Q_dot_lat'].append(Q_dot_lat)
+                d['Q_dot_sen'].append(sum(d_k['Q_dot_sen']))
+                d['Q_dot_sen_cv'].append(sum(d_k['Q_dot_sen_cv']))
+                d['Q_dot_sen_rd'].append(sum(d_k['Q_dot_sen_rd']))
+                d['Q_dot_lat'].append(sum(d_k['Q_dot_lat']))
+            Q_dot_sen = Q_(d['Q_dot_sen'], 'W')
+            Q_dot_sen_cv = Q_(d['Q_dot_sen_cv'], 'W')
+            Q_dot_sen_rd = Q_(d['Q_dot_sen_rd'], 'W')
+            Q_dot_lat = Q_(d['Q_dot_lat'], 'W')
+        else:
+            Q_dot_zero = Q_([0.0] * num_steps, 'W')
+            Q_dot_sen = Q_dot_zero
+            Q_dot_sen_cv = Q_dot_zero
+            Q_dot_sen_rd = Q_dot_zero
+            Q_dot_lat = Q_dot_zero
         return Q_dot_sen, Q_dot_sen_cv, Q_dot_sen_rd, Q_dot_lat
 
     def solve(
@@ -423,10 +444,10 @@ class ConditionedZone:
         num_cycles: int = 5,
         unit: str = 'W'
     ) -> pd.DataFrame:
-        """Calculates the sensible and latent heat gains in the zone and its
-        resulting cooling load, i.e. the heat rate that the cooling system needs
-        to extract from the zone air to keep the zone air temperature at its
-        setpoint value.
+        """Calculates the sensible and latent heat gains in the zone and the
+        resulting cooling load (i.e. the heat rate that the cooling system must
+        extract from the zone air to keep the zone air temperature constant at
+        its setpoint value).
 
         Parameters
         ----------
@@ -446,19 +467,25 @@ class ConditionedZone:
 
         Returns
         -------
-        A Pandas DataFrame with the heat gains (including both the convective and
-        radiative component) and the total zone load for each time index k of
-        the design day.
+        Pandas DataFrame with the heat gains (including both the convective and
+        radiative component) and the total zone load at each time index of the
+        design day.
         """
         # CONDUCTION HEAT GAIN
-        # Get the total conductive heat gain in the zone, and its convective and
-        # radiative components:
-        Q_dot_cnd, Q_dot_cnd_cv, Q_dot_cnd_rd = self._conductive_heat_gain(dt_hr, num_cycles)
+        # Get the total conductive heat gain in the zone, its convective and
+        # radiative component:
+        tup = self._conductive_heat_gain(dt_hr, num_cycles)
+        Q_dot_cnd = tup[0]
+        Q_dot_cnd_cv = tup[1]
+        Q_dot_cnd_rd = tup[2]
 
         # SOLAR HEAT GAIN
         # Get the total solar heat gain in the zone, and its convective and
         # radiative components:
-        Q_dot_sol, Q_dot_sol_cv, Q_dot_sol_rd = self._solar_heat_gain(dt_hr)
+        tup = self._solar_heat_gain(dt_hr)
+        Q_dot_sol = tup[0]
+        Q_dot_sol_cv = tup[1]
+        Q_dot_sol_rd = tup[2]
 
         # INTERNAL HEAT GAINS
         Q_dot_ihg = self._internal_heat_gain(dt_hr)
@@ -537,6 +564,9 @@ class ConditionedZone:
             'Q_dot_sen_vent': Q_dot_sen_vent.to(unit).m,
             'Q_dot_sen_ihg': Q_dot_ihg_sen.to(unit).m
         }
+        if Q_dot_sol is not None:
+            d['Q_dot_sol'] = Q_dot_sol.to(unit).m
+
         if Q_dot_tsn is not None:
             d['Q_dot_tsn'] = Q_dot_tsn.to(unit).m
         d.update({
@@ -551,29 +581,29 @@ class ConditionedZone:
         return df
 
 
-class SpaceVentilation:
+class LocalVentilation:
     """Calculation of the sensible and latent heat gain due to space
     ventilation according to standard EN 12831-1 (2017).
     """
     def __init__(self):
-        self.n_min: float = 0.0
-        self.V_dot_open: float = 0.0
-        self.V_dot_ATD_d: float = 0.0
-        self.V_dot_sup: float = 0.0
-        self.V_dot_trf: float = 0.0
-        self.V_dot_exh: float = 0.0
-        self.V_dot_comb: float = 0.0
+        self.n_min: Quantity = Q_(0.0, '1 / hr')
+        self.V_dot_open: Quantity = Q_(0.0, 'm**3 / hr')
+        self.V_dot_ATD_d: Quantity = Q_(0.0, 'm**3 / hr')
+        self.V_dot_sup: Quantity = Q_(0.0, 'm**3 / hr')
+        self.V_dot_trf: Quantity = Q_(0.0, 'm**3 / hr')
+        self.V_dot_exh: Quantity = Q_(0.0, 'm**3 / hr')
+        self.V_dot_comb: Quantity = Q_(0.0, 'm**3 / hr')
         self.T_sup: Callable[[float], Quantity] | None = None
         self.T_trf: Callable[[float], Quantity] | None = None
         self.T_db_ext: Callable[[float], Quantity] | None = None
         self.T_wb_ext: Callable[[float], Quantity] | None = None
-        self.thz: ConditionedZone | None = None
+        self.thz: FixedTemperatureZone | None = None
         self.vez: VentilationZone | None = None
     
     @classmethod
     def create(
         cls,
-        thz: ConditionedZone,
+        thz: FixedTemperatureZone,
         n_min: Quantity = Q_(0.5, '1 / hr'),
         V_dot_open: Quantity = Q_(0.0, 'm ** 3 / hr'),
         V_dot_ATD_d: Quantity = Q_(0.0, 'm ** 3 / hr'),
@@ -583,7 +613,7 @@ class SpaceVentilation:
         V_dot_comb: Quantity = Q_(0.0, 'm ** 3 / hr'),
         T_sup: Callable[[float], Quantity] | None = None,
         T_trf: Callable[[float], Quantity] | None = None
-    ) -> SpaceVentilation:
+    ) -> LocalVentilation:
         """Configures the ventilation of the thermal zone according to standard
         EN 12831-1 (2017).
 
@@ -596,7 +626,7 @@ class SpaceVentilation:
             quality/hygiene and comfort (EN 12831-1, B.2.10 - Table B.7).
             The default value applies to permanent dwelling areas (living rooms,
             offices) and a ceiling height less than 3 m.
-        V_dot_open: Quantity, optional
+        V_dot_open:
             External air volume flow rate into the space through large openings
             (EN 12831-1, Annex G).
         V_dot_ATD_d:
@@ -633,14 +663,14 @@ class SpaceVentilation:
         """
         obj = cls()
         obj.thz = thz
-        obj.vez = thz.vez
-        obj.n_min = n_min.to('1 / hr').m
-        obj.V_dot_open = V_dot_open.to('m ** 3 / hr').m
-        obj.V_dot_ATD_d = V_dot_ATD_d.to('m ** 3 / hr').m
-        obj.V_dot_sup = V_dot_sup.to('m ** 3 / hr').m
-        obj.V_dot_trf = V_dot_trf.to('m ** 3 / hr').m
-        obj.V_dot_exh = V_dot_exh.to('m ** 3 / hr').m
-        obj.V_dot_comb = V_dot_comb.to('m ** 3 / hr').m
+        obj.vez = thz.ventilation_zone
+        obj.n_min = n_min.to('1 / hr')
+        obj.V_dot_open = V_dot_open.to('m ** 3 / hr')
+        obj.V_dot_ATD_d = V_dot_ATD_d.to('m ** 3 / hr')
+        obj.V_dot_sup = V_dot_sup.to('m ** 3 / hr')
+        obj.V_dot_trf = V_dot_trf.to('m ** 3 / hr')
+        obj.V_dot_exh = V_dot_exh.to('m ** 3 / hr')
+        obj.V_dot_comb = V_dot_comb.to('m ** 3 / hr')
         obj.T_sup = T_sup or thz.weather_data.T_db
         obj.T_trf = T_trf
         obj.T_db_ext = thz.weather_data.T_db
@@ -648,7 +678,7 @@ class SpaceVentilation:
         return obj
 
     @property
-    def V_dot_leak_ATD(self) -> float:
+    def V_dot_leak_ATD(self) -> Quantity:
         """External airflow rate in m³/h into the space through leakages and ATDs.
 
         See EN 12831-1 (2017), eq. 19: The leakage airflow rate into the
@@ -658,22 +688,24 @@ class SpaceVentilation:
         through ATDs.
         """
         try:
-            return (
+            V_dot_leak_ATD = (
                 self.vez.V_dot_leak
                 * (self.thz.envelope_area.to('m ** 2').m / self.vez.A_env)
-                + self.vez.V_dot_ATD * (self.V_dot_ATD_d / self.vez.V_dot_ATD_d)
+                + self.vez.V_dot_ATD * (self.V_dot_ATD_d.m / self.vez.V_dot_ATD_d.m)
             )
+            return Q_(V_dot_leak_ATD, 'm**3 / hr')
         except ZeroDivisionError:
             try:
-                return (
+                V_dot_leak_ATD = (
                     self.vez.V_dot_leak
                     * (self.thz.envelope_area.to('m ** 2').m / self.vez.A_env)
                 )
+                return Q_(V_dot_leak_ATD, 'm**3 / hr')
             except ZeroDivisionError:
-                return 0.0
+                return Q_(0.0, 'm**3 / hr')
 
     @property
-    def V_dot_env(self) -> float:
+    def V_dot_env(self) -> Quantity:
         """External airflow rate in m³/h into the space through the envelope
         (see EN 12831-1 (2017), eq. 18).
         """
@@ -687,36 +719,38 @@ class SpaceVentilation:
                 / self.vez.V_dot_env * self.V_dot_leak_ATD
             )
         except ZeroDivisionError:
-            return float('nan')
+            return Q_(float('nan'), 'm**3 / hr')
         else:
-            return V_dot_env
+            return V_dot_env.to('m**3 / hr')
 
     @property
-    def V_dot_tech(self) -> float:
+    def V_dot_tech(self) -> Quantity:
         """Technical airflow rate in m³/h into the space
         (see EN 12831-1 (2017), eq. 23).
         """
-        return max(
+        V_dot_tech = max(
             self.V_dot_sup + self.V_dot_trf,
             self.V_dot_exh + self.V_dot_comb
         )
+        return V_dot_tech.to('m**3 / hr')
 
     @property
-    def V_dot_min(self) -> float:
+    def V_dot_min(self) -> Quantity:
         """The minimum required airflow rate in m³/h of the space that needs to
         be ensured to maintain an appropriate level of air hygiene
         (see EN 12831-1 eq. 33).
         """
-        return self.n_min * self.thz.volume.to('m ** 3').m
+        V_dot_min = self.n_min * self.thz.volume.to('m ** 3')
+        return V_dot_min.to('m**3 / hr')
 
     @property
-    def V_dot_ext(self) -> float:
+    def V_dot_ext(self) -> Quantity:
         """Volume flow rate in m³/h of outdoor air that enters the space."""
         V_dot_ext = max(
-            self.V_dot_env + self.V_dot_open,
-            self.V_dot_min - self.V_dot_tech
+            self.V_dot_env.m + self.V_dot_open.m,
+            self.V_dot_min.m - self.V_dot_tech.m
         )
-        return V_dot_ext
+        return Q_(V_dot_ext, 'm**3 / hr')
 
     def Q_dot_sen(self, t_sol_sec: float) -> float:
         """Sensible infiltration/ventilation load in W of the space 
@@ -725,11 +759,11 @@ class SpaceVentilation:
         T_db_ext = self.T_db_ext(t_sol_sec).to('degC').m
         T_sup = self.T_sup(t_sol_sec).to('degC').m
         T_zone = self.thz.T_zone(t_sol_sec).to('degC').m
-        VT_inf = self.V_dot_ext * (T_db_ext - T_zone)
-        VT_sup = self.V_dot_sup * (T_sup - T_zone)
+        VT_inf = self.V_dot_ext.m * (T_db_ext - T_zone)
+        VT_sup = self.V_dot_sup.m * (T_sup - T_zone)
         if self.T_trf:
             T_trf = self.T_trf(t_sol_sec).to('degC').m
-            VT_trf = self.V_dot_trf * (T_trf - T_zone)
+            VT_trf = self.V_dot_trf.m * (T_trf - T_zone)
         else:
             VT_trf = 0.0
         Q_dot_sen = 0.34 * (VT_inf + VT_sup + VT_trf)  # see EN 12831-1 B.2.8.
@@ -753,8 +787,8 @@ class SpaceVentilation:
             Twb=self.T_wb_ext(t_sol_sec)
         ).rho.to('kg / m ** 3').m
         V_dot_inf = max(
-            self.V_dot_env + self.V_dot_open,
-            self.V_dot_min - self.V_dot_tech
+            self.V_dot_env.m + self.V_dot_open.m,
+            self.V_dot_min.m - self.V_dot_tech.m
         ) / 3600.0  # m³/s
         Q_dot_lat = rho_o * V_dot_inf * (h_o - h_x)
         return Q_dot_lat

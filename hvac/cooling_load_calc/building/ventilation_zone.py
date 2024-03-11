@@ -1,6 +1,6 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
-from typing_extensions import Unpack
 
 import pandas as pd
 
@@ -8,7 +8,7 @@ from hvac import Quantity
 
 if TYPE_CHECKING:
     from hvac.cooling_load_calc.building.building_entity import BuildingEntity
-    from hvac.cooling_load_calc.building.conditioned_zone import ConditionedZone
+    from hvac.cooling_load_calc.building.fixed_temperature_zone import FixedTemperatureZone
 
 
 Q_ = Quantity
@@ -36,7 +36,7 @@ class VentilationZone:
         self.f_V: float = 0.0
         self.f_dir: float = 0.0
         self.f_iz: float = 0.0
-        self.thermal_zones: dict[str, ConditionedZone] = {}
+        self.thermal_zones: dict[str, FixedTemperatureZone] = {}
         self._is_solved: bool = False
         self._cooling_load_table: pd.DataFrame | None = None
 
@@ -65,21 +65,21 @@ class VentilationZone:
         dP_ATD_d:
             Design pressure difference of the ATDs in the zone (see EN 12831-1
             (2017), B.2.12).
-        v_leak: float
+        v_leak:
             Pressure exponent for air leakages (see EN 12831-1 (2017), B.2.13).
-        f_fac: float
+        f_fac:
             Adjustment factor for the number of wind exposed facades of the zone
-            (see EN 12831-1 (2017), B.2.15). The default value applies to
-            more than 1 exposed facade.
-        f_V: float
+            (see EN 12831-1 (2017), B.2.15). The default value applies to 1 wind
+            exposed facade.
+        f_V:
             Coefficient for the volume flow ratio of the zone (see EN 12831-1
             (2017), B.2.11, Table B.8). The default value applies to more than
-            1 exposed facade, height of the zone above ground level between 0
+            1 external facade, height of the zone above ground level between 0
             and 50 m, normal shielding, and a zone height between 5 and 10 m.
-        f_dir: float
+        f_dir:
             Factor for the orientation of the zone (see EN 12831-1 (2017),
             B.2.14). Default value according to B.2.14.
-        f_iz: Quantity
+        f_iz:
             Ratio between the minimum air volume flow rates of single
             conditioned spaces and the air volume flow of the entire zone (see
             EN 12831-1 (2017), B.2.9, Table B.5). The default value applies
@@ -100,9 +100,9 @@ class VentilationZone:
         obj.f_iz = f_iz
         return obj
 
-    def add_thermal_zone(self, *thz: ConditionedZone) -> None:
-        """Adds a conditioned zone (or multiple zones) to the ventilation zone."""
-        for thz_ in thz: thz_.vez = self
+    def add_thermal_zone(self, *thz: FixedTemperatureZone) -> None:
+        """Adds a thermal zone (or multiple zones) to the ventilation zone."""
+        for thz_ in thz: thz_.ventilation_zone = self
         self.thermal_zones.update({thz_.ID: thz_ for thz_ in thz})
 
     def get_cooling_load_table(
@@ -167,31 +167,32 @@ class VentilationZone:
         return V
 
     @property
-    def V_dot_ATD_d(self) -> float:
+    def V_dot_ATD_d(self) -> Quantity:
         """Design air volume flow rate in m³/h of the ATDs in the ventilation
         zone (EN 12831-1, Annex B.2.12). This is optional: only required when
         ATDs are present.
         """
         V_dot_ATD_d = sum(
-            space.ventilation.V_dot_ATD_d
+            space.local_ventilation.V_dot_ATD_d.m
             for space in self.thermal_zones.values()
         )
-        return V_dot_ATD_d
+        return Q_(V_dot_ATD_d, 'm**3 / hr')
 
     @property
-    def V_dot_ATD_50(self) -> float:
+    def V_dot_ATD_50(self) -> Quantity:
         """Airflow rate in m³/h into the ventilation zone through ATDs at a
         pressure difference of 50 Pa (EN 12831-1 eq. 30).
         """
-        return self.V_dot_ATD_d * (50.0 / self.dP_ATD_d) ** self.v_leak
+        V_dot_ATD_50 = self.V_dot_ATD_d.m * (50.0 / self.dP_ATD_d) ** self.v_leak
+        return Q_(V_dot_ATD_50, 'm**3 / hr')
 
     @property
     def f_ez(self) -> float:
         """Adjustment factor taking into account the additional pressure 
         difference due to unbalanced ventilation (EN 12831-1 eq. 29).
         """
-        n = self.V_dot_exh + self.V_dot_comb - self.V_dot_sup
-        d = self.q_env_50 * self.A_env + self.V_dot_ATD_50
+        n = self.V_dot_exh.m + self.V_dot_comb.m - self.V_dot_sup.m
+        d = self.q_env_50 * self.A_env + self.V_dot_ATD_50.m
         try:
             return 1 / (1 + (self.f_fac / self.f_V) * (n / d) ** 2)
         except ZeroDivisionError:
@@ -204,46 +205,47 @@ class VentilationZone:
         return A_env
 
     @property
-    def V_dot_exh(self) -> float:
+    def V_dot_exh(self) -> Quantity:
         """Exhaust airflow rate in m³/h from the ventilation zone."""
         V_dot_exh = sum(
-            space.ventilation.V_dot_exh
+            space.local_ventilation.V_dot_exh.m
             for space in self.thermal_zones.values()
         )
-        return V_dot_exh
+        return Q_(V_dot_exh, 'm**3 / hr')
 
     @property
-    def V_dot_comb(self) -> float:
+    def V_dot_comb(self) -> Quantity:
         """Combustion airflow rate in m³/h into the ventilation zone."""
         V_dot_comb = sum(
-            space.ventilation.V_dot_comb
+            space.local_ventilation.V_dot_comb.m
             for space in self.thermal_zones.values()
         )
-        return V_dot_comb
+        return Q_(V_dot_comb, 'm**3 / hr')
 
     @property
-    def V_dot_sup(self) -> float:
+    def V_dot_sup(self) -> Quantity:
         """Supply airflow rate in m³/h into the ventilation zone."""
         V_dot_sup = sum(
-            space.ventilation.V_dot_sup
+            space.local_ventilation.V_dot_sup.m
             for space in self.thermal_zones.values()
         )
-        return V_dot_sup
+        return Q_(V_dot_sup, 'm**3 / hr')
 
     @property
-    def V_dot_inf_add(self) -> float:
+    def V_dot_inf_add(self) -> Quantity:
         """Airflow rate in m³/h due to additional infiltration into the
         ventilation zone, determined based on the air permeability (parameter
         `q_env_50`) and the airflow rate through ATDs (property `V_dot_ATD_50`).
         (EN 12831-1 eq. 28)
         """
-        return (
-            (self.q_env_50 * self.A_env + self.V_dot_ATD_50)
+        V_dot_inf_add = (
+            (self.q_env_50 * self.A_env + self.V_dot_ATD_50.m)
             * self.f_V * self.f_ez
         )
+        return Q_(V_dot_inf_add, 'm**3 / hr')
 
     @property
-    def V_dot_env(self) -> float:
+    def V_dot_env(self) -> Quantity:
         """External airflow rate in m³/h into the ventilation zone through the
         building envelope, determined taking into consideration the exhaust and
         supply airflow rates, the demand for combustion air and the airflow rate
@@ -251,10 +253,10 @@ class VentilationZone:
         """
         V_dot_env = max(
             self.V_dot_exh + self.V_dot_comb - self.V_dot_sup,
-            0.0
+            Q_(0.0, 'm**3 / hr')
         )
         V_dot_env += self.V_dot_inf_add
-        return V_dot_env
+        return V_dot_env.to('m**3 / hr')
 
     @property
     def a_ATD(self) -> float:
@@ -265,20 +267,22 @@ class VentilationZone:
         """
         V_dot_leakage_50 = self.q_env_50 * self.A_env
         try:
-            return self.V_dot_ATD_50 / (self.V_dot_ATD_50 + V_dot_leakage_50)
+            return self.V_dot_ATD_50.m / (self.V_dot_ATD_50.m + V_dot_leakage_50)
         except ZeroDivisionError:
             return 0.0
 
     @property
-    def V_dot_leak(self) -> float:
+    def V_dot_leak(self) -> Quantity:
         """External airflow rate in m³/h into the ventilation zone through
         leakages (EN 12831-1 eq. 20).
         """
-        return (1 - self.a_ATD) * self.V_dot_env
+        V_dot_leak = (1 - self.a_ATD) * self.V_dot_env
+        return V_dot_leak.to('m**3 / hr')
 
     @property
-    def V_dot_ATD(self) -> float:
+    def V_dot_ATD(self) -> Quantity:
         """External airflow rate in m³/h into the ventilation zone through ATDs
         (EN 12831-1 eq. 21).
         """
-        return self.a_ATD * self.V_dot_env
+        V_dot_ATD = self.a_ATD * self.V_dot_env
+        return V_dot_ATD.to('m**3 / hr')

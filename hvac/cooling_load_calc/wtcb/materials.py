@@ -1,9 +1,11 @@
 """
 01. BUILDING MATERIALS
-Creates building materials and adds them to the material shelf that we can use
-to create construction assemblies.
+
+In function `main()` building materials are created and stored on the material
+shelf (see '../shelves/material_shelf.py').
 """
 import pandas as pd
+
 from hvac.cooling_load_calc.shelves import MaterialShelf
 from hvac.cooling_load_calc.wtcb.setup import db_path
 

@@ -1,9 +1,11 @@
 """
 02.A. CONSTRUCTION ASSEMBLIES: EXTERIOR WALLS
-Creates the construction assemblies and saves them on the construction assembly
-shelf.
+
+Collection of functions that create the construction assemblies for exterior
+walls contained in the WTCB catalog (see /docs/wtcb_catalog/wtcb_catalog.pdf).
+
+Function names end with the sheet number from the WTCB catalog.
 """
-import pandas as pd
 from hvac import Quantity
 from hvac.cooling_load_calc.core import (
     Geometry,
@@ -16,11 +18,8 @@ from hvac.cooling_load_calc.core import (
     ConstructionAssembly
 )
 from hvac.cooling_load_calc.core.utils import AirLayerTemperatureSolver
-from hvac.cooling_load_calc.wtcb.setup import (
-    MaterialShelf,
-    ConstructionAssemblyShelf,
-    db_path
-)
+from hvac.cooling_load_calc.wtcb.setup import MaterialShelf
+
 
 Q_ = Quantity
 
@@ -86,7 +85,7 @@ def _create_air_layer(
 # ------------------------------------------------------------------------------
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
-def create_ext_wall_wtcb_F1(
+def create_ext_wall_F1(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -135,7 +134,7 @@ def create_ext_wall_wtcb_F1(
         t=Q_(5, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F1_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F1',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -175,7 +174,7 @@ def create_ext_wall_wtcb_F1(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F2(
+def create_ext_wall_F2(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -216,7 +215,6 @@ def create_ext_wall_wtcb_F2(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-
     air_space, T_asp = _create_air_layer(
         T_ext=T_ext,
         T_int=T_int,
@@ -224,9 +222,8 @@ def create_ext_wall_wtcb_F2(
         R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
         t=Q_(5, 'cm')
     )
-
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F2_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F2',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -263,7 +260,7 @@ def create_ext_wall_wtcb_F2(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F3(
+def create_ext_wall_F3(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -312,7 +309,7 @@ def create_ext_wall_wtcb_F3(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F3_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F3',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -349,7 +346,7 @@ def create_ext_wall_wtcb_F3(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F4(
+def create_ext_wall_F4(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -398,7 +395,7 @@ def create_ext_wall_wtcb_F4(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F4_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F4',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -435,7 +432,7 @@ def create_ext_wall_wtcb_F4(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F5
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F5(
+def create_ext_wall_F5(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -484,7 +481,7 @@ def create_ext_wall_wtcb_F5(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F5_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ext-wall-wtcb-F5',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -521,7 +518,7 @@ def create_ext_wall_wtcb_F5(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F6
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F6(
+def create_ext_wall_F6(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -570,7 +567,7 @@ def create_ext_wall_wtcb_F6(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F6_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F6',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -607,7 +604,7 @@ def create_ext_wall_wtcb_F6(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F7
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F7(
+def create_ext_wall_F7(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -656,7 +653,7 @@ def create_ext_wall_wtcb_F7(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F7_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F7',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -693,7 +690,7 @@ def create_ext_wall_wtcb_F7(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F8
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F8(
+def create_ext_wall_F8(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -742,7 +739,7 @@ def create_ext_wall_wtcb_F8(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F8_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F8',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -779,7 +776,7 @@ def create_ext_wall_wtcb_F8(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F9
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F9(
+def create_ext_wall_F9(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -828,7 +825,7 @@ def create_ext_wall_wtcb_F9(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F9_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F9',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -865,7 +862,7 @@ def create_ext_wall_wtcb_F9(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F10
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F10(
+def create_ext_wall_F10(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -914,7 +911,7 @@ def create_ext_wall_wtcb_F10(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F10_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F10',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -951,7 +948,7 @@ def create_ext_wall_wtcb_F10(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F11
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F11(
+def create_ext_wall_F11(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1000,7 +997,7 @@ def create_ext_wall_wtcb_F11(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F11_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F11',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -1037,7 +1034,7 @@ def create_ext_wall_wtcb_F11(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F12
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F12(
+def create_ext_wall_F12(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1086,7 +1083,7 @@ def create_ext_wall_wtcb_F12(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F12_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F12',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -1123,7 +1120,7 @@ def create_ext_wall_wtcb_F12(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F13
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F13(
+def create_ext_wall_F13(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1172,7 +1169,7 @@ def create_ext_wall_wtcb_F13(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F13_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F13',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -1209,7 +1206,7 @@ def create_ext_wall_wtcb_F13(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F14
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F14(
+def create_ext_wall_F14(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1262,7 +1259,7 @@ def create_ext_wall_wtcb_F14(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F14_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F14',
         layers=[
             ext_surf_film,
             wood_siding,
@@ -1300,12 +1297,10 @@ def create_ext_wall_wtcb_F14(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F15
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F15(
+def create_ext_wall_F15(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
-    T_asp: Quantity = Q_(10, 'degC'),
-    dT_asp: Quantity = Q_(5, 'K'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     ext_surf_film = SurfaceFilm.create(
@@ -1325,15 +1320,7 @@ def create_ext_wall_wtcb_F15(
             c=Q_(1.17, 'kJ / (kg * K)')
         )
     )
-    air_space = AirLayer.create(
-        ID='air_space',
-        geometry=Geometry(t=Q_(5.0, 'cm')),
-        dT=dT_asp,
-        heat_flow_dir=HeatFlowDirection.HORIZONTAL,
-        T_mn=T_asp,
-        surf_emissivities=(Q_(0.9, 'frac'), Q_(0.9, 'frac')),
-        angle=Q_(0.0, 'deg')
-    )
+    # air_space: see below
     insulation = SolidLayer.create(
         ID='insulation',
         geometry=Geometry(t=Q_(6, 'cm')),
@@ -1355,8 +1342,15 @@ def create_ext_wall_wtcb_F15(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
+    air_space, T_asp = _create_air_layer(
+        T_ext=T_ext,
+        T_int=T_int,
+        R_ea=ext_surf_film.R + wood_siding.R,
+        R_ai=insulation.R + inner_leaf.R + gypsum_layer.R + int_surf_film.R,
+        t=Q_(5.0, 'cm')
+    )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F15_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F15',
         layers=[
             ext_surf_film,
             wood_siding,
@@ -1394,7 +1388,7 @@ def create_ext_wall_wtcb_F15(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F16
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F16(
+def create_ext_wall_F16(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1443,7 +1437,7 @@ def create_ext_wall_wtcb_F16(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F16_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F16',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -1479,7 +1473,7 @@ def create_ext_wall_wtcb_F16(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F17
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F17(
+def create_ext_wall_F17(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1532,7 +1526,7 @@ def create_ext_wall_wtcb_F17(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F17_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F17',
         layers=[
             ext_surf_film,
             wood_siding,
@@ -1569,7 +1563,7 @@ def create_ext_wall_wtcb_F17(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F18
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F18(
+def create_ext_wall_F18(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1610,7 +1604,7 @@ def create_ext_wall_wtcb_F18(
         T_mn=T_int
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F18_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F18',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -1640,7 +1634,7 @@ def create_ext_wall_wtcb_F18(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F19
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F19(
+def create_ext_wall_F19(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1681,7 +1675,7 @@ def create_ext_wall_wtcb_F19(
         T_mn=T_int
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F19_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F19',
         layers=[
             ext_surf_film,
             outer_leaf,
@@ -1711,7 +1705,7 @@ def create_ext_wall_wtcb_F19(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F20
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F20(
+def create_ext_wall_F20(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1752,7 +1746,7 @@ def create_ext_wall_wtcb_F20(
         T_mn=T_int
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F20_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F20',
         layers=[
             ext_surf_film,
             cement_plastering,
@@ -1782,7 +1776,7 @@ def create_ext_wall_wtcb_F20(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F21
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F21(
+def create_ext_wall_F21(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1823,7 +1817,7 @@ def create_ext_wall_wtcb_F21(
         T_mn=T_int
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F21_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F21',
         layers=[
             ext_surf_film,
             cement_plastering,
@@ -1853,7 +1847,7 @@ def create_ext_wall_wtcb_F21(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F22
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F22(
+def create_ext_wall_F22(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1906,7 +1900,7 @@ def create_ext_wall_wtcb_F22(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F22_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F22',
         layers=[
             ext_surf_film,
             vinyl_siding,
@@ -1943,7 +1937,7 @@ def create_ext_wall_wtcb_F22(
 # EXTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F23
 # ------------------------------------------------------------------------------
 
-def create_ext_wall_wtcb_F23(
+def create_ext_wall_F23(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -1996,7 +1990,7 @@ def create_ext_wall_wtcb_F23(
         t=Q_(5.0, 'cm')
     )
     ext_wall = ConstructionAssembly.create(
-        ID=f'ext_wall_wtcb_F22_t_ins={t_ins.to("cm"):~P.0f}',
+        ID='ext-wall-wtcb-F23',
         layers=[
             ext_surf_film,
             vinyl_siding,
@@ -2030,71 +2024,100 @@ def create_ext_wall_wtcb_F23(
 
 
 # ------------------------------------------------------------------------------
+class ExteriorWallCatalog:
+    """Class that bundles the functions to create construction assemblies of
+    exterior walls.
+    """
+    def __init__(
+        self,
+        t_ins: Quantity = Q_(10, 'cm'),
+        T_ext: Quantity = Q_(0, 'degC'),
+        T_int: Quantity = Q_(20, 'degC'),
+        v_wind: Quantity = Q_(4, 'm / s')
+    ) -> None:
+        """Creates an instance of `ExteriorWallCatalog`.
 
-def main():
-    # Set insulation thickness:
-    t_ins = Q_(12, 'cm')
+        Parameters
+        ----------
+        t_ins:
+            Thickness of the insulation layer.
+        T_ext:
+            The outdoor air design temperature.
+        T_int:
+            The indoor air design temperature.
+        v_wind:
+            Design value for the wind speed.
+        """
+        self._d = {
+            'F1': create_ext_wall_F1,
+            'F2': create_ext_wall_F2,
+            'F3': create_ext_wall_F3,
+            'F4': create_ext_wall_F4,
+            'F5': create_ext_wall_F5,
+            'F6': create_ext_wall_F6,
+            'F7': create_ext_wall_F7,
+            'F8': create_ext_wall_F8,
+            'F9': create_ext_wall_F9,
+            'F10': create_ext_wall_F10,
+            'F11': create_ext_wall_F11,
+            'F12': create_ext_wall_F12,
+            'F13': create_ext_wall_F13,
+            'F14': create_ext_wall_F14,
+            'F15': create_ext_wall_F15,
+            'F16': create_ext_wall_F16,
+            'F17': create_ext_wall_F17,
+            'F18': create_ext_wall_F18,
+            'F19': create_ext_wall_F19,
+            'F20': create_ext_wall_F20,
+            'F21': create_ext_wall_F21,
+            'F22': create_ext_wall_F22,
+            'F23': create_ext_wall_F23
+        }
+        self.t_ins = t_ins
+        self.T_ext = T_ext
+        self.T_int = T_int
+        self.v_wind = v_wind
 
-    ca_ext_wall_wtcb_F1 = create_ext_wall_wtcb_F1(t_ins)
-    ca_ext_wall_wtcb_F2 = create_ext_wall_wtcb_F2(t_ins)
-    ca_ext_wall_wtcb_F3 = create_ext_wall_wtcb_F3(t_ins)
-    ca_ext_wall_wtcb_F4 = create_ext_wall_wtcb_F4(t_ins)
-    ca_ext_wall_wtcb_F5 = create_ext_wall_wtcb_F5(t_ins)
-    ca_ext_wall_wtcb_F6 = create_ext_wall_wtcb_F6(t_ins)
-    ca_ext_wall_wtcb_F7 = create_ext_wall_wtcb_F7(t_ins)
-    ca_ext_wall_wtcb_F8 = create_ext_wall_wtcb_F8(t_ins)
-    ca_ext_wall_wtcb_F9 = create_ext_wall_wtcb_F9(t_ins)
-    ca_ext_wall_wtcb_F10 = create_ext_wall_wtcb_F10(t_ins)
-    ca_ext_wall_wtcb_F11 = create_ext_wall_wtcb_F11(t_ins)
-    ca_ext_wall_wtcb_F12 = create_ext_wall_wtcb_F12(t_ins)
-    ca_ext_wall_wtcb_F13 = create_ext_wall_wtcb_F13(t_ins)
-    ca_ext_wall_wtcb_F14 = create_ext_wall_wtcb_F14(t_ins)
-    ca_ext_wall_wtcb_F15 = create_ext_wall_wtcb_F15(t_ins)
-    ca_ext_wall_wtcb_F16 = create_ext_wall_wtcb_F16(t_ins)
-    ca_ext_wall_wtcb_F17 = create_ext_wall_wtcb_F17(t_ins)
-    ca_ext_wall_wtcb_F18 = create_ext_wall_wtcb_F18(t_ins)
-    ca_ext_wall_wtcb_F19 = create_ext_wall_wtcb_F19(t_ins)
-    ca_ext_wall_wtcb_F20 = create_ext_wall_wtcb_F20(t_ins)
-    ca_ext_wall_wtcb_F21 = create_ext_wall_wtcb_F21(t_ins)
-    ca_ext_wall_wtcb_F22 = create_ext_wall_wtcb_F22(t_ins)
-    ca_ext_wall_wtcb_F23 = create_ext_wall_wtcb_F23(t_ins)
+    def __call__(
+        self,
+        ID: str,
+        t_ins: Quantity | None = None,
+        T_ext: Quantity | None = None,
+        T_int: Quantity | None = None,
+        v_wind: Quantity | None = None
+    ) -> ConstructionAssembly:
+        """Creates the construction assembly of the exterior wall indicated by
+        `ID`. `ID` refers to the sheet number in the WTCB catalog
+        (see /docs/wtcb_catalog/wtcb_catalog.pdf).
 
-    ConstructionAssemblyShelf.add(
-        ca_ext_wall_wtcb_F1,
-        ca_ext_wall_wtcb_F2,
-        ca_ext_wall_wtcb_F3,
-        ca_ext_wall_wtcb_F4,
-        ca_ext_wall_wtcb_F5,
-        ca_ext_wall_wtcb_F6,
-        ca_ext_wall_wtcb_F7,
-        ca_ext_wall_wtcb_F8,
-        ca_ext_wall_wtcb_F9,
-        ca_ext_wall_wtcb_F10,
-        ca_ext_wall_wtcb_F11,
-        ca_ext_wall_wtcb_F12,
-        ca_ext_wall_wtcb_F13,
-        ca_ext_wall_wtcb_F14,
-        ca_ext_wall_wtcb_F15,
-        ca_ext_wall_wtcb_F16,
-        ca_ext_wall_wtcb_F17,
-        ca_ext_wall_wtcb_F18,
-        ca_ext_wall_wtcb_F19,
-        ca_ext_wall_wtcb_F20,
-        ca_ext_wall_wtcb_F21,
-        ca_ext_wall_wtcb_F22,
-        ca_ext_wall_wtcb_F23
-    )
-
-    with pd.option_context(
-            'display.max_rows', None,
-            'display.max_columns', None,
-            'display.width', None,
-            'display.colheader_justify', 'center'
-    ):
-        print(ConstructionAssemblyShelf.overview(detailed=True))
-
-    ConstructionAssemblyShelf.export_to_excel(str(db_path / 'construction_assemblies.ods'))
+        Parameters
+        ----------
+        ID:
+            Sheet number of the exterior wall in the WTCB catalog.
+        t_ins:
+            Thickness of the insulation layer. Overrides the value assigned on
+            instantiation of the `ExteriorWallCatalog` class.
+        T_ext:
+            The outdoor air design temperature. Overrides the value assigned on
+            instantiation of the `ExteriorWallCatalog` class.
+        T_int:
+            The indoor air design temperature. Overrides the value assigned on
+            instantiation of the `ExteriorWallCatalog` class.
+        v_wind:
+            Design value for the wind speed. Overrides the value assigned on
+            instantiation of the `ExteriorWallCatalog` class.
+        """
+        if ID in self._d.keys():
+            t_ins = t_ins if t_ins is not None else self.t_ins
+            T_ext = T_ext if T_ext is not None else self.T_ext
+            T_int = T_int if T_int is not None else self.T_int
+            v_wind = v_wind if v_wind is not None else self.v_wind
+            return self._d[ID](t_ins, T_ext, T_int, v_wind)
+        else:
+            raise KeyError('ID unknown')
 
 
 if __name__ == '__main__':
-    main()
+    catalog = ExteriorWallCatalog(T_ext=Q_(32, 'degC'), T_int=Q_(26, 'degC'))
+    ext_wall = catalog('F1', t_ins=Q_(12, 'cm'))
+    print(ext_wall)

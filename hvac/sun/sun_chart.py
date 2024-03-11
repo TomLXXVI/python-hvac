@@ -56,7 +56,7 @@ class SunPath:
         tl = [sr]
         tl += [
             t
-            for h in range(0, 24) for m in range(0, 30)
+            for h in range(0, 24) for m in range(0, 60, 30)
             if sr < (t := Time(h, m, 0)) < ss
         ]
         tl += [ss]

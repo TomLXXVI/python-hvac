@@ -1,9 +1,11 @@
 """
 02.D. CONSTRUCTION ASSEMBLIES: INTERIOR WALLS
-Creates construction assemblies and stores them on the construction assembly
-shelf.
+
+Collection of functions that create the construction assemblies for interior
+walls contained in the WTCB catalog (see /docs/wtcb_catalog/wtcb_catalog.pdf).
+
+Function names end with the sheet number from the WTCB catalog.
 """
-import pandas as pd
 from hvac import Quantity
 from hvac.cooling_load_calc.core import (
     Geometry,
@@ -14,11 +16,7 @@ from hvac.cooling_load_calc.core import (
     ConstructionAssembly
 )
 
-from hvac.cooling_load_calc.wtcb.setup import (
-    MaterialShelf,
-    ConstructionAssemblyShelf,
-    db_path
-)
+from hvac.cooling_load_calc.wtcb.setup import MaterialShelf
 
 Q_ = Quantity
 
@@ -27,7 +25,7 @@ Q_ = Quantity
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F1(
+def create_int_wall_F1(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -38,11 +36,14 @@ def create_int_wall_wtcb_F1(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_adj,
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     wall = SolidLayer.create(
         ID='wall',
         geometry=Geometry(t=Q_(9, 'cm')),
@@ -59,25 +60,21 @@ def create_int_wall_wtcb_F1(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F1_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            insulation,
-            wall,
-            gypsum_layer,
-            int_surf_film
-        ]
-    )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        layers = [adj_surf_film, insulation, wall, gypsum_layer, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_layer, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F1', layers)
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -85,7 +82,7 @@ def create_int_wall_wtcb_F1(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F2(
+def create_int_wall_F2(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -96,11 +93,14 @@ def create_int_wall_wtcb_F2(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_adj,
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     wall = SolidLayer.create(
         ID='wall',
         geometry=Geometry(t=Q_(14, 'cm')),
@@ -117,25 +117,21 @@ def create_int_wall_wtcb_F2(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F2_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            insulation,
-            wall,
-            gypsum_layer,
-            int_surf_film
-        ]
-    )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        layers = [adj_surf_film, insulation, wall, gypsum_layer, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_layer, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F2', layers)
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -143,7 +139,7 @@ def create_int_wall_wtcb_F2(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F3(
+def create_int_wall_F3(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -154,11 +150,14 @@ def create_int_wall_wtcb_F3(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_adj
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     wall = SolidLayer.create(
         ID='wall',
         geometry=Geometry(t=Q_(10, 'cm')),
@@ -175,25 +174,21 @@ def create_int_wall_wtcb_F3(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F3_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            insulation,
-            wall,
-            gypsum_layer,
-            int_surf_film
-        ]
-    )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        layers = [adj_surf_film, insulation, wall, gypsum_layer, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_layer, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F3', layers)
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -201,7 +196,7 @@ def create_int_wall_wtcb_F3(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F4(
+def create_int_wall_F4(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -212,11 +207,14 @@ def create_int_wall_wtcb_F4(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_adj,
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     wall = SolidLayer.create(
         ID='wall',
         geometry=Geometry(t=Q_(20, 'cm')),
@@ -233,25 +231,21 @@ def create_int_wall_wtcb_F4(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F4_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            insulation,
-            wall,
-            gypsum_layer,
-            int_surf_film
-        ]
-    )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        layers = [adj_surf_film, insulation, wall, gypsum_layer, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_layer, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F4', layers)
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -259,7 +253,7 @@ def create_int_wall_wtcb_F4(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F5
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F5(
+def create_int_wall_F5(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -270,11 +264,14 @@ def create_int_wall_wtcb_F5(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_adj
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     wall = SolidLayer.create(
         ID='wall',
         geometry=Geometry(t=Q_(9.0, 'cm')),
@@ -291,25 +288,21 @@ def create_int_wall_wtcb_F5(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F5_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            insulation,
-            wall,
-            gypsum_layer,
-            int_surf_film
-        ]
-    )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        layers = [adj_surf_film, insulation, wall, gypsum_layer, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_layer, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F5', layers)
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -317,7 +310,7 @@ def create_int_wall_wtcb_F5(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F6
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F6(
+def create_int_wall_F6(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -328,11 +321,14 @@ def create_int_wall_wtcb_F6(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_adj
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     wall = SolidLayer.create(
         ID='wall',
         geometry=Geometry(t=Q_(14, 'cm')),
@@ -349,25 +345,21 @@ def create_int_wall_wtcb_F6(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F6_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            insulation,
-            wall,
-            gypsum_layer,
-            int_surf_film
-        ]
-    )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        layers = [adj_surf_film, insulation, wall, gypsum_layer, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_layer, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F6', layers)
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -375,7 +367,7 @@ def create_int_wall_wtcb_F6(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F7
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F7(
+def create_int_wall_F7(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -386,11 +378,14 @@ def create_int_wall_wtcb_F7(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_adj
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     wall = SolidLayer.create(
         ID='wall',
         geometry=Geometry(t=Q_(14, 'cm')),
@@ -407,25 +402,24 @@ def create_int_wall_wtcb_F7(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
+    if insulation is not None:
+        layers = [adj_surf_film, insulation, wall, gypsum_layer, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_layer, int_surf_film]
     int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F7_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            insulation,
-            wall,
-            gypsum_layer,
-            int_surf_film
-        ]
+        ID=f'int_wall_wtcb_F7',
+        layers=layers
     )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -433,7 +427,7 @@ def create_int_wall_wtcb_F7(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F8
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F8(
+def create_int_wall_F8(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -449,11 +443,14 @@ def create_int_wall_wtcb_F8(
         geometry=Geometry(t=Q_(14, 'cm')),
         material=MaterialShelf.load('expanded-clay-solid-block')
     )
-    insulation = SolidLayer.create(
-        ID='insulation',
-        geometry=Geometry(t=t_ins),
-        material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
-    )
+    if t_ins:
+        insulation = SolidLayer.create(
+            ID='insulation',
+            geometry=Geometry(t=t_ins),
+            material=MaterialShelf.load('mineral-wool-glass-fibre-cover-sheet-22kg/m3')
+        )
+    else:
+        insulation = None
     gypsum_board = SolidLayer.create(
         ID='gypsum_board',
         geometry=Geometry(t=Q_(1.5, 'cm')),
@@ -465,25 +462,21 @@ def create_int_wall_wtcb_F8(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F8_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            wall,
-            insulation,
-            gypsum_board,
-            int_surf_film
-        ]
-    )
-    int_wall = int_wall.apply_insulation_correction(
-        insulation_layer_ID=insulation.ID,
-        insulation_level=2,
-        mechanical_fastening=MechanicalFastening.create(
-            number_per_unit_area=Q_(4, '1 / m ** 2'),
-            insulation_thickness=t_ins,
-            length=t_ins
+    if insulation is not None:
+        layers = [adj_surf_film, wall, insulation, gypsum_board, int_surf_film]
+    else:
+        layers = [adj_surf_film, wall, gypsum_board, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F8', layers)
+    if insulation is not None:
+        int_wall = int_wall.apply_insulation_correction(
+            insulation_layer_ID=insulation.ID,
+            insulation_level=2,
+            mechanical_fastening=MechanicalFastening.create(
+                number_per_unit_area=Q_(4, '1 / m ** 2'),
+                insulation_thickness=t_ins,
+                length=t_ins
+            )
         )
-    )
     return int_wall
 
 
@@ -491,7 +484,7 @@ def create_int_wall_wtcb_F8(
 # INTERIOR WALL CONSTRUCTION ASSEMBLY WTCB F9
 # ------------------------------------------------------------------------------
 
-def create_int_wall_wtcb_F9(
+def create_int_wall_F9(
     t_ins: Quantity,
     T_adj: Quantity = Q_(10, 'degC'),
     T_int: Quantity = Q_(20, 'degC')
@@ -530,16 +523,8 @@ def create_int_wall_wtcb_F9(
         heat_flow_dir=HeatFlowDirection.HORIZONTAL,
         T_mn=T_int
     )
-    int_wall = ConstructionAssembly.create(
-        ID=f'int_wall_wtcb_F9_t_ins={t_ins.to("cm"):~P.0f}',
-        layers=[
-            adj_surf_film,
-            gypsum_board_01,
-            insulation,
-            gypsum_board_02,
-            int_surf_film
-        ]
-    )
+    layers = [adj_surf_film, gypsum_board_01, insulation, gypsum_board_02, int_surf_film]
+    int_wall = ConstructionAssembly.create('int_wall_wtcb_F9', layers)
     int_wall = int_wall.apply_insulation_correction(
         insulation_layer_ID=insulation.ID,
         insulation_level=2,
@@ -549,43 +534,77 @@ def create_int_wall_wtcb_F9(
 
 
 # ------------------------------------------------------------------------------
+class InteriorWallCatalog:
+    """Class that bundles the functions to create construction assemblies of
+    interior walls.
+    """
+    def __init__(
+        self,
+        t_ins: Quantity = Q_(10, 'cm'),
+        T_adj: Quantity = Q_(0, 'degC'),
+        T_int: Quantity = Q_(20, 'degC'),
+    ) -> None:
+        """Creates an instance of `InteriorWallCatalog`.
 
-def main():
-    t_ins = Q_(6, 'cm')
+        Parameters
+        ----------
+        t_ins:
+            Thickness of the insulation layer.
+        T_adj:
+            The air design temperature in the adjacent space.
+        T_int:
+            The indoor air design temperature.
+        """
+        self._d = {
+            'F1': create_int_wall_F1,
+            'F2': create_int_wall_F2,
+            'F3': create_int_wall_F3,
+            'F4': create_int_wall_F4,
+            'F5': create_int_wall_F5,
+            'F6': create_int_wall_F6,
+            'F7': create_int_wall_F7,
+            'F8': create_int_wall_F8,
+            'F9': create_int_wall_F9
+        }
+        self.t_ins = t_ins
+        self.T_adj = T_adj
+        self.T_int = T_int
 
-    ca_int_wall_wtcb_F1 = create_int_wall_wtcb_F1(t_ins)
-    ca_int_wall_wtcb_F2 = create_int_wall_wtcb_F2(t_ins)
-    ca_int_wall_wtcb_F3 = create_int_wall_wtcb_F3(t_ins)
-    ca_int_wall_wtcb_F4 = create_int_wall_wtcb_F4(t_ins)
-    ca_int_wall_wtcb_F5 = create_int_wall_wtcb_F5(t_ins)
-    ca_int_wall_wtcb_F6 = create_int_wall_wtcb_F6(t_ins)
-    ca_int_wall_wtcb_F7 = create_int_wall_wtcb_F7(t_ins)
-    ca_int_wall_wtcb_F8 = create_int_wall_wtcb_F8(t_ins)
-    ca_int_wall_wtcb_F9 = create_int_wall_wtcb_F9(t_ins)
+    def __call__(
+        self,
+        ID: str,
+        t_ins: Quantity | None = None,
+        T_adj: Quantity | None = None,
+        T_int: Quantity | None = None,
+    ) -> ConstructionAssembly:
+        """Creates the construction assembly of the interior wall indicated by
+        `ID`. `ID` refers to the sheet number in the WTCB catalog
+        (see /docs/wtcb_catalog/wtcb_catalog.pdf).
 
-    ConstructionAssemblyShelf.add(
-        ca_int_wall_wtcb_F1,
-        ca_int_wall_wtcb_F2,
-        ca_int_wall_wtcb_F3,
-        ca_int_wall_wtcb_F4,
-        ca_int_wall_wtcb_F5,
-        ca_int_wall_wtcb_F6,
-        ca_int_wall_wtcb_F7,
-        ca_int_wall_wtcb_F8,
-        ca_int_wall_wtcb_F9
-    )
-
-    with pd.option_context(
-            'display.max_rows', None,
-            'display.max_columns', None,
-            'display.width', None,
-            'display.colheader_justify', 'center'
-    ):
-        print(ConstructionAssemblyShelf.overview(detailed=True))
-
-    ConstructionAssemblyShelf.export_to_excel(str(db_path / 'construction_assemblies.ods'))
+        Parameters
+        ----------
+        ID:
+            Sheet number of the exterior wall in the WTCB catalog.
+        t_ins:
+            Thickness of the insulation layer. Overrides the value assigned on
+            instantiation of the `InteriorWallCatalog` class.
+        T_adj:
+            The air design temperature of the adjacent space. Overrides the
+            value assigned on instantiation of the `InteriorWallCatalog` class.
+        T_int:
+            The indoor air design temperature. Overrides the value assigned on
+            instantiation of the `InteriorWallCatalog` class.
+        """
+        if ID in self._d.keys():
+            t_ins = t_ins if t_ins is not None else self.t_ins
+            T_adj = T_adj if T_adj is not None else self.T_adj
+            T_int = T_int if T_int is not None else self.T_int
+            return self._d[ID](t_ins, T_adj, T_int)
+        else:
+            return ValueError('ID unknown')
 
 
 if __name__ == '__main__':
-    main()
-    
+    catalog = InteriorWallCatalog(T_adj=Q_(26, 'degC'), T_int=Q_(24, 'degC'))
+    iw = catalog('F9', t_ins=Q_(8, 'cm'))
+    print(iw)

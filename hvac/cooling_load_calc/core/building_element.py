@@ -1,19 +1,22 @@
 from __future__ import annotations
+
 from typing import Callable
+
 import pandas as pd
+
 from hvac import Quantity
-from .weather_data import WeatherData, ExteriorSurface
 from .construction_assembly import ConstructionAssembly
-from .thermal_models import (
-    ExteriorBuildingElementLTN,
-    ExteriorBuildingElementLTNBuilder
-)
 from .fenestration import (
     WindowThermalProperties,
     Window,
     ExteriorShadingDevice,
     InteriorShadingDevice
 )
+from .thermal_models import (
+    ExteriorBuildingElementLTN,
+    ExteriorBuildingElementLTNBuilder
+)
+from .weather_data import WeatherData, ExteriorSurface
 
 Q_ = Quantity
 
@@ -53,7 +56,7 @@ class ExteriorBuildingElement:
     def create(
         cls,
         ID: str,
-        T_zone: Callable[[float], float],
+        T_zone: Callable[[float], Quantity],
         constr_assem: ConstructionAssembly,
         gross_area: Quantity,
         weather_data: WeatherData,
@@ -217,7 +220,10 @@ class ExteriorBuildingElement:
                 dt_hr=dt_hr,
                 T_ext=self._ext_surf.T_sa,
                 T_zone=self.T_zone,
-                init_values=[[self._ext_surf.T_sa(0)] * len(self.ltn) for _ in range(2)],
+                init_values=[
+                    [self._ext_surf.T_sa(0)]
+                    * len(self.ltn) for _ in range(2)
+                ],
                 num_cycles=num_cycles
             )
             if units is None:

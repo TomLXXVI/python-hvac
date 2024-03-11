@@ -25,7 +25,7 @@ from hvac.cooling_load_calc import (
     AirLayer,
     ConstructionAssembly,
     WindowThermalProperties,
-    ConditionedZone,
+    FixedTemperatureZone,
     ExteriorBuildingElement,
     VentilationZone,
     WeatherData,
@@ -360,7 +360,7 @@ class BuildingConstructor:
     roof: ConstructionAssembly
 
     @classmethod
-    def construct(cls, space: ConditionedZone, is_heavy: bool = False) -> None:
+    def construct(cls, space: FixedTemperatureZone, is_heavy: bool = False) -> None:
         """Takes the given space and adds the building envelope around it.
         With the boolean parameter `is_heavy`, we can still make a choice
         between either a heavy-weight (concrete exterior walls), or a
@@ -432,7 +432,7 @@ class BuildingConstructor:
 
     @staticmethod
     def _construct_north_wall(
-        space: ConditionedZone,
+        space: FixedTemperatureZone,
         constr_assem: ConstructionAssembly
     ) -> None:
         """Adds the north wall to the building envelope of the space."""
@@ -450,7 +450,7 @@ class BuildingConstructor:
 
     @staticmethod
     def _construct_west_wall(
-        space: ConditionedZone,
+        space: FixedTemperatureZone,
         constr_assem: ConstructionAssembly
     ) -> None:
         """Adds the west wall to the building envelope of the space."""
@@ -469,7 +469,7 @@ class BuildingConstructor:
 
     @staticmethod
     def _construct_east_wall(
-        space: ConditionedZone,
+        space: FixedTemperatureZone,
         constr_assem: ConstructionAssembly
     ) -> None:
         """Adds the east wall to the building envelope of the space."""
@@ -487,7 +487,7 @@ class BuildingConstructor:
 
     @staticmethod
     def _construct_roof(
-        space: ConditionedZone,
+        space: FixedTemperatureZone,
         constr_assem: ConstructionAssembly
     ) -> None:
         """Adds the roof to the building envelope of the space."""
@@ -518,7 +518,7 @@ class BuildingConstructor:
         )
 
     @staticmethod
-    def _add_interior_thermal_mass(space: ConditionedZone) -> None:
+    def _add_interior_thermal_mass(space: FixedTemperatureZone) -> None:
         """Adds interior thermal mass to the space."""
         space.add_thermal_storage_node(
             A=space.floor_area,
@@ -541,7 +541,7 @@ class BuildingModeler:
         num_people_max: int = 200,
         num_people_min: int = 100,
         is_heavy_construction: bool = False
-    ) -> ConditionedZone:
+    ) -> FixedTemperatureZone:
         """
         Creates and returns the thermal model of our single-zone exposition hall.
 
@@ -587,7 +587,7 @@ class BuildingModeler:
         setpoint_schedule: Callable[[float], Quantity],
         people_heat_gain: PeopleHeatGain,
         is_heavy_construction: bool = False
-    ) -> ConditionedZone:
+    ) -> FixedTemperatureZone:
         """
         Creates and returns the single space of the building.
 
@@ -608,7 +608,7 @@ class BuildingModeler:
             # keep all the default values
         )
         # Create the space:
-        space = ConditionedZone.create(
+        space = FixedTemperatureZone.create(
             ID='exposition_hall',
             weather_data=weather_data,
             T_zone=setpoint_schedule,

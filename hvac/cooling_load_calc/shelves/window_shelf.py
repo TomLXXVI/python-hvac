@@ -1,6 +1,20 @@
-import typing
+"""
+WINDOW THERMAL PROPERTIES SHELF
+
+Implements the class `WindowPropertiesShelf` that encapsulates a Python
+shelf to store `WindowThermalProperties` objects on disk.
+
+Notes
+-----
+Before adding `WindowThermalProperties` objects on the shelf, the path to the
+shelf file must be assigned to the class variable `path` of class
+`MaterialShelf`.
+"""
 import shelve
+import typing
+
 import pandas as pd
+
 from ..core import WindowThermalProperties
 
 

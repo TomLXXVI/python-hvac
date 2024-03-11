@@ -1,6 +1,19 @@
-import typing
+"""
+CONSTRUCTION ASSEMBLY SHELF
+
+Implements the class `ConstructionAssemblyShelf` that encapsulates a Python
+shelf to store `ConstructionAssembly` objects on disk.
+
+Notes
+-----
+Before adding construction assemblies on the shelf, the path to the shelf file
+must be assigned to the class variable `path` of class `MaterialShelf`.
+"""
 import shelve
+import typing
+
 import pandas as pd
+
 from hvac import UNITS
 from ..core import ConstructionAssembly
 

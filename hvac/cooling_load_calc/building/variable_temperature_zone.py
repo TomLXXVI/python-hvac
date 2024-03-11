@@ -1,10 +1,16 @@
 from __future__ import annotations
+import warnings
 from typing import Callable, Sequence
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from hvac import Quantity
-from hvac.fluids import Fluid
+from hvac.cooling_load_calc.building.fixed_temperature_zone import (
+    LocalVentilation
+)
+from hvac.cooling_load_calc.building.ventilation_zone import (
+    VentilationZone
+)
 from hvac.cooling_load_calc.core import (
     ExteriorBuildingElement,
     InternalHeatGain,
@@ -12,15 +18,12 @@ from hvac.cooling_load_calc.core import (
     WeatherData,
     Window
 )
-from hvac.cooling_load_calc.building.conditioned_zone import (
-    SpaceVentilation
-)
-from hvac.cooling_load_calc.building.ventilation_zone import (
-    VentilationZone
-)
 from hvac.cooling_load_calc.core.thermal_models import (
     NodalThermalZoneModel
 )
+from hvac.fluids import Fluid, CoolPropWarning
+
+warnings.filterwarnings('ignore', category=CoolPropWarning)
 
 Q_ = Quantity
 Air = Fluid('Air')
@@ -48,7 +51,7 @@ class VariableTemperatureZone:
         self.ext_build_elems: dict[str, ExteriorBuildingElement] = {}
         self.int_build_elems: dict[str, InteriorBuildingElement] = {}
         self.int_heat_gains: dict[str, InternalHeatGain] = {}
-        self.ventilation: SpaceVentilation | None = None
+        self.local_ventilation: LocalVentilation | None = None
         self.vez: VentilationZone | None = None
         self.tsn: tuple[Quantity, ...] | None = None  # specs of thermal storage node
         self.thz_model: NodalThermalZoneModel | None = None
@@ -180,7 +183,7 @@ class VariableTemperatureZone:
             space; otherwise, it is equal to mean air temperature of the other
             space (see EN 12831-1, 6.3.8.3).
         """
-        self.ventilation = SpaceVentilation.create(
+        self.local_ventilation = LocalVentilation.create(
             thz=self,
             n_min=n_min,
             V_dot_open=V_dot_open,
@@ -438,7 +441,7 @@ class VariableTemperatureZone:
             windows=windows,
             ext_doors=ext_doors,
             int_build_elems=int_build_elems,
-            ventilation=self.ventilation,
+            ventilation=self.local_ventilation,
             Q_dot_sol_cv=lambda t_sol_sec: Q_(Q_dot_sol_cv_interp(t_sol_sec), 'W'),
             Q_dot_sol_rd=lambda t_sol_sec: Q_(Q_dot_sol_rd_interp(t_sol_sec), 'W'),
             Q_dot_ihg_cv=lambda t_sol_sec: Q_(Q_dot_ihg_cv_interp(t_sol_sec), 'W'),
@@ -474,19 +477,19 @@ class VariableTemperatureZone:
         for t_sol_sec, T_zone in zip(t_sol_axis, T_zone_arr):
             T_zone = T_zone.to('degC').m
             Q_dot_vent_ext = (
-                0.34 * self.ventilation.V_dot_ext
-                * (self.ventilation.T_db_ext(t_sol_sec).to('degC').m
+                0.34 * self.local_ventilation.V_dot_ext.m
+                * (self.local_ventilation.T_db_ext(t_sol_sec).to('degC').m
                    - T_zone)
             )
             Q_dot_vent_sup = (
-                0.34 * self.ventilation.V_dot_sup
-                * (self.ventilation.T_sup(t_sol_sec).to('degC').m
+                0.34 * self.local_ventilation.V_dot_sup.m
+                * (self.local_ventilation.T_sup(t_sol_sec).to('degC').m
                    - T_zone)
             )
-            if self.ventilation.T_trf:
+            if self.local_ventilation.T_trf:
                 Q_dot_vent_trf = (
-                    0.34 * self.ventilation.V_dot_trf
-                    * (self.ventilation.T_trf(t_sol_sec).to('degC').m
+                    0.34 * self.local_ventilation.V_dot_trf.m
+                    * (self.local_ventilation.T_trf(t_sol_sec).to('degC').m
                        - T_zone)
                 )
             else:

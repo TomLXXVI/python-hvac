@@ -719,9 +719,9 @@ class ZoneAirNode(TemperatureNode):
             )
         if self.ventilation:
             V_dot = (
-                self.ventilation.V_dot_ext
-                + self.ventilation.V_dot_sup
-                + self.ventilation.V_dot_trf
+                self.ventilation.V_dot_ext.m
+                + self.ventilation.V_dot_sup.m
+                + self.ventilation.V_dot_trf.m
             )
             UA_vent = 0.34 * V_dot
         UA = UA_wnd + UA_edr + UA_ibe + UA_vent
@@ -754,16 +754,16 @@ class ZoneAirNode(TemperatureNode):
             )
         if self.ventilation:
             Q_dot_vent_ext = (
-                0.34 * self.ventilation.V_dot_ext
+                0.34 * self.ventilation.V_dot_ext.m
                 * self.ventilation.T_db_ext(t_sol_sec).to('K').m
             )
             Q_dot_vent_sup = (
-                0.34 * self.ventilation.V_dot_sup
+                0.34 * self.ventilation.V_dot_sup.m
                 * self.ventilation.T_sup(t_sol_sec).to('K').m
             )
             if self.ventilation.T_trf:
                 Q_dot_vent_trf = (
-                    0.34 * self.ventilation.V_dot_trf
+                    0.34 * self.ventilation.V_dot_trf.m
                     * self.ventilation.T_trf(t_sol_sec).to('K').m
                 )
             else:

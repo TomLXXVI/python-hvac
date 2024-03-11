@@ -1,16 +1,17 @@
 """
 EXAMPLE 7
 ---------
-CREATING A UNCONDITIONED ZONE AND SOLVING FOR THE ZONE AIR TEMPERATURE.
+CREATING A VARIABLE TEMPERATURE ZONE AND SOLVING FOR THE ZONE AIR TEMPERATURE.
 
-In an `VariableTemperatureZone` object the zone air temperature is not predetermined
-as in a `ConditionedZone` object. Its value depends on the global heat balance
-of the zone air (i.e., the sum of all heat gains to the zone air and the heat
-extracted from the zone air by the cooling system should ideally be zero).
+In an `VariableTemperatureZone` object the zone air temperature is not
+predetermined as in a `FixedTemperatureZone` object. Its value depends on a
+global heat balance of the zone air (i.e., the sum of all heat gains to the zone
+air and the heat extracted from the zone air by the cooling system should ideally
+be zero).
 
-In this example the resulting zone air temperature is calculated for each hour of
-the specified day of the year in an unconditioned zone which is located at the
-specified geographic location and has no cooling system.
+In this example the resulting zone air temperature is calculated for each hour
+of the specified day of the year in an unconditioned zone which is located at
+the specified geographic location and has no cooling system.
 """
 import pandas as pd
 
@@ -19,9 +20,9 @@ from hvac.sun import Location, ClimateType, ReferenceDates
 from hvac.cooling_load_calc import (
     WeatherData,
     wtcb,
+    shelves,
     ExteriorBuildingElement,
     ConstructionAssembly,
-    HeatFlowDirection,
     VentilationZone
 )
 from hvac.cooling_load_calc import VariableTemperatureZone
@@ -54,12 +55,10 @@ class ExteriorBuildingElements:
         # We use a construction assembly factory function from the `wtcb`
         # subpackage to create a construction assembly with a predefined
         # configuration of the construction layers:
-        constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        constr_assem = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.weather_data.T_db(12),
             T_int=self.T_zone,
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K'),
         )
         # Create the exterior wall:
         ext_wall = ExteriorBuildingElement.create(
@@ -72,8 +71,8 @@ class ExteriorBuildingElements:
             beta=Q_(90, 'deg')
         )
         # Add a window to the exterior wall. We load the window properties
-        # from the wtcb window properties shelf:
-        window_props = wtcb.WindowPropertiesShelf.load(
+        # from the window properties shelf:
+        window_props = shelves.WindowPropertiesShelf.load(
             ID='window-5a-operable-wood/vinyl'
         )
         ext_wall.add_window(
@@ -85,12 +84,10 @@ class ExteriorBuildingElements:
         return ext_wall
 
     def _create_west_wall(self):
-        constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        constr_assem = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.weather_data.T_db(12),
             T_int=self.T_zone,
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K'),
         )
         ext_wall = ExteriorBuildingElement.create(
             ID='west_wall',
@@ -113,10 +110,8 @@ class ExteriorBuildingElements:
         return ext_wall
 
     def _create_north_wall(self):
-        constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        constr_assem = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
-            T_asp=self.T_zone,
-            dT_asp=Q_(10, 'K'),
         )
         ext_wall = ExteriorBuildingElement.create(
             ID='north_wall',
@@ -130,12 +125,9 @@ class ExteriorBuildingElements:
         return ext_wall
 
     def _create_east_wall(self):
-        constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        constr_assem = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.weather_data.T_db(12),
-            T_int=self.T_zone,
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K'),
         )
         ext_wall = ExteriorBuildingElement.create(
             ID='east_wall',
@@ -146,7 +138,7 @@ class ExteriorBuildingElements:
             gamma=Q_(-90, 'deg'),
             beta=Q_(90, 'deg')
         )
-        window_props = wtcb.WindowPropertiesShelf.load(
+        window_props = shelves.WindowPropertiesShelf.load(
             ID='window-5a-operable-wood/vinyl'
         )
         ext_wall.add_window(
@@ -158,13 +150,10 @@ class ExteriorBuildingElements:
         return ext_wall
 
     def _create_roof(self):
-        constr_assem = wtcb.roofs.create_roof_wtcb_F1(
+        constr_assem = wtcb.roofs.create_roof_F1(
             t_ins=Q_(12, 'cm'),
-            heat_flow_dir=HeatFlowDirection.DOWNWARDS,
             T_ext=self.weather_data.T_db(12),
             T_int=self.T_zone,
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K')
         )
         roof = ExteriorBuildingElement.create(
             ID='roof',

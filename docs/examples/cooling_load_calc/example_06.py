@@ -14,10 +14,9 @@ from hvac.sun import Location, ClimateType, ReferenceDates
 from hvac.sun.time import solar_to_clock_time
 from hvac.cooling_load_calc import (
     WeatherData,
-    ConditionedZone,
+    FixedTemperatureZone,
     ExteriorBuildingElement,
     InteriorBuildingElement,
-    HeatFlowDirection,
     ConstructionAssembly,
     VentilationZone,
     OfficeEquipment,
@@ -25,6 +24,7 @@ from hvac.cooling_load_calc import (
     PeopleHeatGain
 )
 from hvac.cooling_load_calc import wtcb
+from hvac.cooling_load_calc import shelves
 from hvac.cooling_load_calc.core.utils import convert_to_solar_seconds
 from hvac.charts import LineChart
 
@@ -103,32 +103,32 @@ def main():
     chart = LineChart()
     chart.add_xy_data(
         label='conduction HG',
-        x1_values=df.index,
-        y1_values=df['Q_dot_cnd'],
+        x1_values=df.index[:-1],
+        y1_values=df['Q_dot_cnd'][:-1],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='solar HG',
-        x1_values=df.index,
-        y1_values=df['Q_dot_sol'],
+        x1_values=df.index[:-1],
+        y1_values=df['Q_dot_sol'][:-1],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='sens. internal HG',
-        x1_values=df.index,
-        y1_values=df['Q_dot_sen_ihg'],
+        x1_values=df.index[:-1],
+        y1_values=df['Q_dot_sen_ihg'][:-1],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='sens. vent. HG',
-        x1_values=df.index,
-        y1_values=df['Q_dot_sen_vent'],
+        x1_values=df.index[:-1],
+        y1_values=df['Q_dot_sen_vent'][:-1],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='sens. zone load',
-        x1_values=df.index,
-        y1_values=df['Q_dot_sen_zone'],
+        x1_values=df.index[:-1],
+        y1_values=df['Q_dot_sen_zone'][:-1],
         style_props={'marker': 'o'}
     )
     chart.add_legend()
@@ -155,7 +155,7 @@ class Office:
         self.T_zone = lambda t: T_zone
 
         # Create a `ConditionedZone` object:
-        self.zone = ConditionedZone.create(
+        self.zone = FixedTemperatureZone.create(
             ID='office',
             weather_data=weather_data,
             T_zone=self.T_zone,
@@ -192,12 +192,10 @@ class Office:
         # We use a construction assembly factory function from the wtcb
         # subpackage to create a construction assembly with a predefined
         # configuration of the construction layers:
-        constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        constr_assem = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.weather_data.T_db(12),
             T_int=self.T_zone(0),
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K'),
         )
         # Create the exterior wall:
         ext_wall = ExteriorBuildingElement.create(
@@ -211,7 +209,7 @@ class Office:
         )
         # Add a window to the exterior wall. We load the window properties
         # from the wtcb window properties shelf:
-        window_props = wtcb.WindowPropertiesShelf.load(
+        window_props = shelves.WindowPropertiesShelf.load(
             ID='window-5a-operable-wood/vinyl'
         )
         ext_wall.add_window(
@@ -225,12 +223,10 @@ class Office:
         return ext_wall
 
     def _create_west_wall(self):
-        constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        constr_assem = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.weather_data.T_db(12),
             T_int=self.T_zone(0),
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K'),
         )
         ext_wall = ExteriorBuildingElement.create(
             ID='west_wall',
@@ -254,7 +250,7 @@ class Office:
         return ext_wall
 
     def _create_north_wall(self):
-        constr_assem = wtcb.interior_walls.create_int_wall_wtcb_F1(
+        constr_assem = wtcb.interior_walls.create_int_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_adj=self.T_zone(0),
             T_int=self.T_zone(0),
@@ -279,12 +275,10 @@ class Office:
         return int_wall
 
     def _create_east_wall(self):
-        constr_assem = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        constr_assem = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.weather_data.T_db(12),
             T_int=self.T_zone(0),
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K'),
         )
         ext_wall = ExteriorBuildingElement.create(
             ID='east_wall',
@@ -295,7 +289,7 @@ class Office:
             gamma=Q_(-90, 'deg'),
             beta=Q_(90, 'deg')
         )
-        window_props = wtcb.WindowPropertiesShelf.load(
+        window_props = shelves.WindowPropertiesShelf.load(
             ID='window-5a-operable-wood/vinyl'
         )
         ext_wall.add_window(
@@ -308,13 +302,10 @@ class Office:
         return ext_wall
 
     def _create_roof(self):
-        constr_assem = wtcb.roofs.create_roof_wtcb_F1(
+        constr_assem = wtcb.roofs.create_roof_F1(
             t_ins=Q_(12, 'cm'),
-            heat_flow_dir=HeatFlowDirection.DOWNWARDS,
             T_ext=self.weather_data.T_db(12),
             T_int=self.T_zone(0),
-            T_asp=self.weather_data.T_db(0),
-            dT_asp=Q_(10, 'K')
         )
         roof = ExteriorBuildingElement.create(
             ID='roof',

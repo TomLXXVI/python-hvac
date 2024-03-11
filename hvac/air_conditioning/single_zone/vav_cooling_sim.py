@@ -8,7 +8,7 @@ import warnings
 from dataclasses import dataclass
 from hvac import Quantity
 from hvac.fluids import HumidAir, Fluid, CoolPropWarning
-from hvac.cooling_load_calc import ConditionedZone
+from hvac.cooling_load_calc import FixedTemperatureZone
 from hvac.air_conditioning import AirConditioningProcess, AirStream, AdiabaticMixing
 from hvac.charts.psychrometric_chart import PsychrometricChart, StatePoint
 from .cooling_design import Output
@@ -702,7 +702,7 @@ class CoolingSimData:
     """
     def __init__(
         self,
-        zone: ConditionedZone,
+        zone: FixedTemperatureZone,
         design_data: DesignData
     ) -> None:
         """Creates an instance of class `CoolingSimData`.

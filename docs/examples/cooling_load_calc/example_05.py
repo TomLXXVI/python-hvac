@@ -14,7 +14,7 @@ from hvac.cooling_load_calc import (
     ExteriorBuildingElement,
     Window
 )
-from hvac.cooling_load_calc.wtcb import WindowPropertiesShelf
+from hvac.cooling_load_calc.shelves import WindowPropertiesShelf
 from hvac.cooling_load_calc.core.utils import convert_to_clock_time
 from hvac.charts import LineChart
 

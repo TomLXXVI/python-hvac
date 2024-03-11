@@ -165,8 +165,8 @@ class InteriorShadingDevice:
 
     Notes
     -----
-    Only in the case of louvered shades 3 IAC values are considered (IAC_0,
-    IAC_60, and IAC_dif). In other cases only 1 IAC value is provided which
+    Only for louvered shades, three IAC values are being considered (IAC_0,
+    IAC_60, and IAC_dif). In other cases there is only one IAC value, which
     applies both to direct and diffuse solar radiation. In these cases it
     suffices to provide only a value to parameter `IAC_dif`.
     """
@@ -387,11 +387,11 @@ class Window:
         if self._int_shading.IAC_60 is not None:
             # louvred shade (slat-type sunshade)
             IAC_x = self._int_shading.IAC_60 - self._int_shading.IAC_0
-            beta = self._ext_surf.alpha_s(t_sol_sec).to('rad').m
-            gamma = self._ext_surf.gamma_ss(t_sol_sec).to('rad').m
-            omega = np.arctan(np.tan(beta) / np.cos(gamma))
+            beta = self._ext_surf.alpha_s(t_sol_sec).to('rad').m  # solar altitude angle
+            gamma = self._ext_surf.gamma_ss(t_sol_sec).to('rad').m  # surface-solar azimuth angle
             if self._int_shading.louver_orient == 'horizontal':
                 # horizontal louvred shade
+                omega = np.arctan(np.tan(beta) / np.cos(gamma))  # vertical profile angle
                 IAC_dir = self._int_shading.IAC_0 + IAC_x * min(1.0, 0.02 * omega)
             else:
                 # vertical louvred shade

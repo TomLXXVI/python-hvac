@@ -27,8 +27,8 @@ from .core import (
     InternalHeatGain
 )
 from .building import (
-    ConditionedZone,
-    SpaceVentilation,
+    FixedTemperatureZone,
+    LocalVentilation,
     VentilationZone,
     VariableTemperatureZone,
     BuildingEntity,

@@ -1,12 +1,13 @@
 from __future__ import annotations
+
+import math
+import shelve
 import typing
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
-import math
-from copy import deepcopy
-import shelve
-from hvac import Quantity
 
+from hvac import Quantity
 
 Q_ = Quantity
 
@@ -217,11 +218,11 @@ class ConstructionLayer:
 
     def __str__(self):
         return (
-            f"Layer '{self.ID}'\n"
-            f"\tt: {self.geometry.t.to('m'):~P.3f}\n"
-            f"\tR: {self.R.to('m ** 2 * K / W'):~P.2f}\n"
-            f"\tC: {self.C.to('J / (m ** 2 * K)'):~P.2f}\n"
-            f"\tnum_slices: {self.num_slices}\n"
+            f"{str(self.__class__.__name__)} '{self.ID}': "
+            f"t = {self.geometry.t.to('m'):~P.3f}, "
+            f"R = {self.R.to('m ** 2 * K / W'):~P.2f}, "
+            f"C = {self.C.to('J / (m ** 2 * K)'):~P.2f}, "
+            f"nodes = {self.num_slices}"
         )
 
 
@@ -767,10 +768,9 @@ class ConstructionAssembly:
         self._building_component.geometry.A = v
 
     def __str__(self):
-        _str = f'Construction assembly: {self.ID}\n'
-        _str += '-' * len(_str[:-1]) + '\n'
+        _str = f'construction assembly: {self.ID}\n'
         for layer_str in (str(layer) for layer in self.layers.values()):
-            _str += layer_str
+            _str += layer_str + '\n'
         return _str
 
     def save(self) -> None:

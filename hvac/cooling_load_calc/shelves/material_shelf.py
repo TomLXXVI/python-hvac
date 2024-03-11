@@ -1,9 +1,21 @@
-import typing
+"""
+BUILDING MATERIALS SHELF
+
+Implements the class `MaterialShelf` that encapsulates a Python shelf to store
+`Material` objects on disk.
+
+Notes
+-----
+Before adding materials on the shelf, the path to the shelf file must be
+assigned to the class variable `path` of class `MaterialShelf`.
+"""
 import shelve
+import typing
+
 import pandas as pd
+
 from hvac import Quantity, UNITS
 from ..core import Material
-
 
 MaterialTuple = tuple[
     str,

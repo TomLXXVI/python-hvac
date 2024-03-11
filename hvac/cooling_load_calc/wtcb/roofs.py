@@ -1,9 +1,9 @@
 """
 02.B. CONSTRUCTION ASSEMBLIES: ROOFS AND CEILINGS
-Creates the construction assemblies and saves them on the construction assembly
-shelf.
+
+Collection of functions that create the construction assemblies for roofs and
+ceilings contained in the WTCB catalog (see /docs/wtcb_catalog/wtcb_catalog.pdf).
 """
-import pandas as pd
 from hvac import Quantity
 from hvac.cooling_load_calc.core import (
     Geometry,
@@ -14,11 +14,8 @@ from hvac.cooling_load_calc.core import (
     ConstructionAssembly
 )
 from hvac.cooling_load_calc.core.utils import AirLayerTemperatureSolver
-from hvac.cooling_load_calc.wtcb.setup import (
-    MaterialShelf,
-    ConstructionAssemblyShelf,
-    db_path
-)
+from hvac.cooling_load_calc.wtcb.setup import MaterialShelf
+
 
 Q_ = Quantity
 
@@ -89,7 +86,7 @@ def _create_air_layer(
 # ------------------------------------------------------------------------------
 # ROOF CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
-def create_roof_wtcb_F1(
+def create_roof_F1(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -145,7 +142,7 @@ def create_roof_wtcb_F1(
         angle=Q_(45, 'deg')
     )
     roof = ConstructionAssembly.create(
-        ID=f'roof_wtcb_F1_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'roof_wtcb_F1',
         layers=[
             ext_surf_film,
             roof_tiles,
@@ -176,7 +173,7 @@ def create_roof_wtcb_F1(
 # ROOF CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_roof_wtcb_F2(
+def create_roof_F2(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -232,7 +229,7 @@ def create_roof_wtcb_F2(
         angle=Q_(45, 'deg')
     )
     roof = ConstructionAssembly.create(
-        ID=f'roof_wtcb_F2_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'roof_wtcb_F2',
         layers=[
             ext_surf_film,
             roof_tiles,
@@ -263,7 +260,7 @@ def create_roof_wtcb_F2(
 # ROOF CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_roof_wtcb_F3(
+def create_roof_F3(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -319,7 +316,7 @@ def create_roof_wtcb_F3(
         angle=Q_(45, 'deg')
     )
     roof = ConstructionAssembly.create(
-        ID=f'roof_wtcb_F3_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'roof_wtcb_F3',
         layers=[
             ext_surf_film,
             roof_tiles,
@@ -350,7 +347,7 @@ def create_roof_wtcb_F3(
 # ROOF CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_roof_wtcb_F4(
+def create_roof_F4(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -414,7 +411,7 @@ def create_roof_wtcb_F4(
     air_layer.ID = 'air_layer'
 
     roof = ConstructionAssembly.create(
-        ID=f'roof_wtcb_F4_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'roof_wtcb_F4',
         layers=[
             ext_surf_film,
             roofing,
@@ -446,7 +443,7 @@ def create_roof_wtcb_F4(
 # ROOF CONSTRUCTION ASSEMBLY WTCB F5
 # ------------------------------------------------------------------------------
 
-def create_roof_wtcb_F5(
+def create_roof_F5(
     t_ins: Quantity,
     T_ext: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
@@ -496,7 +493,7 @@ def create_roof_wtcb_F5(
         T_mn=T_int
     )
     roof = ConstructionAssembly.create(
-        ID=f'roof_wtcb_F5_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'roof_wtcb_F5',
         layers=[
             ext_surf_film,
             roofing,
@@ -523,20 +520,20 @@ def create_roof_wtcb_F5(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F6
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F6(
+def create_ceiling_F6(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     insulation_ = SolidLayer.create(
         ID='insulation_',
@@ -562,7 +559,7 @@ def create_ceiling_wtcb_F6(
         T_mn=T_int
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F6_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F6',
         layers=[
             adj_surf_film,
             insulation,
@@ -582,20 +579,20 @@ def create_ceiling_wtcb_F6(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F7
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F7(
+def create_ceiling_F7(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     insulation_ = SolidLayer.create(
         ID='insulation_',
@@ -621,7 +618,7 @@ def create_ceiling_wtcb_F7(
         T_mn=T_int
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F7_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F7',
         layers=[
             adj_surf_film,
             insulation,
@@ -641,20 +638,20 @@ def create_ceiling_wtcb_F7(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F8
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F8(
+def create_ceiling_F8(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     insulation_ = SolidLayer.create(
         ID='insulation_',
@@ -681,7 +678,7 @@ def create_ceiling_wtcb_F8(
         T_mn=T_int
     )
     air_layer, T_asp = _create_air_layer(
-        T_ext=T_ext,
+        T_ext=T_adj,
         T_int=T_int,
         R_ea=adj_surf_film.R + insulation.R,
         R_ai=gypsum_board.R + int_surf_film.R,
@@ -689,7 +686,7 @@ def create_ceiling_wtcb_F8(
         angle=Q_(0, 'deg')
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F8_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F8',
         layers=[
             adj_surf_film,
             insulation,
@@ -710,20 +707,20 @@ def create_ceiling_wtcb_F8(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F9
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F9(
+def create_ceiling_F9(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     plywood_board = SolidLayer.create(
         ID='plywood_board',
@@ -755,7 +752,7 @@ def create_ceiling_wtcb_F9(
         T_mn=T_int
     )
     air_layer_, T_asp = _create_air_layer(
-        T_ext=T_ext,
+        T_ext=T_adj,
         T_int=T_int,
         R_ea=adj_surf_film.R + plywood_board.R,
         R_ai=insulation.R + gypsum_board.R + int_surf_film.R,
@@ -765,7 +762,7 @@ def create_ceiling_wtcb_F9(
     air_layer = air_layer_ // wood_
     air_layer.ID = 'air_layer'
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F9_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F9',
         layers=[
             adj_surf_film,
             plywood_board,
@@ -787,20 +784,20 @@ def create_ceiling_wtcb_F9(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F10
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F10(
+def create_ceiling_F10(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     plywood_board = SolidLayer.create(
         ID='plywood_board',
@@ -833,7 +830,7 @@ def create_ceiling_wtcb_F10(
         T_mn=T_int
     )
     air_layer_01_, T_asp = _create_air_layer(
-        T_ext=T_ext,
+        T_ext=T_adj,
         T_int=T_int,
         R_ea=adj_surf_film.R + plywood_board.R,
         R_ai=insulation.R + gypsum_board.R + int_surf_film.R,
@@ -843,14 +840,14 @@ def create_ceiling_wtcb_F10(
     air_layer_01 = air_layer_01_ // wood_
     air_layer_01.ID = 'air_layer_01'
     air_layer_02, _ = _create_air_layer(
-        T_ext=T_ext,
+        T_ext=T_adj,
         T_int=T_int,
         R_ea=adj_surf_film.R + plywood_board.R + insulation.R,
         R_ai=gypsum_board.R + int_surf_film.R,
         geometry=Geometry(t=Q_(5, 'cm'))
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F10_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F10',
         layers=[
             adj_surf_film,
             plywood_board,
@@ -873,20 +870,20 @@ def create_ceiling_wtcb_F10(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F11
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F11(
+def create_ceiling_F11(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     insulation = SolidLayer.create(
         ID='insulation',
@@ -910,7 +907,7 @@ def create_ceiling_wtcb_F11(
         T_mn=T_int
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F11_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F11',
         layers=[
             adj_surf_film,
             insulation,
@@ -931,20 +928,20 @@ def create_ceiling_wtcb_F11(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F12
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F12(
+def create_ceiling_F12(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     insulation = SolidLayer.create(
         ID='insulation',
@@ -968,7 +965,7 @@ def create_ceiling_wtcb_F12(
         T_mn=T_int
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F12_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F12',
         layers=[
             adj_surf_film,
             insulation,
@@ -989,20 +986,20 @@ def create_ceiling_wtcb_F12(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F13
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F13(
+def create_ceiling_F13(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     screed_concrete = SolidLayer.create(
         ID='screed_concrete',
@@ -1031,7 +1028,7 @@ def create_ceiling_wtcb_F13(
         T_mn=T_int
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F13_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F13',
         layers=[
             adj_surf_film,
             screed_concrete,
@@ -1053,20 +1050,20 @@ def create_ceiling_wtcb_F13(
 # CEILING CONSTRUCTION ASSEMBLY WTCB F14
 # ------------------------------------------------------------------------------
 
-def create_ceiling_wtcb_F14(
+def create_ceiling_F14(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(15.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
     heat_flow_dir = (
-        HeatFlowDirection.UPWARDS if T_ext < T_int
+        HeatFlowDirection.UPWARDS if T_adj < T_int
         else HeatFlowDirection.DOWNWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     screed_concrete = SolidLayer.create(
         ID='screed_concrete',
@@ -1078,8 +1075,8 @@ def create_ceiling_wtcb_F14(
         geometry=Geometry(t=t_ins),
         material=MaterialShelf.load('polyurethane-sheet-150kg/m3')
     )
-    floor_slabs = SolidLayer.create(
-        ID='floor_slabs',
+    floor_slab = SolidLayer.create(
+        ID='floor_slab',
         geometry=Geometry(t=Q_(12, 'cm')),
         material=MaterialShelf.load('precast-slab-heavy-concrete-t=12cm')
     )
@@ -1095,12 +1092,12 @@ def create_ceiling_wtcb_F14(
         T_mn=T_int
     )
     ceiling = ConstructionAssembly.create(
-        ID=f'ceiling_wtcb_F14_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'ceiling_wtcb_F14',
         layers=[
             adj_surf_film,
             screed_concrete,
             insulation,
-            floor_slabs,
+            floor_slab,
             gypsum_layer,
             int_surf_film
         ]
@@ -1114,52 +1111,157 @@ def create_ceiling_wtcb_F14(
 
 
 # ------------------------------------------------------------------------------
+class RoofCatalog:
+    """Class that bundles the functions to create construction assemblies of
+    roofs.
+    """
+    def __init__(
+        self,
+        t_ins: Quantity = Q_(10, 'cm'),
+        T_ext: Quantity = Q_(0, 'degC'),
+        T_int: Quantity = Q_(20, 'degC'),
+        v_wind: Quantity = Q_(4, 'm / s')
+    ) -> None:
+        """Creates an instance of `RoofCatalog`.
 
-def main():
-    t_ins = Q_(12, 'cm')
+        Parameters
+        ----------
+        t_ins:
+            Thickness of the insulation layer.
+        T_ext:
+            The outdoor air design temperature.
+        T_int:
+            The indoor air design temperature.
+        v_wind:
+            Design value for the wind speed.
+        """
+        self._d = {
+            'F1': create_roof_F1,
+            'F2': create_roof_F2,
+            'F3': create_roof_F3,
+            'F4': create_roof_F4,
+            'F5': create_roof_F5
+        }
+        self.t_ins = t_ins
+        self.T_ext = T_ext
+        self.T_int = T_int
+        self.v_wind = v_wind
 
-    ca_roof_wtcb_F1 = create_roof_wtcb_F1(t_ins)
-    ca_roof_wtcb_F2 = create_roof_wtcb_F2(t_ins)
-    ca_roof_wtcb_F3 = create_roof_wtcb_F3(t_ins)
-    ca_roof_wtcb_F4 = create_roof_wtcb_F4(t_ins)
-    ca_roof_wtcb_F5 = create_roof_wtcb_F5(t_ins)
-    ca_ceiling_wtcb_F6 = create_ceiling_wtcb_F6(t_ins)
-    ca_ceiling_wtcb_F7 = create_ceiling_wtcb_F7(t_ins)
-    ca_ceiling_wtcb_F8 = create_ceiling_wtcb_F8(t_ins)
-    ca_ceiling_wtcb_F9 = create_ceiling_wtcb_F9(t_ins)
-    ca_ceiling_wtcb_F10 = create_ceiling_wtcb_F10(t_ins)
-    ca_ceiling_wtcb_F11 = create_ceiling_wtcb_F11(t_ins)
-    ca_ceiling_wtcb_F12 = create_ceiling_wtcb_F12(t_ins)
-    ca_ceiling_wtcb_F13 = create_ceiling_wtcb_F13(t_ins)
-    ca_ceiling_wtcb_F14 = create_ceiling_wtcb_F14(t_ins)
+    def __call__(
+        self,
+        ID: str,
+        t_ins: Quantity | None = None,
+        T_ext: Quantity | None = None,
+        T_int: Quantity | None = None,
+        v_wind: Quantity | None = None
+    ) -> ConstructionAssembly:
+        """Creates the construction assembly of the roof indicated by `ID`.
+        `ID` refers to the sheet number in the WTCB catalog
+        (see /docs/wtcb_catalog/wtcb_catalog.pdf).
 
-    ConstructionAssemblyShelf.add(
-        ca_roof_wtcb_F1,
-        ca_roof_wtcb_F2,
-        ca_roof_wtcb_F3,
-        ca_roof_wtcb_F4,
-        ca_roof_wtcb_F5,
-        ca_ceiling_wtcb_F6,
-        ca_ceiling_wtcb_F7,
-        ca_ceiling_wtcb_F8,
-        ca_ceiling_wtcb_F9,
-        ca_ceiling_wtcb_F10,
-        ca_ceiling_wtcb_F11,
-        ca_ceiling_wtcb_F12,
-        ca_ceiling_wtcb_F13,
-        ca_ceiling_wtcb_F14
-    )
+        Parameters
+        ----------
+        ID:
+            Sheet number of the roof in the WTCB catalog.
+        t_ins:
+            Thickness of the insulation layer. Overrides the value assigned on
+            instantiation of the `RoofCatalog` class.
+        T_ext:
+            The outdoor air design temperature. Overrides the value assigned on
+            instantiation of the `RoofCatalog` class.
+        T_int:
+            The indoor air design temperature. Overrides the value assigned on
+            instantiation of the `RoofCatalog` class.
+        v_wind:
+            Design value for the wind speed. Overrides the value assigned on
+            instantiation of the `RoofCatalog` class.
+        """
+        if ID in self._d.keys():
+            t_ins = t_ins if t_ins is not None else self.t_ins
+            T_ext = T_ext if T_ext is not None else self.T_ext
+            T_int = T_int if T_int is not None else self.T_int
+            v_wind = v_wind if v_wind is not None else self.v_wind
+            return self._d[ID](t_ins, T_ext, T_int, v_wind)
+        else:
+            raise KeyError('ID unknown')
 
-    with pd.option_context(
-            'display.max_rows', None,
-            'display.max_columns', None,
-            'display.width', None,
-            'display.colheader_justify', 'center'
-    ):
-        print(ConstructionAssemblyShelf.overview(detailed=True))
 
-    ConstructionAssemblyShelf.export_to_excel(str(db_path / 'construction_assemblies.ods'))
+class CeilingCatalog:
+    """Class that bundles the functions to create construction assemblies of
+    ceilings.
+    """
+    def __init__(
+        self,
+        t_ins: Quantity = Q_(10, 'cm'),
+        T_adj: Quantity = Q_(15, 'degC'),
+        T_int: Quantity = Q_(20, 'degC')
+    ) -> None:
+        """Creates an instance of `RoofCatalog`.
+
+        Parameters
+        ----------
+        t_ins:
+            Thickness of the insulation layer.
+        T_adj:
+            The air design temperature in the adjacent space.
+        T_int:
+            The indoor air design temperature.
+        """
+        self._d = {
+            'F6': create_ceiling_F6,
+            'F7': create_ceiling_F7,
+            'F8': create_ceiling_F8,
+            'F9': create_ceiling_F9,
+            'F10': create_ceiling_F10,
+            'F11': create_ceiling_F11,
+            'F12': create_ceiling_F12,
+            'F13': create_ceiling_F13,
+            'F14': create_ceiling_F14
+        }
+        self.t_ins = t_ins
+        self.T_adj = T_adj
+        self.T_int = T_int
+
+    def __call__(
+        self,
+        ID: str,
+        t_ins: Quantity | None = None,
+        T_adj: Quantity | None = None,
+        T_int: Quantity | None = None
+    ) -> ConstructionAssembly:
+        """Creates the construction assembly of the roof indicated by `ID`.
+        `ID` refers to the sheet number in the WTCB catalog
+        (see /docs/wtcb_catalog/wtcb_catalog.pdf).
+
+        Parameters
+        ----------
+        ID:
+            Sheet number of the roof in the WTCB catalog.
+        t_ins:
+            Thickness of the insulation layer. Overrides the value assigned on
+            instantiation of the `CeilingCatalog` class.
+        T_adj:
+            The air design temperature in the adjacent space. Overrides the
+            value assigned on instantiation of the `CeilingCatalog` class.
+        T_int:
+            The indoor air design temperature. Overrides the value assigned on
+            instantiation of the `CeilingCatalog` class.
+        """
+        if ID in self._d.keys():
+            t_ins = t_ins if t_ins is not None else self.t_ins
+            T_adj = T_adj if T_adj is not None else self.T_adj
+            T_int = T_int if T_int is not None else self.T_int
+            return self._d[ID](t_ins, T_adj, T_int)
+        else:
+            raise KeyError('ID unknown')
 
 
 if __name__ == '__main__':
-    main()
+    roof_catalog = RoofCatalog(T_ext=Q_(0, 'degC'), T_int=Q_(20, 'degC'))
+    roof = roof_catalog('F1', t_ins=Q_(12, 'cm'))
+    print(roof)
+
+    ceiling_catalog = CeilingCatalog(t_ins=Q_(18, 'cm'))
+    ceiling = ceiling_catalog('F13')
+    print(ceiling)
+

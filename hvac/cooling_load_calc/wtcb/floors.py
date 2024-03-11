@@ -1,9 +1,11 @@
 """
 02.C. CONSTRUCTION ASSEMBLIES: FLOORS
-Creates construction assemblies and stores them on the construction assemblies
-shelf.
+
+Collection of functions that create the construction assemblies for floors
+contained in the WTCB catalog (see /docs/wtcb_catalog/wtcb_catalog.pdf).
+
+Function names end with the sheet number from the WTCB catalog.
 """
-import pandas as pd
 from hvac import Quantity
 from hvac.cooling_load_calc.core import (
     Geometry,
@@ -12,12 +14,8 @@ from hvac.cooling_load_calc.core import (
     SolidLayer,
     ConstructionAssembly
 )
+from hvac.cooling_load_calc.wtcb.setup import MaterialShelf
 
-from hvac.cooling_load_calc.wtcb.setup import (
-    MaterialShelf,
-    ConstructionAssemblyShelf,
-    db_path
-)
 
 Q_ = Quantity
 
@@ -26,22 +24,22 @@ Q_ = Quantity
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F1
 # ------------------------------------------------------------------------------
 
-def create_floor_wtcb_F1(
+def create_floor_F1(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
     v_wind: Quantity = Q_(4, 'm / s')
 ) -> ConstructionAssembly:
     heat_flow_dir = (
         HeatFlowDirection.DOWNWARDS
-        if T_ext < T_int
+        if T_adj < T_int
         else HeatFlowDirection.UPWARDS
     )
     ext_surf_film = SurfaceFilm.create(
         ID='ext_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext,
+        T_mn=T_adj,
         is_internal_surf=False,
         wind_speed=v_wind
     )
@@ -67,7 +65,7 @@ def create_floor_wtcb_F1(
         T_mn=T_int
     )
     floor = ConstructionAssembly.create(
-        ID=f'floor_wtcb_F1_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'floor_wtcb_F1',
         layers=[
             ext_surf_film,
             floor_slabs,
@@ -91,21 +89,21 @@ def create_floor_wtcb_F1(
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F2
 # ------------------------------------------------------------------------------
 
-def create_floor_wtcb_F2(
+def create_floor_F2(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC')
 ) -> ConstructionAssembly:
     heat_flow_dir = (
         HeatFlowDirection.DOWNWARDS
-        if T_ext < T_int
+        if T_adj < T_int
         else HeatFlowDirection.UPWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext
+        T_mn=T_adj
     )
     concrete_slab = SolidLayer.create(
         ID='concrete_slab',
@@ -129,7 +127,7 @@ def create_floor_wtcb_F2(
         T_mn=T_int
     )
     floor = ConstructionAssembly.create(
-        ID=f'floor_wtcb_F2_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'floor_wtcb_F2',
         layers=[
             adj_surf_film,
             concrete_slab,
@@ -153,21 +151,21 @@ def create_floor_wtcb_F2(
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F3
 # ------------------------------------------------------------------------------
 
-def create_floor_wtcb_F3(
+def create_floor_F3(
     t_ins: Quantity,
-    T_ext: Quantity = Q_(0.0, 'degC'),
+    T_adj: Quantity = Q_(0.0, 'degC'),
     T_int: Quantity = Q_(20.0, 'degC'),
 ) -> ConstructionAssembly:
     heat_flow_dir = (
         HeatFlowDirection.DOWNWARDS
-        if T_ext < T_int
+        if T_adj < T_int
         else HeatFlowDirection.UPWARDS
     )
     adj_surf_film = SurfaceFilm.create(
         ID='adj_surf_film',
         geometry=Geometry(),
         heat_flow_dir=heat_flow_dir,
-        T_mn=T_ext,
+        T_mn=T_adj,
     )
     floor_slab = SolidLayer.create(
         ID='floor_slab',
@@ -191,7 +189,7 @@ def create_floor_wtcb_F3(
         T_mn=T_int
     )
     floor = ConstructionAssembly.create(
-        ID=f'floor_wtcb_F3_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'floor_wtcb_F3',
         layers=[
             adj_surf_film,
             floor_slab,
@@ -215,7 +213,7 @@ def create_floor_wtcb_F3(
 # FLOOR CONSTRUCTION ASSEMBLY WTCB F4
 # ------------------------------------------------------------------------------
 
-def create_floor_wtcb_F4(
+def create_floor_F4(
     t_ins: Quantity,
     T_grd: Quantity,
     T_int: Quantity = Q_(20.0, 'degC')
@@ -247,7 +245,7 @@ def create_floor_wtcb_F4(
         T_mn=T_int
     )
     floor = ConstructionAssembly.create(
-        ID=f'floor_wtcb_F4_t_ins={t_ins.to("cm"):~P.0f}',
+        ID=f'floor_wtcb_F4',
         layers=[
             floor_slab,
             insulation,
@@ -264,32 +262,96 @@ def create_floor_wtcb_F4(
 
 
 # ------------------------------------------------------------------------------
+class FloorCatalog:
+    """Class that bundles the functions to create construction assemblies of
+    floors.
+    """
+    def __init__(
+        self,
+        t_ins: Quantity = Q_(10, 'cm'),
+        T_adj: Quantity = Q_(0, 'degC'),
+        T_int: Quantity = Q_(20, 'degC'),
+        v_wind: Quantity = Q_(4, 'm / s'),
+        T_grd: Quantity = Q_(20, 'degC')
+    ) -> None:
+        """Creates an instance of `FloorCatalog`.
 
-def main():
-    t_ins = Q_(12, 'cm')
+        Parameters
+        ----------
+        t_ins:
+            Thickness of the insulation layer.
+        T_adj:
+            The design air temperature in the adjacent space.
+        T_int:
+            The indoor air design temperature.
+        v_wind:
+            Design value for the wind speed.
+        """
+        self._d = {
+            'F1': create_floor_F1,
+            'F2': create_floor_F2,
+            'F3': create_floor_F3,
+            'F4': create_floor_F4,
+        }
+        self.t_ins = t_ins
+        self.T_adj = T_adj
+        self.T_int = T_int
+        self.v_wind = v_wind
+        self.T_grd = T_grd
 
-    ca_floor_wtcb_F1 = create_floor_wtcb_F1(t_ins)
-    ca_floor_wtcb_F2 = create_floor_wtcb_F2(t_ins)
-    ca_floor_wtcb_F3 = create_floor_wtcb_F3(t_ins)
-    ca_floor_wtcb_F4 = create_floor_wtcb_F4(t_ins, T_grd=Q_(0, 'degC'))
+    def __call__(
+        self,
+        ID: str,
+        t_ins: Quantity | None = None,
+        T_adj: Quantity | None = None,
+        T_int: Quantity | None = None,
+        v_wind: Quantity | None = None,
+        T_grd: Quantity | None = None
+    ) -> ConstructionAssembly:
+        """Creates the construction assembly of the floor indicated by `ID`.
+        `ID` refers to the sheet number in the WTCB catalog
+        (see /docs/wtcb_catalog/wtcb_catalog.pdf).
 
-    ConstructionAssemblyShelf.add(
-        ca_floor_wtcb_F1,
-        ca_floor_wtcb_F2,
-        ca_floor_wtcb_F3,
-        ca_floor_wtcb_F4
-    )
-
-    with pd.option_context(
-            'display.max_rows', None,
-            'display.max_columns', None,
-            'display.width', None,
-            'display.colheader_justify', 'center'
-    ):
-        print(ConstructionAssemblyShelf.overview(detailed=True))
-
-    ConstructionAssemblyShelf.export_to_excel(str(db_path / 'construction_assemblies.ods'))
+        Parameters
+        ----------
+        ID:
+            Sheet number of the floor in the WTCB catalog.
+        t_ins:
+            Thickness of the insulation layer. Overrides the value assigned on
+            instantiation of the `FloorCatalog` class.
+        T_adj:
+            The outdoor air design temperature. Overrides the value assigned on
+            instantiation of the `FloorCatalog` class.
+        T_int:
+            The indoor air design temperature. Overrides the value assigned on
+            instantiation of the `FloorCatalog` class.
+        v_wind:
+            Design value for the wind speed. Overrides the value assigned on
+            instantiation of the `FloorCatalog` class. Only for floor
+            with ID 'F1'.
+        T_grd:
+            Design temperature of the ground under the floor. Overrides the
+            value assigned on instantiation of the `FloorCatalog` class. Only
+            for floor with ID 'F4'.
+        """
+        if ID in self._d.keys():
+            t_ins = t_ins if t_ins is not None else self.t_ins
+            T_adj = T_adj if T_adj is not None else self.T_adj
+            T_int = T_int if T_int is not None else self.T_int
+            v_wind = v_wind if v_wind is not None else self.v_wind
+            T_grd = T_grd if T_grd is not None else self.T_grd
+            if ID == 'F1':
+                return self._d[ID](t_ins, T_adj, T_int, v_wind)
+            elif ID == 'F4':
+                return self._d[ID](t_ins, T_grd, T_int)
+            else:
+                return self._d[ID](t_ins, T_adj, T_int)
+        else:
+            return ValueError('ID unknown')
 
 
 if __name__ == '__main__':
-    main()
+    catalog = FloorCatalog(T_adj=Q_(32, 'degC'), T_int=Q_(26, 'degC'))
+    floor = catalog('F4', t_ins=Q_(12, 'cm'))
+    print(floor)
+

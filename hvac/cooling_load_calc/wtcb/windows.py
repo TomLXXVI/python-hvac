@@ -1,12 +1,10 @@
 """
 03. WINDOW PROPERTIES
-Creates `WindowProperties` objects and stores them on the window properties
-shelf.
 
-Window properties can be found in ASHRAE Fundamentals 2017, Ch. 15, table 4 and
-table 10.
+For window properties, see e.g. ASHRAE Fundamentals 2017, Ch. 15, table 4 and 10.
 """
 import pandas as pd
+
 from hvac import Quantity
 from hvac.cooling_load_calc.core import WindowThermalProperties
 from hvac.cooling_load_calc.wtcb.setup import WindowPropertiesShelf, db_path
@@ -15,7 +13,9 @@ Q_ = Quantity
 
 
 def create_window_5a() -> WindowThermalProperties:
-    # Operable window, wood/vinyl with uncoated double glazing, CLR-CLR
+    """Creates the `WindowThermalProperties` object for an operable window,
+    wood/vinyl with uncoated double glazing, CLR-CLR.
+    """
     wnd_props = WindowThermalProperties(
         ID='window-5a-operable-wood/vinyl',
         U=Q_(2.86, 'W / (m ** 2 * K)'),
@@ -34,10 +34,18 @@ def create_window_5a() -> WindowThermalProperties:
 
 
 def main():
+    """Runs the functions above to create the `WindowThermalProperties` objects
+    and store them on the `WindowPropertiesShelf`. The path to this shelf is set
+    in module `setup` of the `wtcb` subpackage. An overview of the window
+    properties on the shelf is written to a spreadsheet file 'windows.ods' in
+    the same directory as the shelf.
+    """
     wnd_5a = create_window_5a()
 
     WindowPropertiesShelf.add(wnd_5a)
 
+    # Print on screen an overview of the window properties that are stored on
+    # the shelf.
     with pd.option_context(
         'display.max_rows', None,
         'display.max_columns', None,
