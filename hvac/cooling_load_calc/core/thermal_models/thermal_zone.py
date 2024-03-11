@@ -33,7 +33,7 @@ if TYPE_CHECKING:
         ExteriorBuildingElement,
         InteriorBuildingElement
     )
-    from hvac.cooling_load_calc.building.conditioned_zone import SpaceVentilation
+    from hvac.cooling_load_calc.building.fixed_temperature_zone import LocalVentilation
 
 
 Q_ = Quantity
@@ -584,7 +584,7 @@ class ZoneAirNode(TemperatureNode):
         self.windows: list[Window] | None = None
         self.ext_doors: list[ExteriorBuildingElement] | None = None
         self.int_build_elems: list[InteriorBuildingElement] | None = None
-        self.ventilation: SpaceVentilation | None = None
+        self.ventilation: LocalVentilation | None = None
         self.Q_dot_sol_cv: Callable[[float], Quantity] | None = None
         self.Q_dot_ihg_cv: Callable[[float], Quantity] | None = None
         self.Q_dot_sys: Callable[[float, ...], Quantity] | None = None
@@ -601,7 +601,7 @@ class ZoneAirNode(TemperatureNode):
         windows: list[Window] | None = None,
         ext_doors: list[ExteriorBuildingElement] | None = None,
         int_build_elems: list[InteriorBuildingElement] | None = None,
-        ventilation: SpaceVentilation | None = None,
+        ventilation: LocalVentilation | None = None,
         Q_dot_sol_cv: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_cv: Callable[[float], Quantity] | None = None,
         Q_dot_sys: Callable[[float, ...], Quantity] | None = None
@@ -810,7 +810,7 @@ class NodalThermalZoneModelBuilder:
         windows: list[Window] | None = None,
         ext_doors: list[ExteriorBuildingElement] | None = None,
         int_build_elems: list[InteriorBuildingElement] | None = None,
-        ventilation: SpaceVentilation | None = None,
+        ventilation: LocalVentilation | None = None,
         Q_dot_sol_cv: Callable[[float], Quantity] | None = None,
         Q_dot_sol_rd: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_cv: Callable[[float], Quantity] | None = None,
@@ -1124,7 +1124,7 @@ class NodalThermalZoneModel:
         windows: list[Window] | None = None,
         ext_doors: list[ExteriorBuildingElement] | None = None,
         int_build_elems: list[InteriorBuildingElement] | None = None,
-        ventilation: SpaceVentilation | None = None,
+        ventilation: LocalVentilation | None = None,
         Q_dot_sol_cv: Callable[[float], Quantity] | None = None,
         Q_dot_sol_rd: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_cv: Callable[[float], Quantity] | None = None,
