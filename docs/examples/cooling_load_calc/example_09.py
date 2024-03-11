@@ -1,7 +1,7 @@
 """
 EXAMPLE 09
 ----------
-SIMULATION OF AN "UNCONDITIONED" ZONE WITH AN AIR COOLING COIL.
+SIMULATION OF A SPACE EQUIPPED WITH AN AIR COOLING COIL.
 
 The class `VariableTemperatureZone` represents a thermal model of a zone (a space or
 a single-zone building) in which the zone air temperature is not fixed, but
@@ -59,8 +59,8 @@ from hvac.cooling_load_calc import (
     WeatherData,
     ExteriorBuildingElement,
     wtcb,
+    shelves,
     ConstructionAssembly,
-    HeatFlowDirection,
     VariableTemperatureZone,
     VentilationZone
 )
@@ -203,23 +203,17 @@ class SomeZone:
             # elements:
             T_int = self.T_zone_des.to('K')
             T_ext = self.weather_data.T_db_max.to('K')
-            T_asp = (T_int + T_ext) / 2
-            self.constr_assem_wall = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+            self.constr_assem_wall = wtcb.exterior_walls.create_ext_wall_F1(
                 t_ins=Q_(12, 'cm'),
                 T_ext=T_ext,
                 T_int=T_int,
-                T_asp=T_asp,
-                dT_asp=Q_(5, 'K'),
             )
-            self.constr_assem_roof = wtcb.roofs.create_roof_wtcb_F1(
+            self.constr_assem_roof = wtcb.roofs.create_roof_F1(
                 t_ins=Q_(16, 'cm'),
-                heat_flow_dir=HeatFlowDirection.DOWNWARDS,
                 T_ext=T_ext,
                 T_int=T_int,
-                T_asp=T_asp,
-                dT_asp=Q_(5, 'K')
             )
-            self.window_props = wtcb.WindowPropertiesShelf.load(
+            self.window_props = shelves.WindowPropertiesShelf.load(
                 ID='window-5a-operable-wood/vinyl'
             )
             # Create the exterior building elements:
@@ -298,7 +292,7 @@ class SomeZone:
                 gamma=Q_(-90, 'deg'),
                 beta=Q_(90, 'deg')
             )
-            window_props = wtcb.WindowPropertiesShelf.load(
+            window_props = shelves.WindowPropertiesShelf.load(
                 ID='window-5a-operable-wood/vinyl'
             )
             ext_wall.add_window(
@@ -341,7 +335,7 @@ class SomeZone:
             # characteristics of the interior thermal mass in the space:
             C_tsn=Q_(300, 'kJ / (K * m**2)'),
             A_tsn=floor_area,
-            R_tsn=Q_(0.015, 'K * m**2 / W')
+            R_tsn=Q_(0.15, 'K * m**2 / W')
             # unit thermal resistance between the interior thermal mass and
             # the zone air (determined by the kind of floor covering and the
             # convective thermal resistance between the floor and zone air)

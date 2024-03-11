@@ -1,6 +1,6 @@
 /.idea/
 .ipynb_checkpoints/
 .virtual_documents/
-/node_equations/
 /tryouts/
-/hvac/air_diffusion/notes/
+/hvac/air_diffusion/.notes/
+/hvac/cooling_load_calc/.notes/
