@@ -30,7 +30,7 @@ from hvac.heating_load_calc import ClimateDesignData
 from hvac.cooling_load_calc import (
     WeatherData,
     wtcb,
-    HeatFlowDirection,
+    shelves,
     ExteriorBuildingElement,
     InteriorBuildingElement,
     ConstructionAssembly,
@@ -163,7 +163,7 @@ class ExteriorBuildingElementFactory:
         self._ca_fl = self._create_constr_assem_floor()
 
     def _create_constr_assem_ext_wall(self) -> ConstructionAssembly:
-        ca = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        ca = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.climatic_design_data.T_ext_d,
             T_int=self.T_int_des
@@ -171,19 +171,16 @@ class ExteriorBuildingElementFactory:
         return ca
 
     def _create_constr_assem_roof(self) -> ConstructionAssembly:
-        ca = wtcb.roofs.create_roof_wtcb_F1(
+        ca = wtcb.roofs.create_roof_F1(
             t_ins=Q_(18, 'cm'),
-            heat_flow_dir=HeatFlowDirection.UPWARDS,
             T_ext=self.climatic_design_data.T_ext_d,
             T_int=self.T_int_des
         )
         return ca
 
     def _create_constr_assem_floor(self) -> ConstructionAssembly:
-        ca = wtcb.floors.create_floor_wtcb_F3(
+        ca = wtcb.floors.create_floor_F3(
             t_ins=Q_(8, 'cm'),
-            heat_flow_dir=HeatFlowDirection.DOWNWARDS,
-            T_ext=self.climatic_design_data.T_ext_min,
             T_int=self.T_int_des
         )
         return ca
@@ -295,7 +292,7 @@ class ExteriorBuildingElementFactory:
             ID='skylight',
             width=Q_(5, 'm'),
             height=Q_(5, 'm'),
-            props=wtcb.WindowPropertiesShelf.load('window-5a-operable-wood/vinyl')
+            props=shelves.WindowPropertiesShelf.load('window-5a-operable-wood/vinyl')
         )
         return rf
 

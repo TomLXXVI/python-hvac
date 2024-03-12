@@ -36,24 +36,20 @@ class ConstructionAssemblies:
 
     def __init__(self):
         # exterior walls
-        self.ext_wall_wtcb_f1 = ew.create_ext_wall_wtcb_F1(t_ins=Q_(12, 'cm'))
+        self.ext_wall_wtcb_f1 = ew.create_ext_wall_F1(t_ins=Q_(12, 'cm'))
 
         # interior walls
-        self.int_wall_wtcb_f1 = iw.create_int_wall_wtcb_F1(t_ins=Q_(6, 'cm'))
+        self.int_wall_wtcb_f1 = iw.create_int_wall_F1(t_ins=Q_(6, 'cm'))
         self.int_wall_proj1 = self._create_int_wall_proj1()
 
         # floors
-        self.floor_wtcb_f4 = fl.create_floor_wtcb_F4(
+        self.floor_wtcb_f4 = fl.create_floor_F4(
             t_ins=Q_(12, 'cm'),
-            heat_flow_dir=HeatFlowDirection.DOWNWARDS
+            T_grd=Q_(10, 'degC')
         )
 
         # ceilings
-        self.ceiling_wtcb_f13 = rf.create_ceiling_wtcb_F13(
-            t_ins=Q_(12, 'cm'),
-            heat_flow_dir=HeatFlowDirection.UPWARDS,
-            T_ext=Q_(10, 'degC')
-        )
+        self.ceiling_wtcb_f13 = rf.create_ceiling_F13(t_ins=Q_(12, 'cm'))
 
         # windows
         self.window_ashrae_5a = WindowPropertiesShelf.load('window-5a-operable-wood/vinyl')

@@ -21,9 +21,8 @@ from hvac.heating_load_calc import (
     ClimateDesignData,
     Building,
     ConstructionAssembly,
-    HeatFlowDirection,
 )
-from hvac.cooling_load_calc import wtcb
+from hvac.cooling_load_calc import wtcb, shelves
 
 
 warnings.filterwarnings('ignore', category=CoolPropWarning)
@@ -92,7 +91,7 @@ class ConstructionAssemblyFactory:
         self.T_int_des = T_int_des
 
     def create_exterior_wall(self) -> ConstructionAssembly:
-        ew = wtcb.exterior_walls.create_ext_wall_wtcb_F1(
+        ew = wtcb.exterior_walls.create_ext_wall_F1(
             t_ins=Q_(12, 'cm'),
             T_ext=self.climatic_design_data.T_ext_min,
             T_int=self.T_int_des
@@ -100,19 +99,16 @@ class ConstructionAssemblyFactory:
         return ew
 
     def create_roof(self) -> ConstructionAssembly:
-        rf = wtcb.roofs.create_roof_wtcb_F1(
+        rf = wtcb.roofs.create_roof_F1(
             t_ins=Q_(18, 'cm'),
-            heat_flow_dir=HeatFlowDirection.UPWARDS,
             T_ext=self.climatic_design_data.T_ext_d,
             T_int=self.T_int_des
         )
         return rf
 
     def create_floor(self) -> ConstructionAssembly:
-        fl = wtcb.floors.create_floor_wtcb_F3(
+        fl = wtcb.floors.create_floor_F3(
             t_ins=Q_(8, 'cm'),
-            heat_flow_dir=HeatFlowDirection.DOWNWARDS,
-            T_ext=self.climatic_design_data.T_ext_min,
             T_int=self.T_int_des
         )
         return fl
@@ -192,7 +188,7 @@ class SomeSingleZoneBuilding:
         self.roof.add_building_element(
             ID='skylight',
             area=Q_(25, 'm**2'),
-            constr_assem=wtcb.WindowPropertiesShelf.load('window-5a-operable-wood/vinyl'),
+            constr_assem=shelves.WindowPropertiesShelf.load('window-5a-operable-wood/vinyl'),
         )
 
     def get_design_load_info(self) -> DesignInfo:

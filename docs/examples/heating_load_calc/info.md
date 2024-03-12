@@ -1,3 +1,5 @@
+TODO: the information in this file is not fully up to date anymore! 
+
 <!-- TOC -->
 * [Heating Load Calculation of a House](#heating-load-calculation-of-a-house)
   * [Construction assembly](#construction-assembly)
@@ -11,7 +13,7 @@
     * [Window Properties Shelf](#window-properties-shelf)
   * [Building Elements](#building-elements)
   * [Building Hierarchy](#building-hierarchy)
-  * [Programming a Heat Load Calculation](#programming-a-heat-load-calculation)
+  * [Programming a Heat Load Calculation](#programming-a-heat-load-calculation-)
     * [1. Imports](#1-imports)
     * [2. Set up the Shelves](#2-set-up-the-shelves)
     * [3. Create the Construction Assemblies](#3-create-the-construction-assemblies)
