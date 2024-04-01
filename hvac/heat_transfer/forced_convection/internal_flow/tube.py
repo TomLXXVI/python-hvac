@@ -749,7 +749,7 @@ def find_volume_flow_rate(
     of `V_dot_max` above the previous upper limit. If no solution is found after
     10 trials, a `ValueError` is raised.
     """
-    dp_goal = dp.to('Pa').m
+    dp_target = dp.to('Pa').m
     V_dot_i = Q_(1.e-9, 'm ** 3 / s').m
     V_dot_f = V_dot_max.to('m ** 3 / s').m
     V_dot_incr = V_dot_f / 10
@@ -757,8 +757,8 @@ def find_volume_flow_rate(
 
     def _eq(V_dot: float) -> float:
         tube.V_dot = Q_(V_dot, 'm ** 3 / s')
-        dp = tube.pressure_drop().to('Pa').m
-        return dp_goal - dp
+        dp_ = tube.pressure_drop().to('Pa').m
+        return dp_target - dp_
 
     i = 0
     while i <= max_iter:

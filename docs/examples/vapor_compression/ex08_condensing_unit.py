@@ -97,8 +97,8 @@ class CondensingUnit:
         at the condenser for the given operating conditions.
         """
         # Set compressor parameters:
-        self.compressor.Te = T_evp
-        self.compressor.Tc = T_cnd
+        self.compressor.T_evp = T_evp
+        self.compressor.T_cnd = T_cnd
         self.compressor.speed = self.n_cmp
         self.compressor.dT_sh = self.dT_sh
         # Note: passing the degree of superheat to the compressor allows the
@@ -111,7 +111,7 @@ class CondensingUnit:
             air_in=self.air_in,
             rfg_in=self.compressor.discharge_gas
         )
-        return self.compressor.Wc_dot, self.condenser.Q_dot
+        return self.compressor.W_dot, self.condenser.Q_dot
 
 
 # Condenser model:
@@ -130,7 +130,7 @@ condenser = Condenser(
 # Compressor model:
 compressor = VariableSpeedCompressor(
     coeff_file=Path("./compressor_data/VTZ054-G_R134a.csv"),
-    refrigerant_type=R134a,
+    refrigerant=R134a,
     units={'m_dot': 'kg / hr', 'speed': '1 / s'}
 )
 

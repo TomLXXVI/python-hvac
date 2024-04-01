@@ -89,7 +89,7 @@ def main():
 
     # Print the total amount of thermal energy delivered by the heating system
     # to the zone air:
-    _, Q_sys = building.zone.get_system_heat_transfer()
+    _, Q_sys = building.zone._collect_system_heat_transfer()
     print(
         f"Thermal energy delivered to the zone by the heating system "
         f"= {Q_sys.to('kWh'):~P.3f}"
@@ -328,12 +328,12 @@ class HeatingSystem:
         )
         # Configure the on/off controller:
         self.controller = OnOffController(
-            SP=Q_(22, 'degC'),
-            HL_offset=Q_(0.5, 'K'),
-            LL_offset=Q_(0.5, 'K'),
-            PV_range=(Q_(0, 'degC'), Q_(50, 'degC')),
+            setpoint=Q_(22, 'degC'),
+            upper_limit=Q_(0.5, 'K'),
+            lower_limit=Q_(0.5, 'K'),
+            measuring_range=(Q_(0, 'degC'), Q_(50, 'degC')),
             dt=Q_(1/6, 'hr'),  # --> time step of the control action
-            ctrl_dir='inverse'
+            control_action='inverse'
         )
         # Set the number of panel radiators in the zone:
         self.num_rad: int = 4
@@ -471,7 +471,7 @@ class SomeSingleZoneBuilding:
             num_cycles=15,
             dt_hr=1/6  # calculation time step = 10 min
         )
-        return self.zone.temperature_heat_gain_table()
+        return self.zone._collect_results()
 
 
 if __name__ == '__main__':

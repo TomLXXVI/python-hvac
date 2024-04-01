@@ -68,7 +68,7 @@ def create_machine() -> SingleStageVaporCompressionMachine:
     # Create the compressor model
     compressor = VariableSpeedCompressor(
         coeff_file=Path("./compressor_data/VTZ054-G_R134a.csv"),
-        refrigerant_type=R134a,
+        refrigerant=R134a,
         units={'m_dot': 'kg / hr', 'speed': '1 / s'}
     )
 

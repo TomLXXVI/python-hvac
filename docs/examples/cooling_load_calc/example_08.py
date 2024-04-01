@@ -363,7 +363,12 @@ class BuildingConstructor:
     roof: ConstructionAssembly
 
     @classmethod
-    def construct(cls, space: FixedTemperatureZone, is_heavy: bool = False) -> None:
+    def construct(
+        cls,
+        space: FixedTemperatureZone,
+        T_zone_des: Quantity,
+        is_heavy: bool = False
+    ) -> None:
         """Takes the given space and adds the building envelope around it.
         With the boolean parameter `is_heavy`, we can still make a choice
         between either a heavy-weight (concrete exterior walls), or a
@@ -379,7 +384,7 @@ class BuildingConstructor:
         # exterior wall, (2) for a heavy-weight exterior wall, and (3) for the
         # roof.
         cls._create_construction_assemblies(
-            T_int=space.T_zone_des,
+            T_int=T_zone_des,
             T_ext=space.weather_data.T_db_avg
         )
         # Depending on the choice made between a light-weight or heavy-weight
@@ -578,6 +583,7 @@ class BuildingModeler:
         )
         space = cls._create_single_zone(
             weather_data=weather_data,
+            T_zone_des=T_comfort,
             setpoint_schedule=setpoint_schedule,
             people_heat_gain=people_heat_gain,
             is_heavy_construction=is_heavy_construction
@@ -587,6 +593,7 @@ class BuildingModeler:
     @staticmethod
     def _create_single_zone(
         weather_data: WeatherData,
+        T_zone_des: Quantity,
         setpoint_schedule: Callable[[float], Quantity],
         people_heat_gain: PeopleHeatGain,
         is_heavy_construction: bool = False
@@ -599,6 +606,8 @@ class BuildingModeler:
         weather_data:
             The weather data valid for the peak summer design-day (or any
             other day of the year).
+        T_zone_des:
+            Design value of the zone air temperature.
         setpoint_schedule:
             Time schedule to change the setpoint of the interior space air
             temperature between "comfort" and "economy".
@@ -617,11 +626,14 @@ class BuildingModeler:
             T_zone=setpoint_schedule,
             floor_area=Q_(28.02 * 18.68, 'm**2'),
             height=Q_(6.0, 'm'),
-            T_zone_des=Q_(26, 'degC'),
             ventilation_zone=vez
         )
         # Create the building envelope around the space:
-        BuildingConstructor.construct(space, is_heavy=is_heavy_construction)
+        BuildingConstructor.construct(
+            space,
+            T_zone_des=T_zone_des,
+            is_heavy=is_heavy_construction
+        )
         # Add the people heat gain to the space:
         space.add_internal_heat_gain(people_heat_gain)
         # Add ventilation and air infiltration tot the space:

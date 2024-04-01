@@ -1,4 +1,3 @@
-from typing import Optional, Dict, Union, Tuple, List
 from enum import IntEnum
 from dataclasses import dataclass
 import pandas as pd
@@ -36,7 +35,7 @@ class TimeSegment:
         The lower and upper hour of the time segment.
     """
     label: str
-    limits: Tuple[int, int]
+    limits: tuple[int, int]
 
 
 class BinTableCreator:
@@ -44,7 +43,7 @@ class BinTableCreator:
     the hourly average outside air temperature of each hour of every day of the
     year.
     """
-    _default_time_segments: Dict[str, TimeSegment] = {
+    _default_time_segments: dict[str, TimeSegment] = {
         '0h-4h': TimeSegment('0h-3h', (0, 4)),  # 04:00 not included
         '4h-8h': TimeSegment('4h-7h', (4, 8)),
         '8h-12h': TimeSegment('8h-11h', (8, 12)),
@@ -58,10 +57,10 @@ class BinTableCreator:
         file_path: str,
         date_time_column_name: str,
         temperature_column_name: str,
-        bin_limits: Tuple[Quantity, Quantity] = (Q_(-10, 'degC'), Q_(40, 'degC')),
+        bin_limits: tuple[Quantity, Quantity] = (Q_(-10, 'degC'), Q_(40, 'degC')),
         bin_width: Quantity = Q_(2, 'K'),
         date_time_fmt: str = '%Y%m%d:%H%M',
-        time_segments: Optional[List[TimeSegment]] = None,
+        time_segments: list[TimeSegment] | None = None,
         T_unit: str = 'degC',
     ) -> None:
         """Creates a dictionary of monthly temperature bin tables from a
@@ -98,8 +97,8 @@ class BinTableCreator:
 
         Notes
         -----
-        The temperature unit used in parameter `bin_limits` is the unit in which
-        temperature values in the bin tables are expressed.
+        The temperature unit used in parameter `bin_limits` will be the unit in
+        which temperature values in the bin tables are expressed.
         """
         self._file_path = file_path
         self._date_time_column_name = date_time_column_name
@@ -115,13 +114,13 @@ class BinTableCreator:
             }
         else:
             self.time_segments = self._default_time_segments
-        self._yearly_tmy_data: Optional[pd.DataFrame] = None
+        self._yearly_tmy_data: pd.DataFrame | None = None
+        # noinspection PyUnresolvedReferences
         self._monthly_tmy_data: Optional[pd.DataFrameGroupBy] = None
-        self._monthly_bin_tables: Dict[int, pd.DataFrame] = {}
-
+        self._monthly_bin_tables: dict[int, pd.DataFrame] = {}
         self._create_bin_tables()
 
-    def get_bin_table(self, month: Union[Month, int]) -> pd.DataFrame:
+    def get_bin_table(self, month: Month | int) -> pd.DataFrame:
         """Gets the temperature bin table of the specified month."""
         return self._monthly_bin_tables[month]
 
@@ -193,7 +192,7 @@ class BinTableCreator:
         bin_table = bin_table.sort_index()
         return bin_table
 
-    def _get_time_segment_dict(self, hour_groups) -> Dict[str, pd.DataFrame]:
+    def _get_time_segment_dict(self, hour_groups) -> dict[str, pd.DataFrame]:
         """Arranges the hour groups into time segments."""
 
         # Initialize a dictionary of empty lists of which the keys refer to a

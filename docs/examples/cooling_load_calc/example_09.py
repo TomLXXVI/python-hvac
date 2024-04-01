@@ -12,8 +12,8 @@ which heat is extracted from the zone air by the cooling system in the zone
 (if present).
 
 In this example the cooling system is represented by an air-cooling coil in
-the zone. To model this air-cooling coil, being an air-to-water coil, we will
-use the `PlainFinTubeAirToWaterCounterFlowHeatExchanger` class.
+the zone. To model this air-cooling coil, being an air-to-water coil, the
+class `PlainFinTubeAirToWaterCounterFlowHeatExchanger` is used.
 The cooling capacity of the air-cooling coil depends on the entering water
 temperature, the volume flow rate of water, the entering air temperature, which
 is also the zone air temperature, and the volume flow rate of air through the
@@ -317,8 +317,9 @@ class SomeZone:
             return roof
 
     def __init__(self, weather_data: WeatherData) -> None:
-        """Creates the `VariableTemperatureZone` object and the `SomeAirCoil` object
-        to model the single-zone building, equipped with an air-cooling coil.
+        """Creates the `VariableTemperatureZone` object and the `SomeAirCoil`
+        object to model the single-zone building, equipped with an air-cooling
+        coil.
         """
         width = Q_(10, 'm')   # interior width of the space
         length = Q_(10, 'm')  # interior length of the space
@@ -331,11 +332,14 @@ class SomeZone:
             weather_data=weather_data,
             floor_area=floor_area,
             height=height,
-            ventilation_zone=VentilationZone.create(ID='vez'),
+            ventilation_zone=VentilationZone.create(ID='vez')
+        )
+
+        self.zone.add_thermal_storage_node(
             # characteristics of the interior thermal mass in the space:
-            C_tsn=Q_(300, 'kJ / (K * m**2)'),
-            A_tsn=floor_area,
-            R_tsn=Q_(0.15, 'K * m**2 / W')
+            C=Q_(300, 'kJ / (K * m**2)'),
+            A=floor_area,
+            R_tz=Q_(0.15, 'K * m**2 / W')
             # unit thermal resistance between the interior thermal mass and
             # the zone air (determined by the kind of floor covering and the
             # convective thermal resistance between the floor and zone air)
@@ -362,13 +366,13 @@ class SomeZone:
         )
 
         # Add the exterior building elements to the zone:
-        self.zone.add_ext_build_elem([
+        self.zone.add_ext_build_elem(
             ext_build_elems.south_wall,
             ext_build_elems.west_wall,
             ext_build_elems.north_wall,
             ext_build_elems.east_wall,
             ext_build_elems.roof
-        ])
+        )
 
         # Add default space ventilation to the zone:
         self.zone.add_ventilation()
@@ -419,7 +423,7 @@ class SomeZone:
             dt_hr=1.0,
             num_cycles=15
         )
-        df = self.zone.temperature_heat_gain_table()
+        df = self.zone._collect_results()
         return df
 
 

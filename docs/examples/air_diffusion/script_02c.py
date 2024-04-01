@@ -45,7 +45,7 @@ def main():
 
     # Do the analysis. The needed supply air volume flow rate and supply/room air
     # temperature difference are returned with the other output.
-    sws = SideWallSupply(room, d, K1, Ar_r_crit=5_000)
+    sws = SideWallSupply(room, d, K1, Ar_r_crit=11_000)
     # The critical room Archimedes number depends on the ratio room length to
     # room height: see e.g. Awbi, H. B. (2003). Ventilation of Buildings.
     # Taylor & Francis. p. 246, table 6.2.

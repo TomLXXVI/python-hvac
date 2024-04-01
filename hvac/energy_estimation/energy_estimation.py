@@ -1,7 +1,6 @@
-from typing import List
 import pandas as pd
 from hvac import Quantity
-from .load import Load
+from .load import HeatingLoad
 from .heat_pump import HeatPump
 
 Q_ = Quantity
@@ -12,7 +11,7 @@ class EnergyEstimator:
     def __init__(
         self,
         bin_table: pd.DataFrame,
-        loads: List[Load],
+        loads: list[HeatingLoad],
         heat_pump: HeatPump | None = None
     ) -> None:
         """
@@ -34,17 +33,21 @@ class EnergyEstimator:
         self.bin_table = bin_table
         self.loads = loads
         self.heat_pump = heat_pump
-        self._E_load_table: List[List[Load]] = []
+        self._E_load_table: list[list[HeatingLoad]] = []
 
-    def _estimate(self, T_unit: str = 'degC', E_unit: str = 'kWh') -> pd.DataFrame:
+    def _estimate(
+        self,
+        T_unit: str = 'degC',
+        E_unit: str = 'kWh'
+    ) -> pd.DataFrame:
         for T_bin in self.bin_table.index:
-            To = T_bin.mid
+            T_ext = T_bin.mid
             r = []
             for j, time_segment in enumerate(self.bin_table.columns):
                 load = self.loads[j]
-                load.T_ext = Q_(To, T_unit)
+                load.T_ext = Q_(T_ext, T_unit)
                 load.num_hours = self.bin_table.loc[T_bin, time_segment]
-                r.append(load.E.to(E_unit).m)
+                r.append(load.Q_in.to(E_unit).m)
             self._E_load_table.append(r)
         df = pd.DataFrame(
             data=self._E_load_table,
@@ -61,18 +64,18 @@ class EnergyEstimator:
         E_unit: str = 'kWh'
     ) -> pd.DataFrame:
         for T_bin in self.bin_table.index:
-            To = T_bin.mid
+            T_ext = T_bin.mid
             r = []
             for j, time_segment in enumerate(self.bin_table.columns):
                 load = self.loads[j]
-                load.T_ext = Q_(To, T_unit)
+                load.T_ext = Q_(T_ext, T_unit)
                 self.heat_pump.load = load
-                self.heat_pump.To = Q_(To, T_unit)
+                self.heat_pump.T_ext = Q_(T_ext, T_unit)
                 self.heat_pump.num_hours = self.bin_table.loc[T_bin, time_segment]
-                E_hp = self.heat_pump.E.to(E_unit).m
-                E_aux = self.heat_pump.E_aux.to(E_unit).m
-                E_tot = E_hp + E_aux
-                r.extend([E_hp, E_aux, E_tot])
+                W_hp = self.heat_pump.W.to(E_unit).m
+                Q_aux = self.heat_pump.Q_aux.to(E_unit).m
+                E_tot = W_hp + Q_aux
+                r.extend([W_hp, Q_aux, E_tot])
             self._E_load_table.append(r)
         day_periods = self.bin_table.columns
         consumption = ['HP', 'Aux.', 'Total']
@@ -89,7 +92,8 @@ class EnergyEstimator:
         # bottom of the dataframe
         df.loc['TOTAL'] = df.sum()
         # take the sum of all the rows
-        df_tmp = df.groupby(level=1, axis=1, sort=False).sum()
+        df_tmp = df.T.groupby(level=1, sort=False).sum()
+        df_tmp = df_tmp.T
         # give the temporary dataframe the same multi-column index as the
         # original dataframe
         df_tmp.columns = pd.MultiIndex.from_product([['TOTAL'], df_tmp.columns])

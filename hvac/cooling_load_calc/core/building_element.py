@@ -56,7 +56,7 @@ class ExteriorBuildingElement:
     def create(
         cls,
         ID: str,
-        T_zone: Callable[[float], Quantity],
+        T_zone: Quantity | Callable[[float], Quantity],
         constr_assem: ConstructionAssembly,
         gross_area: Quantity,
         weather_data: WeatherData,
@@ -125,7 +125,10 @@ class ExteriorBuildingElement:
         """
         ebe = cls()
         ebe.ID = ID
-        ebe.T_zone = T_zone
+        if isinstance(T_zone, Quantity):
+            ebe.T_zone = lambda t: T_zone
+        else:
+            ebe.T_zone = T_zone
         ebe.gross_area = gross_area
         ebe.net_area = gross_area
         ebe.constr_assem = constr_assem

@@ -129,7 +129,7 @@ class Output:
                 'T_cnd_air_in': self.cnd_air_in.Tdb.to(u_T).m,
                 'W_cnd_air_in': self.cnd_air_in.W.to(u_W).m,
                 'RH_cnd_air_in': self.cnd_air_in.RH.to('pct').m,
-                'n_cmp': self.n_cmp.to(u_n).m,
+                'n_cmp': self.n_cmp.to(u_n).m if self.n_cmp is not None else Q_(float('nan'), u_n),
                 'dT_sh': self.dT_sh.to(u_dT).m,
                 'T_evp_air_out': self.evp_air_out.Tdb.to(u_T).m,
                 'W_evp_air_out': self.evp_air_out.W.to(u_W).m,
@@ -377,6 +377,12 @@ class SingleStageVaporCompressionMachine:
         dT_sh:
             The setting on the expansion device of the degree of refrigerant
             superheating.
+        n_cmp_min:
+            The minimum speed that can be set on the compressor if it is a
+            variable speed compressor.
+        n_cmp_max:
+            The maximum speed that can be set on the compressor if it is a
+            variable speed compressor.
         """
         self.evaporator = evaporator
         self.condenser = condenser
@@ -495,7 +501,7 @@ class SingleStageVaporCompressionMachine:
         3. At the condenser, the state of the entering air and the air mass flow
            rate are fixed. With the state of the entering refrigerant and the
            refrigerant mass flow rate, a solution is determined with the
-           condenser model for the condenser's performance, i.e. the state of
+           condenser model for the condenser's performance, i.e., the state of
            refrigerant leaving the condenser and the state of air leaving the
            condenser are determined.
         4. Considering that the expansion process is an isenthalpic process,
@@ -586,8 +592,8 @@ class SingleStageVaporCompressionMachine:
             # condensation temperature returned from `optimize.minimize` (these
             # are not necessarily the values that were used in the last
             # iteration).
-            self.compressor.Te = Q_(res.x[0], 'degC')
-            self.compressor.Tc = Q_(res.x[1], 'degC')
+            self.compressor.T_evp = Q_(res.x[0], 'degC')
+            self.compressor.T_cnd = Q_(res.x[1], 'degC')
             cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
             dev = self._get_deviation(cmp_rfg_m_dot, 0, logger_on=False)
             if np.isinf(dev):
@@ -614,7 +620,7 @@ class SingleStageVaporCompressionMachine:
                     cnd_air_out=self.condenser.air_out,
                     evp_Q_dot=self.evaporator.Q_dot,
                     cnd_Q_dot=self.condenser.Q_dot,
-                    cmp_W_dot=self.compressor.Wc_dot,
+                    cmp_W_dot=self.compressor.W_dot,
                     rfg_m_dot=self.compressor.m_dot,
                     T_evp=self.evaporator.T_evp,
                     P_evp=self.evaporator.P_evp,
@@ -625,8 +631,8 @@ class SingleStageVaporCompressionMachine:
                     discharge_gas=self.condenser.rfg_in,
                     liquid=self.condenser.rfg_out,
                     mixture=self.evaporator.rfg_in,
-                    COP=self.condenser.Q_dot / self.compressor.Wc_dot,
-                    EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
+                    COP=self.condenser.Q_dot / self.compressor.W_dot,
+                    EER=self.evaporator.Q_dot / self.compressor.W_dot,
                     evp_eps=self.evaporator.eps,
                     cnd_eps=self.condenser.eps,
                     evp_air_dP=self.evaporator.air_dP,
@@ -742,8 +748,8 @@ class SingleStageVaporCompressionMachine:
                     logger.error(
                         "No compressor speed found to establish the "
                         "given evaporation temperature "
-                        f"{self.compressor.Te.to('degC'):~P.3f} and condensing "
-                        f"temperature {self.compressor.Tc.to('degC'):~P.3f} "
+                        f"{self.compressor.T_evp.to('degC'):~P.3f} and condensing "
+                        f"temperature {self.compressor.T_cnd.to('degC'):~P.3f} "
                         f"under the given operating conditions."
                     )
                 else:
@@ -777,7 +783,7 @@ class SingleStageVaporCompressionMachine:
                     cnd_air_out=self.condenser.air_out,
                     evp_Q_dot=self.evaporator.Q_dot,
                     cnd_Q_dot=self.condenser.Q_dot,
-                    cmp_W_dot=self.compressor.Wc_dot,
+                    cmp_W_dot=self.compressor.W_dot,
                     rfg_m_dot=self.compressor.m_dot,
                     T_evp=self.evaporator.T_evp,
                     P_evp=self.evaporator.P_evp,
@@ -788,8 +794,8 @@ class SingleStageVaporCompressionMachine:
                     discharge_gas=self.condenser.rfg_in,
                     liquid=self.condenser.rfg_out,
                     mixture=self.evaporator.rfg_in,
-                    COP=self.condenser.Q_dot / self.compressor.Wc_dot,
-                    EER=self.evaporator.Q_dot / self.compressor.Wc_dot,
+                    COP=self.condenser.Q_dot / self.compressor.W_dot,
+                    EER=self.evaporator.Q_dot / self.compressor.W_dot,
                     evp_eps=self.evaporator.eps,
                     cnd_eps=self.condenser.eps,
                     evp_air_dP=self.evaporator.air_dP,
@@ -835,8 +841,8 @@ class SingleStageVaporCompressionMachine:
             f"Try with: T_evp = {T_evp:~P.3f}, T_cnd = {T_cnd:~P.3f}"
         )
 
-        self.compressor.Te = T_evp
-        self.compressor.Tc = T_cnd
+        self.compressor.T_evp = T_evp
+        self.compressor.T_cnd = T_cnd
         cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
         dev = self._get_deviation(cmp_rfg_m_dot, i)
         counter[0] += 1
@@ -895,9 +901,9 @@ class SingleStageVaporCompressionMachine:
         if isinstance(self.compressor, VariableSpeedCompressor) and n_cmp is not None:
             self.n_cmp = self.compressor.speed = n_cmp
         if T_evp is not None:
-            self.compressor.Te = T_evp
+            self.compressor.T_evp = T_evp
         if T_cnd is not None:
-            self.compressor.Tc = T_cnd
+            self.compressor.T_cnd = T_cnd
 
     def _guess_initial_T_evp(self, T_evp_ini: Quantity | None) -> float:
         """
@@ -977,7 +983,7 @@ class SingleStageVaporCompressionMachine:
         model with respect to the refrigeration capacity according to the
         compressor model as a fraction (percentage).
         """
-        Q_evp_cmp_model = self.condenser.Q_dot - self.compressor.Wc_dot
+        Q_evp_cmp_model = self.condenser.Q_dot - self.compressor.W_dot
         Q_evp_evp_model = self.evaporator.Q_dot
         abs_err = abs(Q_evp_evp_model - Q_evp_cmp_model)
         rel_err = abs_err / abs(Q_evp_cmp_model)
@@ -1044,7 +1050,7 @@ class SingleStageVaporCompressionMachine:
 
         evp_rfg_in = self.refrigerant(
             h=self.condenser.rfg_out.h,
-            P=self.compressor.Pe
+            P=self.compressor.P_evp
         )
 
         if logger_on:

@@ -100,8 +100,8 @@ class TwoZoneBuilding:
         for k, v in columns.items():
             lch.add_xy_data(
                 label=v,
-                x1_values=df.index[:-1],
-                y1_values=df[k][:-1]
+                x1_values=df.index,
+                y1_values=df[k]
             )
         lch.x1.add_title('solar time index')
         lch.y1.add_title('thermal power, W')

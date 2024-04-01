@@ -9,7 +9,7 @@ Q_ = Quantity
 Air = Fluid('Air')
 
 
-class Load:
+class HeatingLoad:
 
     def __init__(
         self,
@@ -43,18 +43,18 @@ class Load:
             The time period of the day the load is present.
         """
         self.time_segment = time_segment
-        self.T_int = T_int
-        self.H_trm = H_trm
-        self.V_dot_ven = V_dot_ven
-        self.Q_dot_ihg = Q_dot_ihg
-        self.eta_sys = eta_sys
-        self.T_ext_min = T_ext_min
+        self.T_int = T_int.to('K')
+        self.H_trm = H_trm.to('W / K')
+        self.V_dot_ven = V_dot_ven.to('m**3 / s')
+        self.Q_dot_ihg = Q_dot_ihg.to('W')
+        self.eta_sys = eta_sys.to('frac')
+        self.T_ext_min = T_ext_min.to('K')
         self._outdoor_air = Air(T=T_ext_min, P=Q_(101_325, 'Pa'))
         self._num_hours: Quantity = Q_(0, 'hr')
 
     @property
     def T_ext(self) -> Quantity:
-        return self._outdoor_air.T
+        return self._outdoor_air.T.to('K')
 
     @T_ext.setter
     def T_ext(self, q: Quantity) -> None:
@@ -76,7 +76,7 @@ class Load:
         infiltration.
         """
         H_ven = self._outdoor_air.rho * self._outdoor_air.cp * self.V_dot_ven
-        return H_ven
+        return H_ven.to('W / K')
 
     @property
     def H_tot(self) -> Quantity:
@@ -85,13 +85,13 @@ class Load:
         loss due to air ventilation/infiltration.
         """
         H_tot = self.H_trm + self.H_ven
-        return H_tot
+        return H_tot.to('W / K')
 
     @property
     def T_bal(self) -> Quantity:
         """Returns the balance temperature of the building."""
         T_bal = self.T_int - self.Q_dot_ihg / self.H_tot
-        return T_bal
+        return T_bal.to('K')
 
     @property
     def Q_dot_out(self) -> Quantity:
@@ -99,8 +99,8 @@ class Load:
         building to maintain the desired indoor air temperature at the set
         outdoor air temperature.
         """
-        Qe = self.H_tot * (self.T_bal - self.T_ext)
-        return Qe
+        Q_dot_out = self.H_tot * (self.T_bal - self.T_ext)
+        return Q_dot_out.to('W')
 
     @property
     def Q_dot_trm(self) -> Quantity:
@@ -108,7 +108,7 @@ class Load:
         envelope at the set outdoor air temperature.
         """
         Q_dot_trm = self.H_trm * (self.T_int - self.T_ext)
-        return Q_dot_trm
+        return Q_dot_trm.to('W')
 
     @property
     def Q_dot_ven(self) -> Quantity:
@@ -116,7 +116,7 @@ class Load:
         at the set outdoor air temperature.
         """
         Q_dot_ven = self.H_ven * (self.T_int - self.T_ext)
-        return Q_dot_ven
+        return Q_dot_ven.to('W')
 
     @property
     def Q_dot_in(self) -> Quantity:
@@ -125,7 +125,7 @@ class Load:
         air temperature.
         """
         Q_dot_in = self.Q_dot_out / self.eta_sys
-        return Q_dot_in
+        return Q_dot_in.to('W')
 
     @property
     def Q_in(self) -> Quantity:
@@ -135,4 +135,4 @@ class Load:
         present.
         """
         Q_in = self._num_hours * self.Q_dot_in
-        return Q_in
+        return Q_in.to('Wh')

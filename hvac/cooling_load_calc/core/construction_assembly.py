@@ -823,8 +823,8 @@ class ConstructionAssembly:
             List of tuples with 2 elements. The first element is the index
             of the new layer in the layered composition of the construction
             assembly. The second element is the new `ConstructionLayer` object.
-            Remember that layers are ordered from the exterior side towards
-            the interior side.
+            Keep in mind that layers must be ordered from the exterior side
+            towards the interior side.
         """
         layers = list(self.layers.values())
         for pos, new_layer in new_layers:

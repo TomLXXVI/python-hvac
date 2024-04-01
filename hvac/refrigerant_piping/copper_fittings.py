@@ -10,15 +10,23 @@ class CopperFittings:
 
     @classmethod
     def _create_table(cls) -> None:
-        dn = [
+        """Creates a Pandas DataFrame with the equivalent lengths of fittings.
+        The index of the data frame points to nominal tube diameters; the
+        columns list the different fittings or accessories:
+        - 'long-radius-elbow',
+        - 'short-radius-elbow',
+        - 'tee-thru-flow', 'tee-branch-flow',
+        - 'ball-valve', 'sight-glass'
+        """
+        DN = [
             '1/2', '5/8', '3/4', '7/8',
             '1 1/8', '1 3/8', '1 5/8',
             '2 1/8', '2 5/8', '3 1/8'
         ]
         fitting = [
-            'long radius elbow', 'short radius elbow',
-            'tee thru flow', 'tee branch flow',
-            'ball valve', 'sight glass'
+            'long-radius-elbow', 'short-radius-elbow',
+            'tee-thru-flow', 'tee-branch-flow',
+            'ball-valve', 'sight-glass'
         ]
         L_eq = [
             [0.3, 0.4, 1.0, 1.0, 1.0, 1.0],
@@ -32,7 +40,7 @@ class CopperFittings:
             [1.5, 3.4, 1.0, 8.0, 1.0, 1.0],
             [1.7, 5.0, 1.0, 10.1, 1.0, 1.0]
         ]
-        df = pd.DataFrame(data=L_eq, index=dn, columns=fitting)
+        df = pd.DataFrame(data=L_eq, index=DN, columns=fitting)
         cls._save_table(df)
 
     @classmethod
@@ -41,7 +49,10 @@ class CopperFittings:
             with open(cls.db_path, 'w') as fh:
                 df.to_csv(fh)
         except FileNotFoundError:
-            raise FileNotFoundError('Unknown path: Please, set `db_path` to correct destination.') from None
+            raise FileNotFoundError(
+                'Unknown path: Please, set `db_path` '
+                'to correct destination.'
+            ) from None
 
     @classmethod
     def _load_table(cls):
@@ -53,11 +64,17 @@ class CopperFittings:
             cls._load_table()
 
     @classmethod
-    def get_Leq(cls, fitting: str, dn: str) -> Quantity:
+    def get_Leq(cls, fitting: str, DN: str) -> Quantity:
+        """Returns the equivalent length of the indicated fitting with a nominal
+        diameter `DN`.
+        """
         if cls.table is None:
             cls._load_table()
         try:
-            Leq = cls.table.loc[dn, fitting]
+            Leq = cls.table.loc[DN, fitting]
         except KeyError:
-            raise KeyError('Unknown value for `fitting` or `dn`: Check value for `fitting` or `dn`.')
+            raise KeyError(
+                'Unknown value for `fitting` or `DN`: '
+                'Check value for `fitting` or `DN`.'
+            )
         return Q_(Leq, 'feet')

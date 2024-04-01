@@ -9,73 +9,92 @@ Q_ = Quantity
 
 @dataclass
 class CopperTube:
-    """Dataclass holding the specifications of a copper tube with given nominal
-    diameter."""
-    dn: str
-    do: Quantity
-    di: Quantity
+    """Dataclass with specifications of copper tube referred to a nominal
+    diameter.
+
+    Parameters
+    ----------
+    DN:
+        Nominal tube diameter.
+    D_ext:
+        Outside tube diameter.
+    D_int:
+        Inside tube diameter.
+    t:
+        Tube wall thickness.
+    """
+    DN: str
+    D_ext: Quantity
+    D_int: Quantity
     t: Quantity
 
 
 class CopperTubing:
     """Class that saves and loads copper tube specifications to/from a shelf on
-    disk."""
+    disk.
+    """
     db_path: str  # file path to the shelf (database, db)
 
     @staticmethod
-    def _create_record(dn, do, di, t):
+    def _create_record(DN, D_ext, D_int, t):
         record = {
-            'dn': dn,
-            'do': do.to('inch').m,
-            'di': di.to('inch').m,
+            'DN': DN,
+            'D_ext': D_ext.to('inch').m,
+            'D_int': D_int.to('inch').m,
             't': t.to('inch').m,
         }
         return record
 
     @staticmethod
-    def _refurbish_record(record):
+    def _refurbish_record(record) -> CopperTube:
         copper_tube = CopperTube(
-            dn=record['dn'],
-            do=Q_(record['do'], 'inch'),
-            di=Q_(record['di'], 'inch'),
+            DN=record['DN'],
+            D_ext=Q_(record['D_ext'], 'inch'),
+            D_int=Q_(record['D_int'], 'inch'),
             t=Q_(record['t'], 'inch'),
         )
         return copper_tube
 
     @classmethod
-    def add_record(cls, dn: str, do: Quantity, di: Quantity, t: Quantity) -> None:
+    def add_record(
+        cls,
+        DN: str,
+        D_ext: Quantity,
+        D_int: Quantity,
+        t: Quantity
+    ) -> None:
         """
-        Add copper tube record to copper tubing shelf.
+        Adds a copper tube record to the copper tubing shelf.
 
         Parameters
         ----------
-        dn:
+        DN:
             Nominal diameter of the tube, entered as a string. This will be
             used as the key to select a tube from the shelf.
-        do:
+        D_ext:
             Outside diameter.
-        di:
+        D_int:
             Inside diameter.
         t:
             Wall thickness.
         """
         with shelve.open(cls.db_path) as shelf:
-            record = cls._create_record(dn, do, di, t)
-            shelf[dn] = record
+            record = cls._create_record(DN, D_ext, D_int, t)
+            shelf[DN] = record
 
     @classmethod
-    def get_record(cls, dn: str) -> CopperTube | None:
-        """Get single copper tube record from copper tubing shelf."""
+    def get_record(cls, DN: str) -> CopperTube | None:
+        """Returns a single copper tube record from the copper tubing shelf."""
         with shelve.open(cls.db_path) as shelf:
             try:
-                record = cast(dict, shelf[dn])
+                record = cast(dict, shelf[DN])
             except KeyError:
                 return None
             return cls._refurbish_record(record)
 
     @classmethod
     def get_records(cls, *dns: str) -> tuple[CopperTube | None, ...]:
-        """Get multiple copper tube records from copper tubing shelf."""
+        """Get multiple copper tube records from the copper tubing shelf."""
         records = []
         with shelve.open(cls.db_path) as shelf:
             for dn in dns:

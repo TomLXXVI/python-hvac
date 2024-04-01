@@ -378,8 +378,8 @@ class InteriorSurfaceNode(TemperatureNode):
         """Coefficient in the node equation of this internal surface node
         temperature.
         """
-        a2 = -((1 / self._R1) + (1 / ((1 - self._F_rad) * self._R2)))
-        return a2
+        a2 = 1 / self._R1 + 1 / ((1 - self._F_rad) * self._R2)
+        return -a2
 
     @property
     def _a3(self) -> float:
@@ -485,7 +485,7 @@ class ThermalStorageNode(TemperatureNode):
         temperatures connected to the thermal storage node temperature.
         """
         a1 = [
-            (2 * dt_sec * self._F_rad) / ((1 - self._F_rad) * r1 * self._C)
+            2 * dt_sec * self._F_rad / ((1 - self._F_rad) * r1 * self._C)
             for r1 in self._R1
         ]
         return a1
@@ -495,8 +495,8 @@ class ThermalStorageNode(TemperatureNode):
         """Coefficient in the node equation of this thermal storage node
         temperature.
         """
-        a2 = -(((2 * dt_sec) / (self._R2 * self._C)) + 3)
-        return a2
+        a2 = 2 * dt_sec / (self._R2 * self._C) + 3
+        return -a2
 
     @property
     def _a3(self) -> float:
@@ -528,8 +528,8 @@ class ThermalStorageNode(TemperatureNode):
             for r1 in self._R1
         )
         a3 += (2 * dt_sec / self._C) * UA
-        a3 = -a3 + ((2 * dt_sec) / (self._C * self._R2))
-        return a3
+        a3 -= 2 * dt_sec / (self._C * self._R2)
+        return -a3
 
     def _b(self, T: list[float], t_sol_sec: float) -> float:
         """Calculates the input-side (rhs) of the node equation at the current
@@ -791,7 +791,7 @@ class ZoneAirNode(TemperatureNode):
         return self._b(T, t_sol_sec)
 
 
-class NodalThermalZoneModelBuilder:
+class _ThermalZoneModelBuilder:
     """Creates the nodes of a nodal thermal zone model given the exterior
     building elements surrounding the zone, the specs of the zone's interior
     thermal mass, and the time-functions of radiative and convective heat gain
@@ -925,8 +925,8 @@ class NodalThermalZoneModelBuilder:
         """
         for ebe in self.ebe_lst:
             constr_assem = ebe.constr_assem
-            ltn_lst = NodalThermalZoneModelBuilder._compose(constr_assem)
-            ltn_red = NodalThermalZoneModelBuilder._reduce(ltn_lst)
+            ltn_lst = _ThermalZoneModelBuilder._compose(constr_assem)
+            ltn_red = _ThermalZoneModelBuilder._reduce(ltn_lst)
             ltn = self._transform(ltn_red, ebe.net_area, ebe.ID, ebe._ext_surf.T_sa)
             self.ebe_ltn_dict[ebe.ID] = ltn
 
@@ -1095,7 +1095,7 @@ class NodalThermalZoneModelBuilder:
         return self.ebe_ltn_dict, self.tsn, self.zan
 
 
-class NodalThermalZoneModel:
+class ThermalZoneModel:
     """Represents a lumped-capacitance model for calculating the conduction heat
     gain through the exterior building elements of a thermal zone when the zone
     air temperature is free-floating, and instead the cooling system capacity is
@@ -1130,7 +1130,7 @@ class NodalThermalZoneModel:
         Q_dot_ihg_cv: Callable[[float], Quantity] | None = None,
         Q_dot_ihg_rd: Callable[[float], Quantity] | None = None,
         Q_dot_sys: Callable[[float, ...], Quantity] | None = None
-    ) -> NodalThermalZoneModel:
+    ) -> ThermalZoneModel:
         """Creates a `NodalThermalZoneModel`.
 
         Parameters
@@ -1194,7 +1194,7 @@ class NodalThermalZoneModel:
             cooling system is present in the zone, i.e. the zone is truly
             unconditioned.
         """
-        thz_model_builder = NodalThermalZoneModelBuilder(
+        thz_model_builder = _ThermalZoneModelBuilder(
             ebe_lst=ext_build_elems,
             F_rad=F_rad,
             A_tsn=A_tsn,
@@ -1501,12 +1501,24 @@ class NodalThermalZoneModel:
         df_dict['ZAN'] = pd.DataFrame(data=Q_(zan_data, 'K').to(unit).m, columns=['ZAN'])
         return df_dict
 
+    def get_node_temperature_table(self, unit: str = 'degC') -> pd.DataFrame:
+        multi_index = [
+            (ebe_ID, node.ID)
+            for ebe_ID, node_lst in self.ebe_node_dict.items()
+            for node in node_lst
+        ]
+        multi_index.extend([('TSN', 'TSN'), ('ZAN', 'ZAN')])
+        multi_index = pd.MultiIndex.from_tuples(multi_index, names=['element', 'node'])
+        data = Q_(self._T_node_table[2:, :], 'K').to(unit).magnitude
+        df = pd.DataFrame(data, columns=multi_index)
+        return df
+
     def get_heat_flows(self, unit: str = 'W') -> dict[str, pd.DataFrame]:
         """Returns a dictionary of which the keys are the IDs of the exterior
-        building elements. The keys map to "heat flow tables" (Pandas
+        building elements. These keys map to "heat flow tables" (Pandas
         `DataFrame` objects) of the exterior building elements.
-        (A heat flow table shows the heat flow rates into the nodes at each time
-        index of the last calculation cycle of the design day.)
+        A heat flow table shows the heat flow rates into the nodes at each time
+        index of the last calculation cycle of the design day.
         The last column shows the heat that flows into the interior surface node
         of the exterior building element. This is also the heat that flows out
         to the zone air node (convective component) and to the thermal storage

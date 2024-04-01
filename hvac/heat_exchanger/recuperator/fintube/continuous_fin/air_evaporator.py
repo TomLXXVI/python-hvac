@@ -1028,7 +1028,7 @@ class PlainFinTubeCounterFlowAirEvaporator:
 
         # Solve for the unknown mass flow rate of refrigerant through the
         # evaporator so that the required degree of refrigerant superheating
-        # is attained under the current operating conditions:
+        # is achieved under the current operating conditions:
         logger.debug(
             "Solving for the operating state of the evaporator..."
         )

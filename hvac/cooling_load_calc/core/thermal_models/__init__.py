@@ -7,4 +7,4 @@ from .exterior_building_element import (
     set_time_step,
     ExteriorBuildingElementLTNBuilder
 )
-from .thermal_zone import NodalThermalZoneModel
+from .thermal_zone import ThermalZoneModel

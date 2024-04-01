@@ -44,11 +44,11 @@ class FluidState:
             case CoolProp.iphase_liquid:
                 return 'sub-critical liquid'
             case CoolProp.iphase_supercritical:
-                return 'super-critical (P > Pc, T > Tc)'
+                return 'super-critical (P > P_cnd, T > T_cnd)'
             case CoolProp.iphase_supercritical_gas:
-                return 'super-critical gas (P < Pc, T > Tc)'
+                return 'super-critical gas (P < P_cnd, T > T_cnd)'
             case CoolProp.iphase_supercritical_liquid:
-                return 'super-critical liquid (P > Pc, T < Tc)'
+                return 'super-critical liquid (P > P_cnd, T < T_cnd)'
             case CoolProp.iphase_critical_point:
                 return 'at the critical point'
             case CoolProp.iphase_gas:
@@ -81,7 +81,8 @@ class Fluid:
         'mu': (CoolProp.iviscosity, 'Pa * s'),
         'beta': (CoolProp.iisobaric_expansion_coefficient, '1 / K'),
         'sigma': (CoolProp.isurface_tension, 'N / m'),
-        'phase': (CoolProp.iPhase, '')
+        'phase': (CoolProp.iPhase, ''),
+        'speed_of_sound': (CoolProp.ispeed_sound, 'm / s'),
     }
 
     def __init__(

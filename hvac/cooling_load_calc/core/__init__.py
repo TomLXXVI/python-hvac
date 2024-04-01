@@ -21,7 +21,7 @@ from .fenestration import (
 )
 from .thermal_models import (
     ThermalStorageNode,
-    NodalThermalZoneModel
+    ThermalZoneModel
 )
 from .internal_heat_gains import (
     Machine,

@@ -55,12 +55,11 @@ class FixedTemperatureZone:
         cls,
         ID: str,
         weather_data: WeatherData,
-        T_zone: Callable[[float], Quantity],
         floor_area: Quantity,
         height: Quantity,
+        T_zone: Quantity | Callable[[float], Quantity],
         RH_zone: Quantity = Q_(50, 'pct'),
         ventilation_zone: VentilationZone | None = None,
-        T_zone_des: Quantity = Q_(24, 'degC')
     ) -> FixedTemperatureZone:
         """Creates a `ConditionedZone` object.
 
@@ -69,37 +68,34 @@ class FixedTemperatureZone:
         ID:
             Identifies the zone in the building.
         weather_data:
-            Encapsulates the climatic design information needed to determine the
-            solar radiation incident on the exterior surface of the building
-            element and its sol-air temperature during the design day, which was
-            specified on instantiation of the `WeatherData` object.
-        T_zone:
-            The zone air temperature, being a function with signature
-            `f(t_sol_sec: float) -> Quantity` which takes the solar time in
-            seconds and returns the temperature in the zone as a `Quantity`
-            object. This may allow a time-variable setpoint temperature in the
-            zone.
+            Object containing the climatic design information.
         floor_area:
-            The floor area of the zone.
+            Floor area of the zone.
         height:
-            The height of the zone.
-        RH_zone: optional
+            Height of the zone.
+        T_zone:
+            Zone air setpoint temperature. It can also be a function with call
+            signature:
+            ```
+            f(t_sol_sec: float) -> Quantity
+            ```
+            which takes solar time in seconds and returns the zone air setpoint
+            temperature at that time as a `Quantity` object. This allows a
+            timevariable zone air setpoint temperature.
+        RH_zone:
             Relative air humidity in the zone. The default is 50 %.
-        ventilation_zone: optional
-            The ventilation zone to which the thermal zone belongs.
-        T_zone_des: optional
-            The design value of the zone air temperature. The default value is
-            24 °C. This value can be used to determine the thermal resistance of
-            construction assemblies in the exterior building elements that
-            surround the conditioned zone.
+        ventilation_zone:
+            Ventilation zone to which the thermal zone belongs.
         """
         zone = cls()
         zone.ID = ID
         zone.weather_data = weather_data
-        zone.T_zone = T_zone
-        zone.T_zone_des = T_zone_des
         zone.floor_area = floor_area
         zone.height = height
+        if isinstance(T_zone, Quantity):
+            zone.T_zone = lambda t: T_zone
+        else:
+            zone.T_zone = T_zone
         zone.RH_zone = RH_zone
         zone.ventilation_zone = ventilation_zone
         if ventilation_zone is not None:
@@ -475,7 +471,7 @@ class FixedTemperatureZone:
         # Get the total conductive heat gain in the zone, its convective and
         # radiative component:
         tup = self._conductive_heat_gain(dt_hr, num_cycles)
-        Q_dot_cnd = tup[0]
+        # Q_dot_cnd = tup[0]
         Q_dot_cnd_cv = tup[1]
         Q_dot_cnd_rd = tup[2]
 
@@ -483,13 +479,13 @@ class FixedTemperatureZone:
         # Get the total solar heat gain in the zone, and its convective and
         # radiative components:
         tup = self._solar_heat_gain(dt_hr)
-        Q_dot_sol = tup[0]
+        # Q_dot_sol = tup[0]
         Q_dot_sol_cv = tup[1]
         Q_dot_sol_rd = tup[2]
 
         # INTERNAL HEAT GAINS
         Q_dot_ihg = self._internal_heat_gain(dt_hr)
-        Q_dot_ihg_sen = Q_dot_ihg[0]
+        # Q_dot_ihg_sen = Q_dot_ihg[0]
         Q_dot_ihg_sen_cv = Q_dot_ihg[1]
         Q_dot_ihg_sen_rd = Q_dot_ihg[2]
         Q_dot_ihg_lat = Q_dot_ihg[3]
@@ -509,8 +505,8 @@ class FixedTemperatureZone:
                 dt_hr=dt_hr,
                 num_cycles=num_cycles
             )
-            # Keep the thermal node temperatures, the heat rate absorbed by
-            # the thermal storage node, and the heat rate released to the
+            # Put the thermal storage node temperatures, the heat rate absorbed
+            # by the thermal storage node, and the heat rate released to the
             # zone air in a dictionary.
             Q_dot_tsn = self.tsn.get_heat_flows()
             T_tsn = self.tsn.get_node_temperatures()
@@ -547,37 +543,33 @@ class FixedTemperatureZone:
         # internal heat gains:
         Q_dot_lat_zone = Q_dot_lat_vent + Q_dot_ihg_lat
 
-        # Return the heat gains in a dataframe:
-        # - conduction heat gain
-        # - solar heat gain
+        # Return the heat gains to the zone air in a dataframe:
+        # - convective part of conduction heat gain
+        # - convective part of solar heat gain
         # - sensible ventilation heat gain
-        # - sensible internal heat gain
-        # - convective heat gain from the interior thermal mass (if it has been
-        #   been defined)
+        # - convective part of sensible internal heat gain
+        # - convective heat gain from interior thermal mass
         # - sensible zone load
         # - latent ventilation heat gain
         # - latent internal heat gain
         # - latent zone load
+        # - total zone load
         d = {
-            'Q_dot_cnd': Q_dot_cnd.to(unit).m,
-            'Q_dot_sol': Q_dot_sol.to(unit).m,
-            'Q_dot_sen_vent': Q_dot_sen_vent.to(unit).m,
-            'Q_dot_sen_ihg': Q_dot_ihg_sen.to(unit).m
+            'Q_dot_cnd': Q_dot_cnd_cv.to(unit).m,
+            'Q_dot_sol': Q_dot_sol_cv.to(unit).m,
+            'Q_dot_sen_ven': Q_dot_sen_vent.to(unit).m,
+            'Q_dot_sen_ihg': Q_dot_ihg_sen_cv.to(unit).m
         }
-        if Q_dot_sol is not None:
-            d['Q_dot_sol'] = Q_dot_sol.to(unit).m
-
         if Q_dot_tsn is not None:
-            d['Q_dot_tsn'] = Q_dot_tsn.to(unit).m
+            d['Q_dot_itm'] = Q_dot_tsn.to(unit).m
         d.update({
             'Q_dot_sen_zone': Q_dot_sen_zone.to(unit).m,
-            'Q_dot_lat_vent': Q_dot_lat_vent.to(unit).m,
+            'Q_dot_lat_ven': Q_dot_lat_vent.to(unit).m,
             'Q_dot_lat_ihg': Q_dot_ihg_lat.to(unit).m,
             'Q_dot_lat_zone': Q_dot_lat_zone.to(unit).m
         })
         df = pd.DataFrame(d)
         df['Q_dot_zone'] = df['Q_dot_sen_zone'] + df['Q_dot_lat_zone']
-        df.loc['MAX'] = df.max()
         return df
 
 

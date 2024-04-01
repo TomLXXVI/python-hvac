@@ -19,7 +19,7 @@ from hvac.cooling_load_calc.core import (
     Window
 )
 from hvac.cooling_load_calc.core.thermal_models import (
-    NodalThermalZoneModel
+    ThermalZoneModel
 )
 from hvac.fluids import Fluid, CoolPropWarning
 
@@ -52,9 +52,9 @@ class VariableTemperatureZone:
         self.int_build_elems: dict[str, InteriorBuildingElement] = {}
         self.int_heat_gains: dict[str, InternalHeatGain] = {}
         self.local_ventilation: LocalVentilation | None = None
-        self.vez: VentilationZone | None = None
-        self.tsn: tuple[Quantity, ...] | None = None  # specs of thermal storage node
-        self.thz_model: NodalThermalZoneModel | None = None
+        self.ventilation_zone: VentilationZone | None = None
+        self.tsn_params: tuple[Quantity, ...] | None = None  # specs of thermal storage node
+        self.model: ThermalZoneModel | None = None
         self.dt_hr: float = 1.0  # the time step used for solving the nodal thermal zone model
 
     @classmethod
@@ -65,9 +65,6 @@ class VariableTemperatureZone:
         floor_area: Quantity,
         height: Quantity,
         ventilation_zone: VentilationZone | None = None,
-        C_tsn: Quantity = Q_(100, 'kJ / (K * m**2)'),
-        A_tsn: Quantity = Q_(1.0, 'm**2'),
-        R_tsn: Quantity = Q_(float('inf'), 'K * m**2 / W')
     ) -> VariableTemperatureZone:
         """Creates a `VariableTemperatureZone` object.
 
@@ -76,57 +73,55 @@ class VariableTemperatureZone:
         ID:
             Identifies the zone in the building.
         weather_data:
-            Encapsulates the climatic design information needed to determine the
-            solar radiation incident on the exterior surface of the building
-            element and its sol-air temperature during the design day, which was
-            specified on instantiation of the `WeatherData` object.
+            Object containing the climatic design information.
         floor_area:
-            The floor area of the zone.
+            Floor area of the zone.
         height:
-            The height of the zone.
+            Height of the zone.
         ventilation_zone: optional
-            The ventilation zone to which the thermal zone belongs.
-        C_tsn:
-            The unit thermal capacity of the interior thermal mass.
-        A_tsn:
-            The surface area associated with the interior thermal mass.
-        R_tsn:
-            The unit thermal resistance between the interior thermal mass and
-            the zone air.
+            Ventilation zone to which the thermal zone belongs.
         """
         zone = cls()
         zone.ID = ID
         zone.weather_data = weather_data
         zone.floor_area = floor_area
         zone.height = height
-        zone.tsn = (A_tsn, C_tsn, R_tsn)
-        zone.vez = ventilation_zone
+        zone.ventilation_zone = ventilation_zone
         if ventilation_zone is not None:
-            zone.vez.add_thermal_zone(zone)
+            zone.ventilation_zone.add_thermal_zone(zone)
         return zone
 
-    def add_ext_build_elem(
-        self,
-        ebe: ExteriorBuildingElement | Sequence[ExteriorBuildingElement]
-    ) -> None:
+    def add_ext_build_elem(self, *ebe: ExteriorBuildingElement) -> None:
         """Adds an exterior building element or a sequence of exterior building
         elements to the zone.
         """
-        if isinstance(ebe, Sequence):
-            self.ext_build_elems.update({ebe_.ID: ebe_ for ebe_ in ebe})
-        else:
-            self.ext_build_elems[ebe.ID] = ebe
+        self.ext_build_elems.update({ebe_.ID: ebe_ for ebe_ in ebe})
 
-    def add_int_build_elem(
-        self,
-        ibe: InteriorBuildingElement | Sequence[InteriorBuildingElement]
-    ) -> None:
+    def add_int_build_elem(self, *ibe: InteriorBuildingElement) -> None:
         """Adds an interior building element or a sequence of interior building
         elements to the zone."""
-        if isinstance(ibe, Sequence):
-            self.int_build_elems.update({ibe_.ID: ibe_ for ibe_ in ibe})
-        else:
-            self.int_build_elems[ibe.ID] = ibe
+        self.int_build_elems.update({ibe_.ID: ibe_ for ibe_ in ibe})
+
+    def add_thermal_storage_node(
+        self,
+        C: Quantity = Q_(100, 'kJ / (K * m**2)'),
+        A: Quantity = Q_(1.0, 'm**2'),
+        R_tz: Quantity = Q_(float('inf'), 'K * m**2 / W')
+    ) -> None:
+        """Adds a thermal storage node to the thermal zone that represents the
+        interior thermal mass in the zone.
+
+        Parameters
+        ----------
+        C:
+            The thermal capacity of the node per unit area.
+        A:
+            The surface area associated with the node.
+        R_tz:
+            The unit thermal resistance between this node and the zone air
+            node.
+        """
+        self.tsn_params = (A, C, R_tz)
 
     def add_ventilation(
         self,
@@ -226,9 +221,9 @@ class VariableTemperatureZone:
         self,
         dt_hr: float = 1.0
     ) -> tuple[Quantity, Quantity, Quantity]:
-        """Returns the solar heat gain through all the windows of the zone,
-        and also its radiative and convective components, for each time index
-        k of the design day.
+        """Calculates and returns the solar heat gain through all the windows of
+        the zone, and also its radiative and convective components, for each
+        time index k of the design day.
 
         Parameters
         ----------
@@ -260,8 +255,8 @@ class VariableTemperatureZone:
         self,
         dt_hr: float
     ) -> tuple[Quantity, Quantity, Quantity, Quantity]:
-        """Returns the internal heat gains in the zone for each time index k of
-        the design day.
+        """Calculates and returns the internal heat gains in the zone for each
+        time index k of the design day.
 
         Parameters
         ----------
@@ -368,16 +363,25 @@ class VariableTemperatureZone:
         Q_dot_sys_fun: Callable[[float, float], Quantity] | None = None,
         dt_hr: float = 1.0,
         num_cycles: int = 1,
-    ) -> None:
+        units: dict[str, str] | None = None,
+        num_decimals: int = 3,
+        init_values: list[list[Quantity]] | None = None
+    ) -> pd.DataFrame:
         """Creates the nodal thermal zone model of the space and solves it.
+        Returns a Pandas DataFrame object with the zone air temperature, the
+        heat gains to (+) or heat losses from (-) the zone air, and the heat
+        rate extracted by the cooling system (+) or the heat rate supplied by
+        the heating system (-) for each solar time index of the design day.
 
         Parameters
         ----------
         F_rad:
-            The radiative fraction of the conduction heat gain.
+            The radiative fraction of conduction heat gain.
         Q_dot_sys_fun:
-            A function with signature
+            A function with call signature:
+            ```
                 f(t_sol_sec: float, T_zone: float) -> Quantity
+            ```
             which takes the time `t_sol_sec` in seconds from midnight (0 s) of
             the considered day and the zone air temperature in Kelvins (K). It
             returns the cooling capacity (`Quantity` object) of the cooling
@@ -388,7 +392,7 @@ class VariableTemperatureZone:
             If this parameter is left to None, it is assumed that no (operating)
             cooling or heating system is present in the zone, i.e. the zone is
             unconditioned.
-        dt_hr: optional
+        dt_hr:
             The time step width in hours between two successive time moments
             at which the thermal model is solved. The default value
             is 1 hr. The product of the number of time steps per cycle and the
@@ -398,17 +402,50 @@ class VariableTemperatureZone:
             Each new cycle starts with the node temperatures from the last two
             time indexes k-2 and k-1 of the previous cycle as the initial values.
             Only the last cycle is kept.
+        units:
+            A dictionary with two keys 'T' and 'Q_dot' of which the values
+            are the display units. Default units are 'degC' for 'T' and 'W' for
+            'Q_dot'.
+        num_decimals:
+            Values are rounded to the given number of decimals.
+        init_values:
+            Initial values for solving the thermal zone model. If `None` the
+            initial values are determined internally.
+
+        Returns
+        -------
+        Pandas DataFrame with columns:
+            T_zone:
+                Zone air temperature.
+            Q_dot_con:
+                The convective heat gain to the zone air due to heat conduction
+                through building elements (including windows and doors).
+            Q_dot_sol:
+                The convective heat gain to the zone air due to solar radiation.
+            Q_dot_ven:
+                The sensible heat gain to the zone air due to ventilation/air
+                filtration.
+            Q_dot_ihg:
+                The convective sensible heat gain to the zone air due to
+                internal heat gains.
+            Q_dot_itm:
+                The convective heat gain to the zone air from the interior thermal
+                mass.
+            Q_dot_sys:
+                If positive, the heat rate extracted from the zone air by the
+                cooling system. If negative, the heat rate added to the zone air
+                by the heating system.
         """
         self.dt_hr = dt_hr
         num_steps = int(round(24 / dt_hr))
         windows, ext_doors = self._get_windows_and_ext_doors()
         int_build_elems = self._get_int_build_elems()
 
-        # Solar heat gain and internal heat gains are independent of the zone
-        # air temperature. The radiative and convective components of the
-        # solar and internal heat gain are linearly interpolated and these
-        # functions will be used in the node equations of the zone air and
-        # thermal storage node:
+        # Solar heat gain and internal heat gains are independent of the zone air
+        # temperature. The radiative and convective components of the solar and
+        # internal heat gains are linearly interpolated, and these functions
+        # will be used in the node equations of the zone air and thermal storage
+        # node:
         t_axis = 3600 * np.arange(0, num_steps * dt_hr, dt_hr)  # seconds
         _, Q_dot_sol_cv, Q_dot_sol_rd = self._solar_heat_gain(dt_hr)
         if isinstance(Q_dot_sol_cv.m, Sequence):
@@ -419,6 +456,7 @@ class VariableTemperatureZone:
             Q_dot_sol_rd_interp = interp1d(t_axis, Q_dot_sol_rd.to('W').m)
         else:
             Q_dot_sol_rd_interp = lambda t_sol_sec: Q_(0, 'W')
+
         _, Q_dot_ihg_cv, Q_dot_ihg_rd, _ = self._internal_heat_gain(dt_hr)
         if isinstance(Q_dot_ihg_cv.m, Sequence):
             Q_dot_ihg_cv_interp = interp1d(t_axis, Q_dot_ihg_cv.to('W').m)
@@ -429,13 +467,13 @@ class VariableTemperatureZone:
         else:
             Q_dot_ihg_rd_interp = lambda t_sol_sec: Q_(0, 'W')
 
-        # Create the nodal thermal model of the zone:
-        self.thz_model = NodalThermalZoneModel.create(
+        # Create the zone's nodal thermal model:
+        self.model = ThermalZoneModel.create(
             ext_build_elems=list(self.ext_build_elems.values()),
             F_rad=F_rad,
-            A_tsn=self.tsn[0],
-            C_tsn=self.tsn[1],
-            R_tsn=self.tsn[2],
+            A_tsn=self.tsn_params[0],
+            C_tsn=self.tsn_params[1],
+            R_tsn=self.tsn_params[2],
             A_zan=self.floor_area,
             C_zan=standard_air.rho * standard_air.cp * self.height,
             windows=windows,
@@ -448,32 +486,34 @@ class VariableTemperatureZone:
             Q_dot_ihg_rd=lambda t_sol_sec: Q_(Q_dot_ihg_rd_interp(t_sol_sec), 'W'),
             Q_dot_sys=Q_dot_sys_fun
         )
-
-        # Solve the model for the node temperatures:
-        self.thz_model.solve(
+        # Solve this model for the node temperatures:
+        self.model.solve(
             num_steps=num_steps,
-            init_values=self._init_values(),
+            init_values=self._init_values() if init_values is None else init_values,
             dt_hr=dt_hr,
             num_cycles=num_cycles
         )
+        # Collect the results and return them in a Pandas DataFrame:
+        df = self._collect_results(units, num_decimals)
+        return df
 
-    def get_zone_air_temperature(self, unit: str = 'degC') -> Quantity:
+    def _collect_zone_air_temperature(self, unit: str = 'degC') -> Quantity:
         """Returns the zone air temperature in the unconditioned space for
         each solar time index of the design day, after the nodal thermal zone
         model of the unconditioned zone has been solved.
         """
-        if self.thz_model is not None:
-            return self.thz_model.zone_air_temperature(unit)
+        if self.model is not None:
+            return self.model.zone_air_temperature(unit)
 
-    def get_ventilation_heat_gain(self) -> Quantity:
+    def _collect_sensible_ventilation_heat_gain(self) -> Quantity:
         """Returns the sensible ventilation/infiltration heat gain to the zone
         air at each solar time index of the design day, after the nodal thermal
         zone model of the unconditioned zone has been solved.
         """
         num_steps = int(round(24 / self.dt_hr))
         t_sol_axis = 3600 * np.arange(0, num_steps * self.dt_hr, self.dt_hr)  # seconds
-        T_zone_arr = self.get_zone_air_temperature()
-        Q_dot_vent_lst = []
+        T_zone_arr = self._collect_zone_air_temperature()
+        lst_Q_dot_vent_sen = []
         for t_sol_sec, T_zone in zip(t_sol_axis, T_zone_arr):
             T_zone = T_zone.to('degC').m
             Q_dot_vent_ext = (
@@ -494,11 +534,11 @@ class VariableTemperatureZone:
                 )
             else:
                 Q_dot_vent_trf = 0.0
-            Q_dot_vent = Q_dot_vent_ext + Q_dot_vent_sup + Q_dot_vent_trf
-            Q_dot_vent_lst.append(Q_dot_vent)
-        return Q_(Q_dot_vent_lst, 'W')
+            Q_dot_vent_sen = Q_dot_vent_ext + Q_dot_vent_sup + Q_dot_vent_trf
+            lst_Q_dot_vent_sen.append(Q_dot_vent_sen)
+        return Q_(lst_Q_dot_vent_sen, 'W')
 
-    def get_conduction_heat_gain(self) -> Quantity:
+    def _collect_convective_conduction_heat_gain(self) -> Quantity:
         """Returns the convective part of the conduction heat gain to the zone
         air through opaque exterior building elements, exterior doors, windows,
         and interior building elements, including interior doors, at each solar
@@ -507,52 +547,49 @@ class VariableTemperatureZone:
         """
         num_steps = int(round(24 / self.dt_hr))
         t_sol_axis = 3600 * np.arange(0, num_steps * self.dt_hr, self.dt_hr)  # seconds
-        T_zone_arr = self.get_zone_air_temperature()
+        arr_T_zone = self._collect_zone_air_temperature()
         wnd_lst, edr_lst = self._get_windows_and_ext_doors()
         ibe_lst = self._get_int_build_elems()
         # Convective part of conduction heat gain through windows, exterior
         # doors and interior building elements:
-        Q_dot_cnd_cv_lst = []
-        for t_sol_sec, T_zone in zip(t_sol_axis, T_zone_arr):
-            Q_dot_cnd_cv_lst_ = []  # collects conduction heat gains at t_sol_sec
-            for window in wnd_lst:
+        lst_Q_dot_cnd_cv = []
+        for t_sol_sec, T_zone in zip(t_sol_axis, arr_T_zone):
+            _lst_Q_dot_cnd_cv = []  # collects conduction heat gains at t_sol_sec
+            for wnd in wnd_lst:
                 Q_dot_wnd_cv = (
-                    (1 - window.F_rad) * window.UA
-                    * (window._ext_surf.T_db(t_sol_sec).to('K')
-                       - T_zone.to('K'))
+                    (1 - wnd.F_rad) * wnd.UA
+                    * (wnd._ext_surf.T_db(t_sol_sec).to('K') - T_zone.to('K'))
                 )
-                Q_dot_cnd_cv_lst_.append(Q_dot_wnd_cv.to('W'))
+                _lst_Q_dot_cnd_cv.append(Q_dot_wnd_cv.to('W'))
             for door in edr_lst:
                 Q_dot_edr = (
                     (1 - door.F_rad) * door.UA
-                    * (door._ext_surf.T_db(t_sol_sec).to('K')
-                       - T_zone.to('K'))
+                    * (door._ext_surf.T_db(t_sol_sec).to('K') - T_zone.to('K'))
                 )
-                Q_dot_cnd_cv_lst_.append(Q_dot_edr.to('W'))
+                _lst_Q_dot_cnd_cv.append(Q_dot_edr.to('W'))
             for ibe in ibe_lst:
                 Q_dot_ibe = (
                     (1 - ibe.F_rad) * ibe.UA
-                    * (ibe.T_adj(t_sol_sec).to('K')
-                       - T_zone.to('K'))
+                    * (ibe.T_adj(t_sol_sec).to('K') - T_zone.to('K'))
                 )
-                Q_dot_cnd_cv_lst_.append(Q_dot_ibe.to('W'))
-            Q_dot_cnd_cv_lst.append(sum(Q_dot_cnd_cv_lst_) or Q_(0, 'W'))
-        Q_dot_cnd_cv = Quantity.from_list(Q_dot_cnd_cv_lst)  # convert the list to a `Quantity` array
+                _lst_Q_dot_cnd_cv.append(Q_dot_ibe.to('W'))
+            lst_Q_dot_cnd_cv.append(sum(_lst_Q_dot_cnd_cv) or Q_(0, 'W'))
+        Q_dot_cnd_cv = Quantity.from_list(lst_Q_dot_cnd_cv)  # convert the list to a `Quantity` array
         # Convective part of conduction heat gain through opaque exterior
         # building elements:
-        Q_dot_ebe_dict = self.thz_model.conductive_heat_gain()
+        dict_Q_dot_ebe = self.model.conductive_heat_gain()
         Q_dot_ebe_tot_cv = 0
         # --> total convective conduction heat gain from all exterior building
-        # elements together at each time index:
-        for key in Q_dot_ebe_dict.keys():
+        # elements at each time index:
+        for key in dict_Q_dot_ebe.keys():
             ebe = self.ext_build_elems[key]
-            Q_dot = Q_dot_ebe_dict[key]  # cond. heat gain from ext. build. elem. `ebe` at each time index
+            Q_dot = dict_Q_dot_ebe[key]         # cond. heat gain from ext. build. elem. `ebe` at each time index
             Q_dot_cv = (1 - ebe.F_rad) * Q_dot  # convective part of this conduction heat gain
-            Q_dot_ebe_tot_cv += Q_dot_cv  # add to total of all exterior building elements together
+            Q_dot_ebe_tot_cv += Q_dot_cv        # add to total of all exterior building elements
         Q_dot_cnd_cv += Q_dot_ebe_tot_cv
         return Q_dot_cnd_cv.to('W')
 
-    def get_solar_heat_gain(self) -> Quantity:
+    def _collect_convective_solar_heat_gain(self) -> Quantity:
         """Returns the convective part of the solar heat gain to the zone air
         through windows at each solar time index of the design day, after the
         nodal thermal zone model of the unconditioned zone has been solved.
@@ -560,7 +597,7 @@ class VariableTemperatureZone:
         _, Q_dot_conv, _ = self._solar_heat_gain(self.dt_hr)
         return Q_dot_conv.to('W')
 
-    def get_internal_heat_gain(self) -> Quantity:
+    def _collect_convective_sensible_internal_heat_gain(self) -> Quantity:
         """Returns the convective part of the internal heat gains to the zone
         air at each solar time index of the design day, after the nodal thermal
         zone model of the unconditioned zone has been solved.
@@ -568,40 +605,37 @@ class VariableTemperatureZone:
         _, Q_dot_sen_cv, *_ = self._internal_heat_gain(self.dt_hr)
         return Q_dot_sen_cv.to('W')
 
-    def get_int_thermal_mass_heat_gain(self) -> Quantity:
+    def _collect_internal_mass_heat_gain(self) -> Quantity:
         """Returns the convective heat gain from the interior thermal mass to
         the zone air at each solar time index of the design day, after the nodal
         thermal zone model of the unconditioned zone has been solved.
         """
-        R_itm_z = self.thz_model.tsn.R2
+        R_itm_z = self.model.tsn.R2
         # --> unit thermal resistance between interior thermal mass and zone air
-        A_itm = self.thz_model.tsn.A[-1]
+        A_itm = self.model.tsn.A[-1]
         # --> surface area associated with the interior thermal mass
-        T_tsn = self.thz_model.thermal_storage_temperature('K')
-        T_zone = self.thz_model.zone_air_temperature('K')
+        T_tsn = self.model.thermal_storage_temperature('K')
+        T_zone = self.model.zone_air_temperature('K')
         Q_dot_itm = A_itm * (T_tsn - T_zone) / R_itm_z
         return Q_dot_itm.to('W')
 
-    def get_system_heat_transfer(self) -> tuple[Quantity, Quantity]:
+    def _collect_system_heat_transfer(self) -> Quantity:
         """Returns the heat rate extracted from or supplied to the zone air by
         the cooling/heating system in the zone at each solar time index of the
         selected day, after the nodal thermal zone model of the unconditioned
         zone has been solved.
-        Also returns the total thermal energy extracted from or supplied to the
-        zone air during the selected day.
         """
         num_steps = int(round(24 / self.dt_hr))
         t_sol_axis = 3600 * np.arange(0, num_steps * self.dt_hr, self.dt_hr)  # seconds
-        T_zone_arr = self.get_zone_air_temperature()
+        T_zone_arr = self._collect_zone_air_temperature()
         Q_dot_sys_lst = [
-            abs(self.thz_model.zan.Q_dot_sys(t_sol_sec, T_zone.to('K').m))
+            abs(self.model.zan.Q_dot_sys(t_sol_sec, T_zone.to('K').m))
             for t_sol_sec, T_zone in zip(t_sol_axis, T_zone_arr)
         ]
         Q_dot_sys = Quantity.from_list(Q_dot_sys_lst)
-        Q_sys = sum(Q_dot_sys * Q_(self.dt_hr, 'hr'))
-        return Q_dot_sys, Q_sys
+        return Q_dot_sys
 
-    def temperature_heat_gain_table(
+    def _collect_results(
         self,
         units: dict[str, str] | None = None,
         num_decimals: int = 3
@@ -621,19 +655,19 @@ class VariableTemperatureZone:
             The displayed number of decimals of values.
         """
         if units is None: units = {'T': 'degC', 'Q_dot': 'W'}
-        T_zone = self.get_zone_air_temperature()
-        Q_dot_vent = self.get_ventilation_heat_gain()
-        Q_dot_cond = self.get_conduction_heat_gain()
-        Q_dot_sol = self.get_solar_heat_gain()
-        Q_dot_ihg = self.get_internal_heat_gain()
-        Q_dot_itm = self.get_int_thermal_mass_heat_gain()
-        Q_dot_sys, _ = self.get_system_heat_transfer()
+        T_zone = self._collect_zone_air_temperature()
+        Q_dot_cnd_cv = self._collect_convective_conduction_heat_gain()
+        Q_dot_sol_cv = self._collect_convective_solar_heat_gain()
+        Q_dot_ven_sen = self._collect_sensible_ventilation_heat_gain()
+        Q_dot_ihg_sen_cv = self._collect_convective_sensible_internal_heat_gain()
+        Q_dot_itm = self._collect_internal_mass_heat_gain()
+        Q_dot_sys = self._collect_system_heat_transfer()
         d = {
             'T_zone': T_zone.to(units['T']).magnitude,
-            'Q_dot_vent': Q_dot_vent.to(units['Q_dot']).magnitude,
-            'Q_dot_cond': Q_dot_cond.to(units['Q_dot']).magnitude,
-            'Q_dot_sol': Q_dot_sol.to(units['Q_dot']).magnitude,
-            'Q_dot_ihg': Q_dot_ihg.to(units['Q_dot']).magnitude,
+            'Q_dot_cnd': Q_dot_cnd_cv.to(units['Q_dot']).magnitude,
+            'Q_dot_sol': Q_dot_sol_cv.to(units['Q_dot']).magnitude,
+            'Q_dot_ven': Q_dot_ven_sen.to(units['Q_dot']).magnitude,
+            'Q_dot_ihg': Q_dot_ihg_sen_cv.to(units['Q_dot']).magnitude,
             'Q_dot_itm': Q_dot_itm.to(units['Q_dot']).magnitude,
             'Q_dot_sys': Q_dot_sys.to(units['Q_dot']).magnitude
         }

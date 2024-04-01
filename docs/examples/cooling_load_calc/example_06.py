@@ -103,32 +103,32 @@ def main():
     chart = LineChart()
     chart.add_xy_data(
         label='conduction HG',
-        x1_values=df.index[:-1],
-        y1_values=df['Q_dot_cnd'][:-1],
+        x1_values=df.index,
+        y1_values=df['Q_dot_cnd'],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='solar HG',
-        x1_values=df.index[:-1],
-        y1_values=df['Q_dot_sol'][:-1],
+        x1_values=df.index,
+        y1_values=df['Q_dot_sol'],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='sens. internal HG',
-        x1_values=df.index[:-1],
-        y1_values=df['Q_dot_sen_ihg'][:-1],
+        x1_values=df.index,
+        y1_values=df['Q_dot_sen_ihg'],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='sens. vent. HG',
-        x1_values=df.index[:-1],
-        y1_values=df['Q_dot_sen_vent'][:-1],
+        x1_values=df.index,
+        y1_values=df['Q_dot_sen_vent'],
         style_props={'marker': 'o'}
     )
     chart.add_xy_data(
         label='sens. zone load',
-        x1_values=df.index[:-1],
-        y1_values=df['Q_dot_sen_zone'][:-1],
+        x1_values=df.index,
+        y1_values=df['Q_dot_sen_zone'],
         style_props={'marker': 'o'}
     )
     chart.add_legend()

@@ -522,6 +522,11 @@ class PlainFinTubeAirToWaterCounterFlowHeatExchanger:
 
             dP_water = hex_props['dP_int']
             P_water_out_new = self.water_in.P - dP_water
+            if P_water_out_new.magnitude < 0:
+                raise ValueError(
+                    "Water-side pressure drop is larger than inlet water "
+                    "pressure. A higher water-system pressure is required."
+                )
             water_out_new = Water(
                 T=T_water_out_new,
                 P=P_water_out_new

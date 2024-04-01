@@ -1,4 +1,3 @@
-from typing import List, Optional, Dict
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -18,7 +17,7 @@ class FixedSpeedCorrelation:
 
         Parameters
         ----------
-        param: str ['Qc_dot', 'Wc_dot', 'I', 'm_dot']
+        param: str
             The quantity to which the correlation applies.
         file: Path
             The file path to the csv-file with polynomial coefficients.
@@ -26,154 +25,166 @@ class FixedSpeedCorrelation:
         self.param = param
         self.df = pd.read_csv(file)
         self.df.set_index('Unnamed: 0', drop=True, inplace=True)
-        self.C: List[float] = self._get_coefficients()
+        self.C: list[float] = self._get_coefficients()
 
-    def _get_coefficients(self) -> List[float]:
-        """Returns the polynomial coefficients for the given quantity set by
-        `param` at instantiation of the `Correlation`-object."""
+    def _get_coefficients(self) -> list[float]:
+        """Returns the polynomial coefficients for the given quantity indicated
+        by `param` at instantiation of the `Correlation`-object.
+        """
         return self.df.loc[self.param].values
 
     def __call__(self, *args, **kwargs) -> float:
-        """Get the value of the quantity X at the given evaporator
-        temperature `Te` and given condenser temperature `Tc`."""
-        Te = args[0] or kwargs.get('Te', 0.0)
-        Tc = args[1] or kwargs.get('Tc', 0.0)
+        """Returns the value of quantity "X" at the given evaporation temperature
+        `T_evp` and the given condensing temperature `T_cnd`.
+        """
+        T_evp = args[0] or kwargs.get('T_evp', 0.0)
+        T_cnd = args[1] or kwargs.get('T_cnd', 0.0)
         if len(self.C) == 10:
-            return self.correlationC10(Te, Tc)
+            return self.correlationC10(T_evp, T_cnd)
 
-    def correlationC10(self, Te: float, Tc: float) -> float:
+    def correlationC10(self, T_evp: float, T_cnd: float) -> float:
         X = self.C[0]
-        X += self.C[1] * Te
-        X += self.C[2] * Tc
-        X += self.C[3] * (Te ** 2)
-        X += self.C[4] * Te * Tc
-        X += self.C[5] * (Tc ** 2)
-        X += self.C[6] * (Te ** 3)
-        X += self.C[7] * Tc * (Te ** 2)
-        X += self.C[8] * Te * (Tc ** 2)
-        X += self.C[9] * (Tc ** 3)
+        X += self.C[1] * T_evp
+        X += self.C[2] * T_cnd
+        X += self.C[3] * (T_evp ** 2)
+        X += self.C[4] * T_evp * T_cnd
+        X += self.C[5] * (T_cnd ** 2)
+        X += self.C[6] * (T_evp ** 3)
+        X += self.C[7] * T_cnd * (T_evp ** 2)
+        X += self.C[8] * T_evp * (T_cnd ** 2)
+        X += self.C[9] * (T_cnd ** 3)
         return X
 
 
 class VariableSpeedCorrelation(FixedSpeedCorrelation):
 
     def __call__(self, *args, **kwargs) -> float:
-        """Get the value of the quantity X at the given evaporator
-        temperature `Te`, given condenser temperature `Tc`, and given
-        compressor speed `speed`."""
-        Te = args[0] or kwargs.get('Te', 0.0)
-        Tc = args[1] or kwargs.get('Tc', 0.0)
-        speed = args[2] or kwargs.get('speed', 0.0)
+        """Returns the value of the quantity "X" at the given evaporation
+        temperature `T_evp`, given condensing temperature `T_cnd`, and given
+        compressor n `n`."""
+        T_evp = args[0] or kwargs.get('T_evp', 0.0)
+        T_cnd = args[1] or kwargs.get('T_cnd', 0.0)
+        n = args[2] or kwargs.get('n', 0.0)
         if len(self.C) == 20:
-            return self.correlationC20(Te, Tc, speed)
+            return self.correlationC20(T_evp, T_cnd, n)
         if len(self.C) == 30:
-            return self.correlationC30(Te, Tc, speed)
+            return self.correlationC30(T_evp, T_cnd, n)
 
-    def correlationC20(self, Te: float, Tc: float, speed: float) -> float:
+    def correlationC20(self, T_evp: float, T_cnd: float, n: float) -> float:
         X = self.C[0]
-        X += self.C[1] * Te
-        X += self.C[2] * Tc
-        X += self.C[3] * speed
-        X += self.C[4] * Te * Tc
-        X += self.C[5] * Te * speed
-        X += self.C[6] * Tc * speed
-        X += self.C[7] * Te ** 2
-        X += self.C[8] * Tc ** 2
-        X += self.C[9] * speed ** 2
-        X += self.C[10] * Te * Tc * speed
-        X += self.C[11] * Te ** 2 * Tc
-        X += self.C[12] * Te ** 2 * speed
-        X += self.C[13] * Te ** 3
-        X += self.C[14] * Te * Tc ** 2
-        X += self.C[15] * Tc ** 2 * speed
-        X += self.C[16] * Tc ** 3
-        X += self.C[17] * Te * speed ** 2
-        X += self.C[18] * Tc * speed ** 2
-        X += self.C[19] * speed ** 3
+        X += self.C[1] * T_evp
+        X += self.C[2] * T_cnd
+        X += self.C[3] * n
+        X += self.C[4] * T_evp * T_cnd
+        X += self.C[5] * T_evp * n
+        X += self.C[6] * T_cnd * n
+        X += self.C[7] * T_evp ** 2
+        X += self.C[8] * T_cnd ** 2
+        X += self.C[9] * n ** 2
+        X += self.C[10] * T_evp * T_cnd * n
+        X += self.C[11] * T_evp ** 2 * T_cnd
+        X += self.C[12] * T_evp ** 2 * n
+        X += self.C[13] * T_evp ** 3
+        X += self.C[14] * T_evp * T_cnd ** 2
+        X += self.C[15] * T_cnd ** 2 * n
+        X += self.C[16] * T_cnd ** 3
+        X += self.C[17] * T_evp * n ** 2
+        X += self.C[18] * T_cnd * n ** 2
+        X += self.C[19] * n ** 3
         return X
 
-    def correlationC30(self, Te: float, Tc: float, speed: float) -> float:
+    def correlationC30(self, T_evp: float, T_cnd: float, n: float) -> float:
         X = self.C[0]
-        X += self.C[1] * Te
-        X += self.C[2] * Tc
-        X += self.C[3] * Te ** 2
-        X += self.C[4] * Tc ** 2
-        X += self.C[5] * Te * Tc * speed ** 2
-        X += self.C[6] * Te ** 2 * Tc * speed ** 2
-        X += self.C[7] * Te * Tc ** 2 * speed ** 2
-        X += self.C[8] * Te * Tc * speed
-        X += self.C[9] * Te ** 2 * Tc * speed
-        X += self.C[10] * Te * Tc ** 2 * speed
-        X += self.C[11] * Te * Tc
-        X += self.C[12] * Te ** 2 * Tc
-        X += self.C[13] * Te * Tc ** 2
-        X += self.C[14] * Te ** 3
-        X += self.C[15] * Tc ** 3
-        X += self.C[16] * speed
-        X += self.C[17] * Te * speed
-        X += self.C[18] * Tc * speed
-        X += self.C[19] * Te ** 2 * speed
-        X += self.C[20] * Tc ** 2 * speed
-        X += self.C[21] * Te ** 3 * speed
-        X += self.C[22] * Tc ** 3 * speed
-        X += self.C[23] * speed ** 2
-        X += self.C[24] * Te * speed ** 2
-        X += self.C[25] * Tc * speed ** 2
-        X += self.C[26] * Te ** 2 * speed ** 2
-        X += self.C[27] * Tc ** 2 * speed ** 2
-        X += self.C[28] * Te ** 3 * speed ** 2
-        X += self.C[29] * Tc ** 3 * speed ** 2
+        X += self.C[1] * T_evp
+        X += self.C[2] * T_cnd
+        X += self.C[3] * T_evp ** 2
+        X += self.C[4] * T_cnd ** 2
+        X += self.C[5] * T_evp * T_cnd * n ** 2
+        X += self.C[6] * T_evp ** 2 * T_cnd * n ** 2
+        X += self.C[7] * T_evp * T_cnd ** 2 * n ** 2
+        X += self.C[8] * T_evp * T_cnd * n
+        X += self.C[9] * T_evp ** 2 * T_cnd * n
+        X += self.C[10] * T_evp * T_cnd ** 2 * n
+        X += self.C[11] * T_evp * T_cnd
+        X += self.C[12] * T_evp ** 2 * T_cnd
+        X += self.C[13] * T_evp * T_cnd ** 2
+        X += self.C[14] * T_evp ** 3
+        X += self.C[15] * T_cnd ** 3
+        X += self.C[16] * n
+        X += self.C[17] * T_evp * n
+        X += self.C[18] * T_cnd * n
+        X += self.C[19] * T_evp ** 2 * n
+        X += self.C[20] * T_cnd ** 2 * n
+        X += self.C[21] * T_evp ** 3 * n
+        X += self.C[22] * T_cnd ** 3 * n
+        X += self.C[23] * n ** 2
+        X += self.C[24] * T_evp * n ** 2
+        X += self.C[25] * T_cnd * n ** 2
+        X += self.C[26] * T_evp ** 2 * n ** 2
+        X += self.C[27] * T_cnd ** 2 * n ** 2
+        X += self.C[28] * T_evp ** 3 * n ** 2
+        X += self.C[29] * T_cnd ** 3 * n ** 2
         return X
 
 
 class FixedSpeedCompressor:
-    params = ['Qc_dot', 'Wc_dot', 'm_dot', 'T_dis']
+    params = ['Q_dot_evp', 'W_dot', 'm_dot', 'T_dis']
     units = {
-        'Qc_dot': 'kW',
-        'Wc_dot': 'kW',
-        'm_dot': 'g / s',
-        'speed': '1 / min'
+        'Q_dot': 'kW',
+        'W_dot': 'kW',
+        'm_dot': 'kg / hr',
+        'T_dis': 'degC',
+        'n': '1 / min'
     }
 
     def __init__(
         self,
         coeff_file: Path | str,
-        refrigerant_type: Fluid,
+        refrigerant: Fluid,
         dT_sh: Quantity = Q_(0, 'K'),
         dT_sc: Quantity = Q_(0, 'K'),
-        units: Dict[str, str] | None = None
+        units: dict[str, str] | None = None
     ) -> None:
-        """
-        Create `FixedSpeedCompressor`-model from polynomial coefficients that define
-        the correlations for cooling capacity (`Qc_dot`), compressor input power
-        (`Wc_dot`) and refrigerant mass flow rate (`m_dot`) as a function of
-        evaporator temperature and condenser temperature.
+        """Creates a `FixedSpeedCompressor` model using the polynomial
+        coefficients in `coeff_file` for the correlations that return cooling
+        capacity (`Q_dot_evp`), compressor input power (`W_dot`), refrigerant
+        mass flow rate (`m_dot`), and discharge temperature (`T_dis`) as a
+        function of evaporation temperature and condensing temperature.
+
+        The polynomial coefficients of a compressor are to be retrieved through
+        the selection software of compressor manufacturers. The values of the
+        polynomial coefficients depend also on the amount of superheat and the
+        amount of subcooling that were set in the selection program. These
+        amounts need to be assigned to parameters `dT_sh` and `dT_sc`.
 
         Parameters
         ----------
-        coeff_file: Path
-            File path to csv-file with polynomial coefficients of compressor.
-        dT_sh: Quantity
+        coeff_file:
+            Path to the csv-file with the polynomial coefficients of the
+            compressor.
+        dT_sh:
             Amount of superheat for which the polynomial coefficients are valid.
-        dT_sc: Quantity
+        dT_sc:
             Amount of subcooling for which the polynomial coefficients are valid.
-        refrigerant_type: Fluid
+        refrigerant:
             Refrigerant for which the polynomial coefficients are valid.
-        units: Dict[str, str], optional
-            The units used in the coefficient file.
+        units: optional
+            Dictionary with the units used in the coefficient file. The default
+            units are: {'Q_dot': 'kW', 'W_dot': 'kW', 'm_dot': 'kg / hr', 
+            'T_dis': 'degC'}
         """
         self.dT_sh = dT_sh
         self.dT_sc = dT_sc
-        self.refrigerant_type = refrigerant_type
-        self._Te: float = float('nan')
-        self._Tc: float = float('nan')
+        self.refrigerant_type = refrigerant
+        self._T_evp: float = float('nan')
+        self._T_cnd: float = float('nan')
         self._set_correlations(coeff_file)
         if units is not None:
             self.units.update(units)
 
     def _set_correlations(self, coeff_file: Path):
-        # create a dictionary to hold the `Correlation`-object for each of the
-        # possible quantities (`Qc_dot`, `Wc_dot`, `m_dot`, `T_dis`).
+        # Creates a dictionary that holds the `Correlation`-object for each of 
+        # the possible quantities (`Q_dot_evp`, `W_dot`, `m_dot`, and `T_dis`).
         self.correlations = {}
         for param in self.params:
             try:
@@ -182,147 +193,164 @@ class FixedSpeedCompressor:
                 pass
 
     @property
-    def Te(self) -> Quantity:
-        return Q_(self._Te, 'degC')
+    def T_evp(self) -> Quantity:
+        """Evaporation temperature."""
+        return Q_(self._T_evp, 'degC')
 
-    @Te.setter
-    def Te(self, Te: Quantity) -> None:
-        """Set evaporator temperature."""
-        self._Te = Te.to('degC').m
-
-    @property
-    def Tc(self) -> Quantity:
-        return Q_(self._Tc, 'degC')
-
-    @Tc.setter
-    def Tc(self, Tc: Quantity) -> None:
-        """Set condenser temperature."""
-        self._Tc = Tc.to('degC').m
+    @T_evp.setter
+    def T_evp(self, value: Quantity) -> None:
+        self._T_evp = value.to('degC').m
 
     @property
-    def Pe(self) -> Quantity:
-        """Get evaporator pressure."""
-        return self.refrigerant_type(T=self.Te, x=Q_(1.0, 'frac')).P
+    def T_cnd(self) -> Quantity:
+        """Condensing temperature."""
+        return Q_(self._T_cnd, 'degC')
+
+    @T_cnd.setter
+    def T_cnd(self, value: Quantity) -> None:
+        self._T_cnd = value.to('degC').m
 
     @property
-    def Pc(self) -> Quantity:
-        """Get condenser pressure."""
-        return self.refrigerant_type(T=self.Tc, x=Q_(0.0, 'frac')).P
+    def P_evp(self) -> Quantity:
+        """Evaporation pressure."""
+        return self.refrigerant_type(T=self.T_evp, x=Q_(1.0, 'frac')).P
 
     @property
-    def Qc_dot(self) -> Quantity:
-        """Get cooling capacity at the set evaporator temperature and condenser
+    def P_cnd(self) -> Quantity:
+        """Condensing pressure."""
+        return self.refrigerant_type(T=self.T_cnd, x=Q_(0.0, 'frac')).P
+
+    @property
+    def Q_dot_evp(self) -> Quantity:
+        """Cooling capacity at the set evaporation temperature and condensing
         temperature."""
-        Qc_dot = self.correlations['Qc_dot'](self._Te, self._Tc)
-        return Q_(Qc_dot, self.units['Qc_dot'])
-        # Qc_dot = self.m_dot * (self.suction_gas.h - self.mixture.h)
-        # return Qc_dot
+        Q_dot_evp = self.correlations['Q_dot_evp'](self._T_evp, self._T_cnd)
+        return Q_(Q_dot_evp, self.units['Q_dot'])
 
     @property
-    def Wc_dot(self) -> Quantity:
-        """Get compressor input power at the set evaporator temperature and
-        condenser temperature."""
-        Wc_dot = self.correlations['Wc_dot'](self._Te, self._Tc)
-        return Q_(Wc_dot, self.units['Wc_dot'])
+    def W_dot(self) -> Quantity:
+        """Compressor input power at the set evaporation temperature and
+        condensing temperature."""
+        Wc_dot = self.correlations['W_dot'](self._T_evp, self._T_cnd)
+        return Q_(Wc_dot, self.units['W_dot'])
 
     @property
     def m_dot(self) -> Quantity:
-        """Get mass flow rate at the set evaporator temperature and condenser
+        """Mass flow rate at the set evaporation temperature and condensing
         temperature."""
-        m_dot = self.correlations['m_dot'](self._Te, self._Tc)
+        m_dot = self.correlations['m_dot'](self._T_evp, self._T_cnd)
         return Q_(m_dot, self.units['m_dot'])
 
     @property
     def T_dis(self) -> Quantity:
-        """Get discharge temperature at condenser entrance."""
-        T_dis = self.correlations['T_dis'](self._Te, self._Tc)
-        return Q_(T_dis, 'degC')
+        """Discharge temperature at condenser entrance."""
+        T_dis = self.correlations['T_dis'](self._T_evp, self._T_cnd)
+        return Q_(T_dis, self.units['T_dis'])
 
     @property
-    def refrigeration_effect(self) -> Quantity:
-        q = self.Qc_dot / self.m_dot
+    def q_rfg(self) -> Quantity:
+        """Refrigeration effect."""
+        q = self.Q_dot_evp / self.m_dot
         return q
 
     @property
     def suction_gas(self) -> FluidState:
-        """Get state of suction gas at evaporator exit."""
+        """Suction gas at evaporator outlet."""
         if self.dT_sh.m == 0:
-            suction_gas = self.refrigerant_type(T=self.Te, x=Q_(100, 'pct'))
+            suction_gas = self.refrigerant_type(T=self.T_evp, x=Q_(100, 'pct'))
         else:
-            P_eva = self.refrigerant_type(T=self.Te, x=Q_(100, 'pct')).P
-            T_suc = self.Te.to('K') + self.dT_sh.to('K')
-            suction_gas = self.refrigerant_type(T=T_suc, P=P_eva)
+            P_evp = self.refrigerant_type(T=self.T_evp, x=Q_(100, 'pct')).P
+            T_suc = self.T_evp.to('K') + self.dT_sh.to('K')
+            suction_gas = self.refrigerant_type(T=T_suc, P=P_evp)
         return suction_gas
 
     @property
     def mixture(self) -> FluidState:
-        """Get state of mixture at evaporator entrance."""
-        P_eva = self.suction_gas.P
+        """Liquid/vapor mixture at evaporator inlet."""
+        P_evp = self.suction_gas.P
         h_mix = self.liquid.h
         try:
-            mixture = self.refrigerant_type(P=P_eva, h=h_mix)
-        except CoolPropMixtureError:  # refrigerant is mixture
-            mixture = self.refrigerant_type(P=P_eva, h=h_mix, x=Q_(0, 'pct'))
+            mixture = self.refrigerant_type(P=P_evp, h=h_mix)
+        except CoolPropMixtureError:  
+            # refrigerant is a blend
+            mixture = self.refrigerant_type(P=P_evp, h=h_mix, x=Q_(0, 'pct'))
         return mixture
 
     @property
     def liquid(self) -> FluidState:
-        """Get state of liquid at condenser exit."""
-        P_con = self.refrigerant_type(T=self.Tc, x=Q_(0, 'pct')).P
-        T_liq = self.Tc.to('K') - self.dT_sc.to('K')
+        """Liquid at condenser outlet."""
+        P_cnd = self.refrigerant_type(T=self.T_cnd, x=Q_(0, 'pct')).P
+        T_liq = self.T_cnd.to('K') - self.dT_sc.to('K')
         if self.dT_sc == 0:
-            liquid = self.refrigerant_type(P=P_con, x=Q_(0, 'pct'))
+            liquid = self.refrigerant_type(P=P_cnd, x=Q_(0, 'pct'))
         else:
-            liquid = self.refrigerant_type(P=P_con, T=T_liq)
+            liquid = self.refrigerant_type(P=P_cnd, T=T_liq)
         return liquid
 
     @property
     def discharge_gas(self) -> FluidState:
-        """Get state of discharge gas at condenser entrance."""
-        P_con = self.refrigerant_type(T=self.Tc, x=Q_(100, 'pct')).P
-        wc = self.Wc_dot / self.m_dot
+        """Discharge gas at condenser inlet."""
+        P_cnd = self.refrigerant_type(T=self.T_cnd, x=Q_(100, 'pct')).P
+        wc = self.W_dot / self.m_dot
         h_dis = self.suction_gas.h + wc
         try:
-            discharge_gas = self.refrigerant_type(P=P_con, h=h_dis)
-        except CoolPropMixtureError:  # refrigerant is mixture
-            discharge_gas = self.refrigerant_type(P=P_con, h=h_dis, T=self.Tc)
+            discharge_gas = self.refrigerant_type(P=P_cnd, h=h_dis)
+        except CoolPropMixtureError:  
+            # refrigerant is a blend
+            discharge_gas = self.refrigerant_type(P=P_cnd, h=h_dis, T=self.T_cnd)
         return discharge_gas
 
     @property
     def Wis_dot(self) -> Quantity:
-        """Get isentropic compressor power at the set evaporator temperature and
-        condenser temperature."""
-        P_con = self.refrigerant_type(T=self.Tc, x=Q_(0, 'pct')).P
+        """Isentropic compressor power at the set evaporation temperature and
+        condensing temperature.
+        """
+        P_cnd = self.refrigerant_type(T=self.T_cnd, x=Q_(0, 'pct')).P
         h_suc = self.suction_gas.h
         s_suc = self.suction_gas.s
         try:
-            h_is_dis = self.refrigerant_type(P=P_con, s=s_suc).h
-        except CoolPropMixtureError:  # refrigerant is mixture
-            h_is_dis = self.refrigerant_type(P=P_con, s=s_suc, T=self.Tc).h
+            h_is_dis = self.refrigerant_type(P=P_cnd, s=s_suc).h
+        except CoolPropMixtureError:  
+            # refrigerant is mixture
+            h_is_dis = self.refrigerant_type(P=P_cnd, s=s_suc, T=self.T_cnd).h
         Wis_dot = self.m_dot * (h_is_dis - h_suc)
         return Wis_dot
 
     @property
     def eta_is(self) -> Quantity:
-        """Get isentropic efficiency at the set evaporator temperature and
-        condenser temperature."""
-        return self.Wis_dot / self.Wc_dot
+        """Isentropic efficiency at the set evaporation temperature and
+        condensing temperature.
+        """
+        return self.Wis_dot / self.W_dot
 
     @property
-    def Qh_dot(self) -> Quantity:
-        """Get condenser heat rejection at the set evaporator temperature and
-        condenser temperature."""
-        return self.Qc_dot + self.Wc_dot
+    def Q_dot_cnd(self) -> Quantity:
+        """Condenser heat rejection rate at the set evaporation temperature and
+        condensing temperature.
+        """
+        return self.Q_dot_evp + self.W_dot
 
     @property
     def COP(self) -> Quantity:
-        """Get COP at the set evaporator temperature and condenser temperature."""
-        return self.Qc_dot / self.Wc_dot
+        """COP at the set evaporation temperature and condensing temperature."""
+        return self.Q_dot_evp / self.W_dot
 
-    def get_refrigerant_cycle(self, units: Optional[Dict[str, str]] = None) -> pd.DataFrame:
-        """Returns a Pandas DataFrame with state properties at evaporator inlet, evaporator outlet
-        condenser inlet and condenser outlet, assuming a standard vapor compression cycle without
-        pressure losses."""
+    def get_refrigerant_cycle(
+        self, 
+        units: dict[str, str] | None = None
+    ) -> pd.DataFrame:
+        """Returns a Pandas DataFrame with state properties at the evaporator 
+        inlet, the evaporator outlet, the condenser inlet, and the condenser 
+        outlet, assuming a standard vapor compression cycle without pressure 
+        losses.
+        
+        Parameters
+        ----------
+        units:
+            Dictionary with the units for displaying the quantities in the
+            dataframe. The default units are: {'T': 'degC', 'P': 'bar', 
+            'rho': 'kg / m**3', 'h': 'kJ / kg', 's': 'kJ / kg / K'}.
+        """
         units_ = {
             'T': 'degC',
             'P': 'bar',
@@ -365,34 +393,42 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
     def __init__(
         self,
         coeff_file: Path | str,
-        refrigerant_type: Fluid,
+        refrigerant: Fluid,
         dT_sh: Quantity = Q_(0, 'K'),
         dT_sc: Quantity = Q_(0, 'K'),
-        units: Dict[str, str] | None = None
+        units: dict[str, str] | None = None
     ) -> None:
-        """
-        Create `VariableSpeedCompressor`-model from polynomial coefficients that define
-        the correlations for cooling capacity (`Qc_dot`), compressor input power
-        (`Wc_dot`) and refrigerant mass flow rate (`m_dot`) as a function of
-        evaporator temperature, condenser temperature and compressor speed.
+        """Creates a `VariableSpeedCompressor` model using the polynomial
+        coefficients in `coeff_file` for the correlations that return cooling
+        capacity (`Q_dot_evp`), compressor input power (`W_dot`), refrigerant
+        mass flow rate (`m_dot`), and discharge temperature (`T_dis`) as a
+        function of evaporation temperature, condensing temperature and
+        compressor speed.
+
+        The polynomial coefficients of a compressor are to be retrieved through
+        the selection software of compressor manufacturers. The values of the
+        polynomial coefficients depend also on the amount of superheat and the
+        amount of subcooling that were set in the selection program. These
+        amounts need to be assigned to parameters `dT_sh` and `dT_sc`.
 
         Parameters
         ----------
-        coeff_file: Path
-            File path to csv-file with polynomial coefficients of compressor.
-        dT_sh: Quantity
+        coeff_file:
+            File path to csv-file with the polynomial coefficients of the
+            compressor.
+        dT_sh:
             Amount of superheat for which the polynomial coefficients are valid.
-        dT_sc: Quantity
+        dT_sc:
             Amount of subcooling for which the polynomial coefficients are valid.
-        refrigerant_type: Fluid
+        refrigerant:
             Refrigerant for which the polynomial coefficients are valid.
         """
-        super().__init__(coeff_file, refrigerant_type, dT_sh, dT_sc, units)
-        self._speed = float('nan')
+        super().__init__(coeff_file, refrigerant, dT_sh, dT_sc, units)
+        self._n = float('nan')
 
     def _set_correlations(self, coeff_file: Path):
-        # create a dictionary to hold the `Correlation`-object for each of the
-        # possible quantities (`Qc_dot`, `Wc_dot` and `m_dot`).
+        # creates a dictionary that holds the `Correlation`-objects for each of 
+        # the possible quantities (`Q_dot_evp`, `W_dot`, `m_dot` and `T_dis`).
         self.correlations = {}
         for param in self.params:
             try:
@@ -402,99 +438,92 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
 
     @property
     def speed(self) -> Quantity:
-        return Q_(self._speed, self.units['speed'])
+        """Compressor speed."""
+        return Q_(self._n, self.units['n'])
 
     @speed.setter
-    def speed(self, s: Quantity) -> None:
-        """Set compressor speed."""
-        self._speed = s.to(self.units['speed']).m
+    def speed(self, value: Quantity) -> None:
+        self._n = value.to(self.units['n']).m
 
     @property
-    def Qc_dot(self) -> Quantity:
-        """Get cooling capacity at the set evaporator temperature, condenser
-        temperature, and compressor speed."""
-        Qc_dot = self.correlations['Qc_dot'](self._Te, self._Tc, self._speed)
-        return Q_(Qc_dot, self.units['Qc_dot'])
-        # Qc_dot = self.m_dot * (self.suction_gas.h - self.mixture.h)
-        # return Qc_dot
+    def Q_dot_evp(self) -> Quantity:
+        """Cooling capacity at the set evaporation temperature, condensing
+        temperature, and compressor speed.
+        """
+        Q_dot_evp = self.correlations['Q_dot_evp'](self._T_evp, self._T_cnd, self._n)
+        return Q_(Q_dot_evp, self.units['Q_dot'])
 
     @property
-    def Wc_dot(self) -> Quantity:
-        """Get compressor input power at the set evaporator temperature, condenser
-        temperature, and compressor speed."""
-        Wc_dot = self.correlations['Wc_dot'](self._Te, self._Tc, self._speed)
-        return Q_(Wc_dot, self.units['Wc_dot'])
+    def W_dot(self) -> Quantity:
+        """Compressor input power at the set evaporation temperature, condensing
+        temperature, and compressor speed.
+        """
+        W_dot = self.correlations['W_dot'](self._T_evp, self._T_cnd, self._n)
+        return Q_(W_dot, self.units['W_dot'])
 
     @property
     def m_dot(self) -> Quantity:
-        """Get mass flow rate at the set evaporator temperature, condenser
-        temperature, and compressor speed."""
+        """Refrigerant mass flow rate at the set evaporation temperature,
+        condensing temperature, and compressor speed.
+        """
         try:
-            m_dot = self.correlations['m_dot'](self._Te, self._Tc, self._speed)
+            m_dot = self.correlations['m_dot'](self._T_evp, self._T_cnd, self._n)
             return Q_(m_dot, self.units['m_dot'])
         except KeyError:
             q_re = self.suction_gas.h - self.liquid.h
-            m_dot = self.Qc_dot / q_re
+            m_dot = self.Q_dot_evp / q_re
             return m_dot
 
     @property
     def T_dis(self) -> Quantity:
-        """Get discharge temperature at the set evaporator temperature, condenser
-        temperature, and compressor speed."""
-        T_dis = self.correlations['T_dis'](self._Te, self._Tc, self._speed)
+        """Discharge temperature at the set evaporation temperature, condensing
+        temperature, and compressor speed.
+        """
+        T_dis = self.correlations['T_dis'](self._T_evp, self._T_cnd, self._n)
         return Q_(T_dis, 'degC')
 
-    def get_compressor_speed(self, **kwargs) -> Quantity:
+    def compressor_speed(
+        self,
+        Q_dot_evp: Quantity | None = None,
+        m_dot: Quantity | None = None
+    ) -> Quantity:
         """Returns the compressor speed at which the cooling capacity or the
-        the refrigerant mass flow rate is equal to the value of `Qc_dot`
-        respectively the value of `m_dot` at the set evaporator temperature and
-        condenser temperature.
-
-        Parameters
-        ----------
-        **kwargs:
-            Either keyword `Q_dot` with its corresponding value, or keyword
-            `m_dot` with its corresponding value.
-
-        Returns
-        -------
-        Quantity
+        refrigerant mass flow rate equals the value of `Q_dot_evp` or `m_dot`
+        at the set evaporation temperature and condensing temperature.
         """
-        Qc_dot = kwargs.get('Qc_dot')
-        m_dot = kwargs.get('m_dot')
-        if Qc_dot is not None:
-            n_cmp = self._solve_with_Qc_dot(Qc_dot)
-            return n_cmp
+        if Q_dot_evp is not None:
+            n = self.__solve1__(Q_dot_evp)
+            return n
         if m_dot is not None:
-            n_cmp = self._solve_with_m_dot(m_dot)
-            return n_cmp
+            n = self.__solve2__(m_dot)
+            return n
 
-    def _solve_with_Qc_dot(self, Qc_dot: Quantity) -> Quantity:
-        _Qc_dot = Qc_dot.to(self.units['Qc_dot']).m
+    def __solve1__(self, Q_dot_evp: Quantity) -> Quantity:
+        _Q_dot_evp = Q_dot_evp.to(self.units['Q_dot']).m
 
         def eq(unknowns: np.ndarray) -> np.ndarray:
-            speed_ = unknowns[0]
-            lhs = _Qc_dot
-            rhs = self.correlations['Qc_dot'](self._Te, self._Tc, speed_)
+            n_ = unknowns[0]
+            lhs = _Q_dot_evp
+            rhs = self.correlations['Q_dot_evp'](self._T_evp, self._T_cnd, n_)
             out = lhs - rhs
             return np.array([out])
 
-        speed_ini = 0.0
-        roots = fsolve(eq, np.array([speed_ini]))
-        speed = Q_(roots[0], self.units['speed'])
-        return speed
+        n_ini = 0.0
+        roots = fsolve(eq, np.array([n_ini]))
+        n = Q_(roots[0], self.units['n'])
+        return n
 
-    def _solve_with_m_dot(self, m_dot: Quantity) -> Quantity:
+    def __solve2__(self, m_dot: Quantity) -> Quantity:
         _m_dot = m_dot.to(self.units['m_dot']).m
 
         def eq(unknowns: np.ndarray) -> np.ndarray:
-            speed_ = unknowns[0]
+            n_ = unknowns[0]
             lhs = _m_dot
-            rhs = self.correlations['m_dot'](self._Te, self._Tc, speed_)
+            rhs = self.correlations['m_dot'](self._T_evp, self._T_cnd, n_)
             out = lhs - rhs
             return np.array([out])
 
-        speed_ini = 0.0
-        roots = fsolve(eq, np.array([speed_ini]))
-        speed = Q_(roots[0], self.units['speed'])
-        return speed
+        n_ini = 0.0
+        roots = fsolve(eq, np.array([n_ini]))
+        n = Q_(roots[0], self.units['n'])
+        return n

@@ -3,15 +3,14 @@ EXAMPLE 7
 ---------
 CREATING A VARIABLE TEMPERATURE ZONE AND SOLVING FOR THE ZONE AIR TEMPERATURE.
 
-In an `VariableTemperatureZone` object the zone air temperature is not
-predetermined as in a `FixedTemperatureZone` object. Its value depends on a
-global heat balance of the zone air (i.e., the sum of all heat gains to the zone
-air and the heat extracted from the zone air by the cooling system should ideally
-be zero).
+In an `VariableTemperatureZone` object the zone air temperature is not fixed as
+in a `FixedTemperatureZone` object. Its value is determined by a global heat
+balance of the zone air node (i.e., the sum of all heat gains to the zone
+air and the heat extracted from the zone air by the cooling system must be zero).
 
 In this example the resulting zone air temperature is calculated for each hour
-of the specified day of the year in an unconditioned zone which is located at
-the specified geographic location and has no cooling system.
+of the specified day in an unconditioned zone located at the given geographic
+location while the cooling/heating system is turned off.
 """
 import pandas as pd
 
@@ -203,29 +202,33 @@ def main():
         floor_area=Q_(100, 'm**2'),
         height=Q_(3.5, 'm'),
         ventilation_zone=vez,
-        C_tsn=Q_(200, 'kJ / (m**2 * K)'),
-        A_tsn=Q_(100, 'm**2'),
-        R_tsn=Q_(0.13, 'K * m**2 / W')
     )
 
     # Add the exterior building elements to the zone:
-    unconditioned_zone.add_ext_build_elem([
+    unconditioned_zone.add_ext_build_elem(
         ext_build_elems.south_wall,
         ext_build_elems.west_wall,
         ext_build_elems.north_wall,
         ext_build_elems.east_wall,
         ext_build_elems.roof
-    ])
+    )
 
     # Add space ventilation to the unconditioned zone:
     unconditioned_zone.add_ventilation()
+
+    # Add interior thermal mass to the zone:
+    unconditioned_zone.add_thermal_storage_node(
+        C=Q_(200, 'kJ / (m**2 * K)'),
+        A=Q_(100, 'm**2'),
+        R_tz=Q_(0.13, 'K * m**2 / W')
+    )
 
     # Solve the unconditioned zone for the zone air temperature:
     # Parameter `F_rad` indicates the fraction of conduction heat gain that is
     # radiative. Recommended values can be found in ASHRAE Fundamentals 2017,
     # chapter 18.
     # No cooling system is present, so we can set parameter `Q_dot_sys_fun` to
-    # `None` or simply omit this parameter all together.
+    # `None` or simply omit this parameter.
     # The zone air temperature is solved for each hour of the specified day.
     # This is indicated with parameter `dt_hr`, being the time step of the
     # calculations.
@@ -238,20 +241,17 @@ def main():
     # using the last calculated node temperatures from the previous cycle as the
     # initial values for the next cycle. Parameter `num_cycles` refers to number
     # of calculated cycles before the final results are returned.
-    unconditioned_zone.solve(
+    df = unconditioned_zone.solve(
         F_rad=Q_(0.46, 'frac'),
         Q_dot_sys_fun=None,
         dt_hr=1.0,
         num_cycles=12
     )
-
-    df = unconditioned_zone.temperature_heat_gain_table()
     with pd.option_context(
         'display.max_rows', None,
         'display.max_columns', None,
         'display.width', None
-    ):
-        print(df)
+    ): print(df)
 
 
 if __name__ == '__main__':

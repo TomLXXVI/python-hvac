@@ -177,7 +177,7 @@ class CondensingUnit:
                 f"Analysis finished after {counter[0]} iterations with "
                 f"message: {res.flag}"
             )
-            evp_Q_dot = self.condenser.Q_dot - self.compressor.Wc_dot
+            evp_Q_dot = self.condenser.Q_dot - self.compressor.W_dot
             P_evp = self.Rfg(T=self.T_evp, x=Q_(1, 'frac')).P
             self.output = Output(
                 evp_air_m_dot=None,
@@ -189,7 +189,7 @@ class CondensingUnit:
                 cnd_air_out=self.condenser.air_out,
                 evp_Q_dot=evp_Q_dot,
                 cnd_Q_dot=self.condenser.Q_dot,
-                cmp_W_dot=self.compressor.Wc_dot,
+                cmp_W_dot=self.compressor.W_dot,
                 rfg_m_dot=self.compressor.m_dot,
                 T_evp=self.T_evp,
                 P_evp=P_evp,
@@ -200,8 +200,8 @@ class CondensingUnit:
                 discharge_gas=self.condenser.rfg_in,
                 liquid=self.condenser.rfg_out,
                 mixture=None,
-                COP=self.condenser.Q_dot / self.compressor.Wc_dot,
-                EER=evp_Q_dot / self.compressor.Wc_dot,
+                COP=self.condenser.Q_dot / self.compressor.W_dot,
+                EER=evp_Q_dot / self.compressor.W_dot,
                 evp_eps=None,
                 cnd_eps=self.condenser.eps,
                 evp_air_dP=None,
@@ -225,8 +225,8 @@ class CondensingUnit:
             f"Iteration {i + 1}: "
             f"Try with: T_evp = {self.T_evp:~P.3f}, T_cnd = {T_cnd:~P.3f}"
         )
-        self.compressor.Te = self.T_evp
-        self.compressor.Tc = T_cnd
+        self.compressor.T_evp = self.T_evp
+        self.compressor.T_cnd = T_cnd
         self.compressor.speed = self.n_cmp
         self.compressor.dT_sh = self.dT_sh
 
@@ -252,7 +252,7 @@ class CondensingUnit:
         )
 
         # Determine the required heat rejection rate for the condenser:
-        cnd_Q_dot_req = self.evp_Q_dot + self.compressor.Wc_dot
+        cnd_Q_dot_req = self.evp_Q_dot + self.compressor.W_dot
 
         logger.info(
             f"Iteration {i + 1}: "
@@ -274,7 +274,7 @@ class CondensingUnit:
         rejection capacity of the condenser and the required heat rejection rate.
         """
         cnd_Q_dot_cap = self.condenser.Q_dot
-        cnd_Q_dot_req = self.evp_Q_dot + self.compressor.Wc_dot
+        cnd_Q_dot_req = self.evp_Q_dot + self.compressor.W_dot
         abs_err = abs(cnd_Q_dot_cap - cnd_Q_dot_req)
         rel_err = abs_err / abs(cnd_Q_dot_req)
         return abs_err, rel_err.to('pct')

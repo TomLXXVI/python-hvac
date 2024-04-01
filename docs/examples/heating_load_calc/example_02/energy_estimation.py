@@ -9,7 +9,7 @@ characteristics are derived from the design heating load calculation in part 1.
 """
 import pandas as pd
 from hvac import Quantity
-from hvac.energy_estimation import BinTableCreator, Load, TimeSegment
+from hvac.energy_estimation import BinTableCreator, HeatingLoad, TimeSegment
 
 Q_ = Quantity
 
@@ -38,7 +38,7 @@ with pd.option_context(
 
 
 # Define the heating load characteristics at nighttime and at daytime:
-load_nighttime = Load(
+load_nighttime = HeatingLoad(
     T_int=Q_(16, 'degC'),
     H_trm=Q_(0.271, 'kW / K'),
     V_dot_ven=Q_(138.239, 'm**3 / hr'),
@@ -48,7 +48,7 @@ load_nighttime = Load(
 )
 
 
-load_daytime = Load(
+load_daytime = HeatingLoad(
     T_int=Q_(22, 'degC'),
     H_trm=Q_(0.271, 'kW / K'),
     V_dot_ven=Q_(138.239, 'm**3 / hr'),
