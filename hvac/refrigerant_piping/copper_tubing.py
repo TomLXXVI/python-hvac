@@ -94,13 +94,18 @@ class CopperTubing:
 
     @classmethod
     def get_records(cls, *dns: str) -> tuple[CopperTube | None, ...]:
-        """Get multiple copper tube records from the copper tubing shelf."""
+        """Get multiple copper tubes from the copper tubing shelf. When
+        called without parameters, all copper tubes in the shelf are returned.
+        """
         records = []
         with shelve.open(cls.db_path) as shelf:
-            for dn in dns:
-                try:
-                    record = cast(dict, shelf[dn])
-                except KeyError:
-                    records.append(None)
-                records.append(cls._refurbish_record(record))
+            if dns:
+                for dn in dns:
+                    try:
+                        record = cast(dict, shelf[dn])
+                    except KeyError:
+                        records.append(None)
+                    records.append(cls._refurbish_record(record))
+            else:
+                records = [cls._refurbish_record(record) for record in shelf.values()]
         return tuple(records)

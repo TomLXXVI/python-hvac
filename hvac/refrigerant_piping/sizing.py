@@ -1,14 +1,78 @@
+"""
+SIZING REFRIGERATION LINES IN AIR CONDITIONING SYSTEMS.
+
+This module implements the sizing procedures for suction lines, discharge lines,
+and liquid lines made from copper piping as outlined in TRANE, Air Conditioning
+Clinic: Refrigerant Piping (June 2011, TRG-TRC006-EN).
+"""
+from collections.abc import Iterable
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
+from scipy.interpolate import interp1d
 from hvac import Quantity
 from hvac.fluids import Fluid
-from hvac.refrigerant_piping.copper_tubing import CopperTube
 from hvac.heat_transfer.forced_convection.internal_flow import CircularTube
+from hvac.refrigerant_piping.copper_tubing import CopperTube
+from hvac.refrigerant_piping.copper_fittings import CopperFittings
 
 
 Q_ = Quantity
 g = Q_(9.81, 'm / s**2')
+
+
+def _get_suction_u_min_limit_interpolation():
+    """Returns an interpolation function that takes the nominal tube diameter
+    in inch and returns the minimum allowable refrigerant flow velocity in
+    feet / min in the suction line.
+    """
+    u_min_limit = [
+        (3/8, 370),
+        (1/2, 460),
+        (5/8, 520),
+        (3/4, 560),
+        (7/8, 600),
+        (1 + 1/8, 700),
+        (1 + 3/8, 780),
+        (1 + 5/8, 840),
+        (2 + 1/8, 980),
+        (2 + 5/8, 1080),
+        (3 + 1/8, 1180),
+        (3 + 5/8, 1270),
+        (4 + 1/8, 1360)
+    ]
+    x, y = zip(*u_min_limit)
+    interp = interp1d(x, y, bounds_error=False, fill_value='extrapolate')
+    return interp
+
+
+def _get_discharge_u_min_limit_interpolation():
+    """Returns an interpolation function that takes the nominal tube diameter
+    in inch and returns the minimum allowable refrigerant flow velocity in
+    feet / min in the discharge line.
+    """
+    u_min_limit = [
+        (5/16, 220),
+        (3/8, 250),
+        (1/2, 285),
+        (5/8, 315),
+        (3/4, 345),
+        (7/8, 375),
+        (1 + 1/8, 430),
+        (1 + 3/8, 480),
+        (1 + 5/8, 520),
+        (2 + 1/8, 600),
+        (2 + 5/8, 665),
+        (3 + 1/8, 730)
+    ]
+    x, y = zip(*u_min_limit)
+    interp = interp1d(x, y, bounds_error=False, fill_value='extrapolate')
+    return interp
+
+
+interp_suction_u_min_limit = _get_suction_u_min_limit_interpolation()
+interp_discharge_u_min_limit = _get_discharge_u_min_limit_interpolation()
 
 
 @dataclass
@@ -59,47 +123,72 @@ class RefrigerantCycleInfo:
 
 class RefrigerantLine(ABC):
     u_max_limit: Quantity = None
-    u_min_limit: dict[str, Quantity] | None = None
 
     def __init__(
         self,
-        copper_tube: CopperTube,
-        elevation: Quantity,
         cycle_info: RefrigerantCycleInfo,
+        copper_tube: CopperTube,
+        L: Quantity,
         Q_dot_evp_max: Quantity,
+        fittings: Iterable[tuple[str, int]] | None = None,
+        elevation: Quantity = Q_(0.0, 'm'),
         Q_dot_evp_min: Quantity | None = None
     ) -> None:
         """
         Parameters
         ----------
+        cycle_info:
+            Instance of dataclass `RefrigerantCycleInfo` containing the
+            operating design parameters of the refrigerant cycle.
         copper_tube:
             Instance of dataclass `CopperTube` containing the dimensions of the
             circular cross-section (nominal diameter, outside diameter, inside
             diameter).
-        elevation:
-            The difference in height between the outlet and inlet of the
-            refrigerant line. If the outlet is below the inlet, the elevation
-            has a negative value.
-        cycle_info:
-            Instance of dataclass `RefrigerantCycleInfo` containing operating
-            parameters of the refrigerant cycle.
+        L:
+            Straight length of the refrigerant line without fittings and other
+            accessories.
         Q_dot_evp_max:
             Maximum evaporator load. This will determine the maximum
-            flow velocity of the refrigerant.
+            flow velocity of the refrigerant in the tube.
+        fittings:
+            Iterable of records (tuples) which contain the copper fitting ID and
+            the number of fittings with this ID present in the refrigerant line.
+            The following IDs (strings) are defined:
+            - 'long-radius-elbow',
+            - 'short-radius-elbow',
+            - 'tee-thru-flow', 'tee-branch-flow',
+            - 'ball-valve', 'sight-glass'
+        elevation:
+            The difference in height between the outlet and the inlet of the
+            refrigerant line. If the outlet is below the inlet, the elevation
+            has a negative value.
         Q_dot_evp_min: optional, default None
-            Minimum evaporator load. This will determine the minimum
-            flow velocity of the refrigerant. Leave this `None` in case of
-            an on/off-controlled compressor.
+            Minimum evaporator load. This will determine the minimum flow
+            velocity of the refrigerant. Leave this `None` in case of an
+            on/off-controlled compressor.
         """
         self.copper_tube = copper_tube
+        self.L = L
+        self.fittings = fittings
         self.elevation = elevation
         self.cycle_info = cycle_info
         self.Q_dot_evp_max = Q_dot_evp_max
         self.Q_dot_evp_min = Q_dot_evp_min or Q_dot_evp_max
+
         self.m_dot_max = self._get_m_dot(self.Q_dot_evp_max)
         self.V_dot_max = self._get_V_dot(self.m_dot_max)
         self.m_dot_min = self._get_m_dot(self.Q_dot_evp_min)
         self.V_dot_min = self._get_V_dot(self.m_dot_min)
+
+        self.u_max: Quantity = Q_(float('nan'), 'm / s')
+        self.u_min: Quantity = Q_(float('nan'), 'm / s')
+        self.L_eq: Quantity = Q_(float('nan'), 'm')
+        self.dP: Quantity = Q_(float('nan'), 'Pa')
+        self.dT_sat: Quantity = Q_(float('nan'), 'K')
+        self.is_double_riser: bool = False
+
+        self.units = {'u': 'm / s', 'dP': 'kPa', 'dT_sat': 'K'}
+        self.warning: str | None = None
 
     def _get_m_dot(self, Q_dot: Quantity) -> Quantity:
         """Returns the steady-state refrigerant mass flow rate based on the
@@ -129,22 +218,50 @@ class RefrigerantLine(ABC):
     def _check_u_min(self, u_min: Quantity) -> str:
         ...
 
+    def _calculate_equivalent_length(self) -> Quantity:
+        """Calculates the equivalent length of the refrigeration line and the
+        fittings present in the line.
+        """
+        fitting_L_eq = Q_(0.0, 'm')
+        if isinstance(self.fittings, Iterable):
+            fitting_L_eq = sum(
+                n * CopperFittings.get_Leq(ID, self.copper_tube.DN)
+                for ID, n in self.fittings
+            )
+        self.L_eq = self.L + fitting_L_eq
+        return self.L_eq
+
     @abstractmethod
-    def pressure_drop(self, L_eq: Quantity) -> tuple[Quantity, Quantity]:
+    def pressure_drop(
+        self,
+        dP_add: Quantity | Iterable[Quantity] | None = None
+    ) -> tuple[Quantity, Quantity]:
         """Returns the pressure loss across the refrigeration line at the
         maximum cooling load due to flow friction and elevation of the outlet
         with respect to the inlet of the line. However, in the case of a
         negative elevation, the associated pressure gain is ignored. Also,
         returns the associated change in saturation temperature that corresponds
         with the pressure drop.
-
-        Parameters
-        ----------
-        L_eq:
-            Total equivalent length of the refrigerant line, including the
-            equivalent lengths of any fittings or accessories in the line.
         """
         ...
+
+    def __str__(self):
+        u_u = self.units['u']
+        u_dP = self.units['dP']
+        u_dT_sat = self.units['dT_sat']
+        fields = [
+            f"{self.copper_tube.DN}",
+            f"maximum flow velocity = {self.u_max.to(u_u):~P.1f}",
+            f"minimum flow velocity = {self.u_min.to(u_u):~P.1f}",
+            f"maximum pressure drop = {self.dP.to(u_dP):~P.3f} "
+            f"({self.dT_sat.to(u_dT_sat):~P.3f})"
+        ]
+        if self.is_double_riser:
+            fields.insert(0, "double riser")
+        s = ' | '.join(fields)
+        if self.warning is not None:
+            s += f"\nWarning: {self.warning}"
+        return s
 
 
 class VaporLine(RefrigerantLine):
@@ -171,11 +288,11 @@ class VaporLine(RefrigerantLine):
             or 'TOO HIGH'
         """
         A = math.pi * (self.copper_tube.D_int ** 2) / 4
-        u_max = self.V_dot_max / A
-        r_max = self._check_u_max(u_max)
-        u_min = self.V_dot_min / A
-        r_min = self._check_u_min(u_min)
-        return u_max.to('m / s'), r_max, u_min.to('m / s'), r_min
+        self.u_max = self.V_dot_max / A
+        r_max = self._check_u_max(self.u_max)
+        self.u_min = self.V_dot_min / A
+        r_min = self._check_u_min(self.u_min)
+        return self.u_max.to('m / s'), r_max, self.u_min.to('m / s'), r_min
 
     def _check_u_max(self, u_max: Quantity) -> str:
         if u_max.to('feet / min') < self.u_max_limit:
@@ -184,10 +301,14 @@ class VaporLine(RefrigerantLine):
             r = 'TOO HIGH'
         return r
 
+    @abstractmethod
+    def _get_u_min_limit(self, DN: str) -> Quantity:
+        pass
+
     def _check_u_min(self, u_min: Quantity) -> str:
         u_min = u_min.to('feet / min')
         # minimum allowable flow velocity to ensure oil return:
-        u_min_limit = self.u_min_limit[self.copper_tube.DN]
+        u_min_limit = self._get_u_min_limit(self.copper_tube.DN)
         if not self.elevation.magnitude > 0.0:
             # if not a vertical suction riser:
             u_min_limit *= 0.75
@@ -200,39 +321,32 @@ class VaporLine(RefrigerantLine):
         return r
 
     @abstractmethod
-    def pressure_drop(self, L_eq: Quantity) -> tuple[Quantity, Quantity]:
+    def pressure_drop(
+        self,
+        dP_add: Quantity | Iterable[Quantity] | None = None
+    ) -> tuple[Quantity, Quantity]:
         ...
 
 
 class SuctionLine(VaporLine):
     u_max_limit = Q_(4000, 'ft / min')
-    # minimum allowable flow velocity for proper oil return in riser at
-    # saturated suction temperature of 20 °F:
-    u_min_limit = {
-        k: Q_(v, 'feet / min') for k, v in
-        [
-            ('3/8', 370),
-            ('1/2', 460),
-            ('5/8', 520),
-            ('3/4', 560),
-            ('7/8', 600),
-            ('1 1/8', 700),
-            ('1 3/8', 780),
-            ('1 5/8', 840),
-            ('2 1/8', 980),
-            ('2 5/8', 1080),
-            ('3 1/8', 1180),
-            ('3 5/8', 1270),
-            ('4 1/8', 1360)
-        ]
-    }
 
     def _get_V_dot(self, m_dot: Quantity) -> Quantity:
         # volume flow rate of refrigerant at evaporator outlet
         return m_dot / self.cycle_info.rfg_evp_out.rho
 
-    def pressure_drop(self, L_eq: Quantity) -> tuple[Quantity, Quantity]:
+    def _get_u_min_limit(self, DN: str) -> Quantity:
+        DN = '+'.join(DN.split(' '))
+        DN = eval(DN)
+        u_min_limit = interp_suction_u_min_limit(DN)
+        return Q_(u_min_limit, 'feet / min')
+
+    def pressure_drop(
+        self,
+        dP_add: Quantity | Iterable[Quantity] | None = None
+    ) -> tuple[Quantity, Quantity]:
         rfg = self.cycle_info.rfg_evp_out
+        L_eq = self._calculate_equivalent_length()
         tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
         tube.m_dot = self.m_dot_max
         dP_friction = tube.pressure_drop()
@@ -240,41 +354,42 @@ class SuctionLine(VaporLine):
             dP_elevation = g * rfg.rho * self.elevation
         else:
             dP_elevation = Q_(0.0, 'Pa')
-        dP = dP_friction + dP_elevation
-        P = self.cycle_info.P_evp - dP
+        if dP_add is not None:
+            try:
+                len(dP_add)
+            except TypeError:
+                # `dP_add` is a single `Quantity`
+                pass
+            else:
+                dP_add = sum(dP_add)
+        else:
+            dP_add = Q_(0.0, 'Pa')
+        self.dP = dP_friction + dP_elevation + dP_add
+        P = self.cycle_info.P_evp - self.dP
         T_sat = self.cycle_info.refrigerant(P=P, x=Q_(1.0, 'frac')).T
-        dT_sat = self.cycle_info.T_evp - T_sat
-        return dP.to('Pa'), dT_sat.to('K')
+        self.dT_sat = self.cycle_info.T_evp - T_sat
+        return self.dP.to('Pa'), self.dT_sat.to('K')
 
 
 class DischargeLine(VaporLine):
     u_max_limit = Q_(3500, 'ft / min')
-    # minimum allowable flow velocity for proper oil return in riser @
-    # saturated condensing temperature of 80 °F:
-    u_min_limit = {
-        k: Q_(v, 'feet / min') for k, v in
-        [
-            ('5/16', 220),
-            ('3/8', 250),
-            ('1/2', 285),
-            ('5/8', 315),
-            ('3/4', 345),
-            ('7/8', 375),
-            ('1 1/8', 430),
-            ('1 3/8', 480),
-            ('1 5/8', 520),
-            ('2 1/8', 600),
-            ('2 5/8', 665),
-            ('3 1/8', 730)
-        ]
-    }
 
     def _get_V_dot(self, m_dot: Quantity) -> Quantity:
         # volume flow rate of refrigerant at compressor outlet
         return m_dot / self.cycle_info.rfg_cnd_in.rho
 
-    def pressure_drop(self, L_eq: Quantity) -> tuple[Quantity, Quantity]:
+    def _get_u_min_limit(self, DN: str) -> Quantity:
+        DN = '+'.join(DN.split(' '))
+        DN = eval(DN)
+        u_min_limit = interp_suction_u_min_limit(DN)
+        return Q_(u_min_limit, 'feet / min')
+
+    def pressure_drop(
+        self,
+        dP_add: Quantity | Iterable[Quantity] | None = None
+    ) -> tuple[Quantity, Quantity]:
         rfg = self.cycle_info.rfg_cnd_in
+        L_eq = self._calculate_equivalent_length()
         tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
         tube.m_dot = self.m_dot_max
         dP_friction = tube.pressure_drop()
@@ -282,15 +397,27 @@ class DischargeLine(VaporLine):
             dP_elevation = g * rfg.rho * self.elevation
         else:
             dP_elevation = Q_(0.0, 'Pa')
-        dP = dP_friction + dP_elevation
-        P = self.cycle_info.P_cnd + dP
+        if dP_add is not None:
+            try:
+                len(dP_add)
+            except TypeError:
+                # `dP_add` is a single `Quantity`
+                pass
+            else:
+                dP_add = sum(dP_add)
+        else:
+            dP_add = Q_(0.0, 'Pa')
+        self.dP = dP_friction + dP_elevation + dP_add
+        P = self.cycle_info.P_cnd + self.dP
         T_sat = self.cycle_info.refrigerant(P=P, x=Q_(1.0, 'frac')).T
-        dT_sat = T_sat - self.cycle_info.T_cnd
-        return dP.to('Pa'), dT_sat.to('K')
+        self.dT_sat = T_sat - self.cycle_info.T_cnd
+        return self.dP.to('Pa'), self.dT_sat.to('K')
 
 
 class LiquidLine(RefrigerantLine):
     u_max_limit = Q_(600, 'ft / min')
+    # Minimum limit of remaining subcooling at expansion device:
+    dT_sc_min = Q_(5, 'delta_degF')
 
     def _get_V_dot(self, m_dot: Quantity) -> Quantity:
         # volume flow rate of refrigerant at condenser outlet
@@ -298,12 +425,16 @@ class LiquidLine(RefrigerantLine):
 
     def flow_velocity(self) -> tuple[Quantity, str]:
         A = math.pi * (self.copper_tube.D_int ** 2) / 4
-        u_max = self.V_dot_max / A
-        r_max = self._check_u_max(u_max)
-        return u_max.to('m / s'), r_max
+        self.u_max = self.V_dot_max / A
+        r_max = self._check_u_max(self.u_max)
+        return self.u_max.to('m / s'), r_max
 
-    def pressure_drop(self, L_eq: Quantity) -> tuple[Quantity, Quantity]:
+    def pressure_drop(
+        self,
+        dP_add: Quantity | Iterable[Quantity] | None = None
+    ) -> tuple[Quantity, Quantity]:
         rfg = self.cycle_info.rfg_cnd_out
+        L_eq = self._calculate_equivalent_length()
         tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
         tube.m_dot = self.m_dot_max
         dP_friction = tube.pressure_drop()
@@ -311,8 +442,274 @@ class LiquidLine(RefrigerantLine):
             dP_elevation = g * rfg.rho * self.elevation
         else:
             dP_elevation = Q_(0.0, 'Pa')
-        dP = dP_friction + dP_elevation
-        P = self.cycle_info.P_cnd - dP
+        if dP_add is not None:
+            try:
+                len(dP_add)
+            except TypeError:
+                # `dP_add` is a single `Quantity`
+                pass
+            else:
+                dP_add = sum(dP_add)
+        else:
+            dP_add = Q_(0.0, 'Pa')
+        self.dP = dP_friction + dP_elevation + dP_add
+        P = self.cycle_info.P_cnd - self.dP
         T_sat = self.cycle_info.refrigerant(P=P, x=Q_(0.0, 'frac')).T
-        dT_sat = self.cycle_info.T_cnd_out - T_sat
-        return dP.to('Pa'), dT_sat.to('K')
+        self.dT_sat = self.cycle_info.T_cnd - T_sat
+        if not self._check_remaining_subcooling():
+            self.warning = "Flashing of refrigerant in the liquid line is likely to occur."
+        return self.dP.to('Pa'), self.dT_sat.to('K')
+
+    def _check_remaining_subcooling(self) -> bool:
+        """Checks if enough subcooling of the refrigerant is still available at
+        the entrance of the expansion device.
+        """
+        # Calculate the difference between the saturation temperature of the
+        # subcooled refrigerant at the outlet of the condenser and the
+        # saturation temperature of liquid refrigerant having the same enthalpy
+        # as the refrigerant at the condenser outlet (i.e. where in the
+        # log(p)/h-diagram the vertical line through the refrigerant state at
+        # the condenser outlet intersects the liquid saturation line ). This is
+        # the maximum saturation temperature drop available before flashing of
+        # refrigerant will occur.
+        h = self.cycle_info.rfg_cnd_out.h
+        rfg_sat_liq = self.cycle_info.refrigerant(
+            x=Q_(0.0, 'frac'),
+            h=h,
+            P=self.cycle_info.P_evp
+        )
+        dT_sat_max = self.cycle_info.T_cnd.to('K') - rfg_sat_liq.T.to('K')
+        # The difference between the maximum available saturation temperature
+        # drop and the actual saturation temperature drop must be greater than
+        # the safety margin:
+        diff = dT_sat_max - self.dT_sat
+        if diff.to('K') < self.dT_sc_min.to('K'):
+            return False
+        return True
+
+
+class RefrigerantLineSizer(ABC):
+    """
+    Abstract base class for sizing suction lines, discharge lines, and liquid
+    lines.
+    """
+    _RFG_LINE = None
+
+    def __init__(
+        self,
+        copper_tubes: Iterable[CopperTube | None, ...],
+        cycle_info: RefrigerantCycleInfo,
+        Q_dot_evp_max: Quantity,
+        Q_dot_evp_min: Quantity | None = None,
+        copper_fittings_path: Path = Path("./copper-fittings.csv")
+    ) -> None:
+        """
+        Parameters
+        ----------
+        copper_tubes:
+            List of copper tubes to select from.
+        cycle_info:
+            The operating parameters of the refrigeration cycle.
+        Q_dot_evp_max:
+            Maximum system cooling capacity.
+        Q_dot_evp_min:
+            Minimum system cooling capacity in case the circuit contains a
+            compressor capable of unloading. If there is only one compressor
+            that cycles on and off, `Q_dot_evp_min` should be left to `None`.
+        copper_fittings_path:
+            File path where equivalent lengths of copper fittings are shelved.
+            If the shelf is not found, a new fitting shelf will be automatically
+            created.
+        """
+        self.cycle_info = cycle_info
+        self.Q_dot_evp_max = Q_dot_evp_max
+        self.Q_dot_evp_min = Q_dot_evp_min
+        # Sort copper tubes from small to large internal diameter.
+        # noinspection PyTypeChecker
+        self.copper_tubes = sorted(
+            copper_tubes,
+            key=lambda copper_tube: copper_tube.D_int.to('mm').m
+        )
+        CopperFittings.db_path = copper_fittings_path
+
+    def size(
+        self,
+        L: Quantity,
+        elevation: Quantity = Q_(0.0, 'm'),
+        fittings: Iterable[tuple[str, int]] | None = None
+    ) -> RefrigerantLine | tuple[RefrigerantLine, RefrigerantLine] | None:
+        """Sizes the refrigerant line so that the refrigerant flow velocity is
+        between the minimum and maximum allowable limit (to ensure proper oil
+        return and to prevent noise and pipe wall erosion) while minimizing the
+        pressure drop.
+        If no suitable single pipe is found and the refrigerant line has a
+        positive elevation, a double riser may be returned. In that case there
+        should be no fittings in the riser. This means that in case the
+        refrigerant line has a vertical riser, the horizontal/vertical drop
+        sections and the vertical riser should be sized separately.
+
+        Parameters
+        ----------
+        L:
+            Straight length of the refrigerant line (or segment) without any
+            fittings or accessories.
+        elevation:
+            Height of the line outlet with respect to the line inlet. Only
+            relevant if the suction line has a vertical riser.
+        fittings
+            List of 2-tuples containing the ID and number of each type of
+            fitting present in the refrigerant line.
+            The following IDs are defined:
+            - 'long-radius-elbow',
+            - 'short-radius-elbow',
+            - 'tee-thru-flow', 'tee-branch-flow',
+            - 'ball-valve', 'sight-glass'
+
+        Returns
+        -------
+        -   A single refrigerant line, or
+        -   the small and large section of a double riser, or
+        -   None in case no copper tube in the list of copper tubes satisfies
+            the flow velocity criterion.
+        """
+        refrigerant_lines = []
+        for copper_tube in self.copper_tubes:
+            refrigerant_line = self._RFG_LINE(
+                cycle_info=self.cycle_info,
+                copper_tube=copper_tube,
+                L=L,
+                Q_dot_evp_max=self.Q_dot_evp_max,
+                fittings=fittings,
+                elevation=elevation,
+                Q_dot_evp_min=self.Q_dot_evp_min
+            )
+            u_max, flag_max, u_min, flag_min = refrigerant_line.flow_velocity()
+            if flag_max == 'OK' and flag_min == 'OK':
+                dP, _ = refrigerant_line.pressure_drop()
+                refrigerant_lines.append(refrigerant_line)
+        if refrigerant_lines:
+            dP_lst = Quantity.from_list([rl.dP for rl in refrigerant_lines])
+            idx_dP_min = dP_lst.magnitude.argmin()
+            return refrigerant_lines[idx_dP_min]
+        if not refrigerant_lines and elevation.m > 0.0:
+            # Try a double riser.
+            small_section, large_section = self._create_double_riser(
+                L=L,
+                elevation=elevation,
+                fittings=fittings
+            )
+            return small_section, large_section
+        return None
+
+    def _create_double_riser(
+        self,
+        L: Quantity,
+        elevation: Quantity,
+        fittings: Iterable[tuple[str, int]] | None = None
+    ) -> tuple[RefrigerantLine, RefrigerantLine]:
+        small_section, large_section = None, None
+        for copper_tube in self.copper_tubes:
+            # The small riser piping is sized based on the minimum capacity of
+            # the system.
+            small_section_ = self._RFG_LINE(
+                cycle_info=self.cycle_info,
+                copper_tube=copper_tube,
+                L=L,
+                Q_dot_evp_max=self.Q_dot_evp_min,
+                fittings=fittings,
+                elevation=elevation,
+            )
+            u_max, flag_max, u_min, flag_min = small_section_.flow_velocity()
+            if flag_min == 'OK':
+                small_section = small_section_
+            # The larger riser piping is sized based on a maximum capacity equal
+            # to the difference between the maximum and minimum system capacity,
+            # and a minimum capacity equal to the system's minimum capacity.
+            large_section_ = self._RFG_LINE(
+                cycle_info=self.cycle_info,
+                copper_tube=copper_tube,
+                L=L,
+                Q_dot_evp_max=self.Q_dot_evp_max - self.Q_dot_evp_min,
+                fittings=fittings,
+                elevation=elevation,
+                Q_dot_evp_min=self.Q_dot_evp_min
+            )
+            u_max, flag_max, u_min, flag_min = large_section_.flow_velocity()
+            if flag_max == 'OK' and flag_min == 'OK':
+                large_section = large_section_
+        # Returns the small riser section with the largest diameter that
+        # satisfies the minimum velocity criterion and the large riser section
+        # with the largest diameter that satisfies both the minimum and maximum
+        # velocity criterion.
+        small_section.is_double_riser = True
+        large_section.is_double_riser = True
+        return small_section, large_section
+
+
+class SuctionLineSizer(RefrigerantLineSizer):
+    """Selects a copper tube with suitable diameter for a suction line."""
+    _RFG_LINE = SuctionLine
+
+
+class DischargeLineSizer(RefrigerantLineSizer):
+    """Selects a copper tube with suitable diameter for a discharge line."""
+    _RFG_LINE = DischargeLine
+
+
+class LiquidLineSizer(RefrigerantLineSizer):
+    """Selects a copper tube with suitable diameter for a liquid line."""
+    _RFG_LINE = LiquidLine
+
+    def size(
+        self,
+        L: Quantity,
+        elevation: Quantity = Q_(0.0, 'm'),
+        fittings: Iterable[tuple[str, int]] | None = None
+    ) -> RefrigerantLine | None:
+        """Sizes the liquid line so that the refrigerant flow velocity is below
+        the maximum allowable limit (to prevent noise and pipe wall erosion).
+        (As oil and liquid refrigerant mix readily, oil return within the liquid
+        line is not a concern.)
+        Copper tubes are sorted from small to large internal diameter on
+        instantiation of the liquid line sizer. The smallest copper tube that
+        satisfies the maximum flow velocity criterion is returned as to minimize
+        refrigerant charge in the liquid line.
+
+        Parameters
+        ----------
+        L:
+            Straight length of the refrigerant line (or segment) without any
+            fittings or accessories.
+        elevation:
+            Height of the line outlet with respect to the line inlet. Only
+            relevant if the suction line has a vertical riser.
+        fittings
+            List of 2-tuples containing the ID and number of each type of
+            fitting present in the refrigerant line.
+            The following IDs are defined:
+            - 'long-radius-elbow',
+            - 'short-radius-elbow',
+            - 'tee-thru-flow', 'tee-branch-flow',
+            - 'ball-valve', 'sight-glass'
+
+        Returns
+        -------
+        A single refrigerant line, or `None` in case no copper tube in the list
+        of available copper tubes satisfies the maximum flow velocity criterion.
+        """
+        for copper_tube in self.copper_tubes:
+            refrigerant_line = self._RFG_LINE(
+                cycle_info=self.cycle_info,
+                copper_tube=copper_tube,
+                L=L,
+                Q_dot_evp_max=self.Q_dot_evp_max,
+                fittings=fittings,
+                elevation=elevation,
+            )
+            # Calculate the flow velocity in the liquid line that correspond
+            # with the maximum cooling capacity:
+            u_max, flag_max = refrigerant_line.flow_velocity()
+            if flag_max == 'OK':
+                return refrigerant_line
+        return None
+    
