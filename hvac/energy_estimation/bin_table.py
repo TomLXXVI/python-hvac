@@ -141,7 +141,7 @@ class BinTableCreator:
             dayfirst=True,
             date_format=self._date_time_fmt
         )
-        # convert temperature values if wanted
+        # convert temperature values:
         T_unit_desired = self._bin_limits[0].units
         if T_unit_desired != Q_(0, self._T_unit).units:
             T_column = self._yearly_tmy_data.loc[:, self._temperature_column_name]
@@ -194,7 +194,6 @@ class BinTableCreator:
 
     def _get_time_segment_dict(self, hour_groups) -> dict[str, pd.DataFrame]:
         """Arranges the hour groups into time segments."""
-
         # Initialize a dictionary of empty lists of which the keys refer to a
         # time segment
         time_segment_dict = {}

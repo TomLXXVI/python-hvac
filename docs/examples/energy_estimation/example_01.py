@@ -8,8 +8,10 @@ from hvac.energy_estimation.load import HeatingLoad
 
 Q_ = Quantity
 
+# ------------------------------------------------------------------------------
 # HEATING LOAD
-# Define the heating load of the building:
+# ------------------------------------------------------------------------------
+# Define the heating load of a building:
 load = HeatingLoad(
     T_int=Q_(20, 'degC'),
     T_ext_min=Q_(-8, 'degC'),
@@ -24,6 +26,7 @@ load = HeatingLoad(
 # present:
 load.T_ext = Q_(5, 'degC')
 load.num_hours = 10
+
 
 print(
     "fixed heating load characteristics:"
@@ -47,11 +50,13 @@ print(
     sep='\n', end='\n\n'
 )
 
-
+# ------------------------------------------------------------------------------
 # HEAT PUMP
+# ------------------------------------------------------------------------------
+
 # Define the heat pump used to heat the building, passing the heat pump
 # performance table which tabulates the heating capacity and input power of the
-# heat pump at different outdoor air temperatures while the condenser-side
+# heat pump at different outdoor air temperatures, while the condenser-side
 # temperature remains fixed (in this specific example water at 35 °C):
 heat_pump = HeatPump(file_path="hp_atlantic_alfea_extensa_AI5_W35.csv")
 
@@ -66,14 +71,20 @@ heat_pump.num_hours = 10
 # Get the balance point of the heat pump for the given load:
 T_ext_bal, Q_dot_bal = heat_pump.balance_point
 
-print("heat pump characteristics that depend on the set outdoor temperature only:")
+
+print(
+    "heat pump characteristics that depend on the set outdoor temperature "
+    "only:"
+)
 print(
     f"heating capacity = {heat_pump.Q_dot.to('kW'):~P.3f}",
     f"input power = {heat_pump.W_dot.to('kW'):~P.3f}",
     f"COP = {heat_pump.COP:~P.2f}",
     sep='\n', end='\n\n'
 )
-print("heat pump characteristics that also depend on the set load:")
+print(
+    "heat pump characteristics that also depend on the set load:"
+)
 print(
     f"balance point temperature = {T_ext_bal.to('degC'):~P.1f}",
     f"heating capacity available at balance point = {Q_dot_bal.to('kW'):~P.1f}",
