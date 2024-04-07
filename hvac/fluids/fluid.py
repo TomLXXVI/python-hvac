@@ -160,10 +160,31 @@ class Fluid:
             return True
         return False
 
-    def _update(self, **input_qties: Quantity) -> None:
+    @staticmethod
+    def _get_phase(phase: str | None = None) -> int:
+        match phase:
+            case 'liquid':
+                return CoolProp.iphase_liquid
+            case 'gas':
+                return CoolProp.iphase_gas
+            case 'two_phase':
+                return CoolProp.iphase_twophase
+            case 'supercritical_liquid':
+                return CoolProp.iphase_supercritical_liquid
+            case 'supercritical_gas':
+                return CoolProp.iphase_supercritical_gas
+            case 'supercritical':
+                return CoolProp.iphase_supercritical
+            case None:
+                return CoolProp.iphase_not_imposed
+
+    def _update(self, phase: str | None = None, **input_qties: Quantity) -> None:
         """Updates the state object of the `Fluid`-instance based on the
-        given state variables in `input_qties`.
+        given state variables in `input_qties`. Parameter `phase` can be used
+        to impose the phase ('liquid', 'gas', 'two_phase', 'supercritical_liquid',
+        'supercritical_gas', or 'supercritical').
         """
+        phase = self._get_phase(phase)
         if len(input_qties) == 2:  # normal case
             input_qty_names = list(input_qties.keys())
             input_qty_values = list(input_qties.values())
@@ -185,6 +206,7 @@ class Fluid:
                 coolprop_qty2, val2
             )
             try:
+                self._state.specify_phase(phase)
                 self._state.update(*inputs)
             except ValueError as err:
                 if self._is_mixture():
@@ -221,9 +243,9 @@ class Fluid:
         qties = list(qties.values())
 
         def eq(unknowns: np.ndarray) -> np.ndarray:
-            qty2 = Q_(unknowns[0], qties_units[2])
-            input_qties = {qties_names[0]: qties[0], qties_names[2]: qty2}
-            qty1_new = self.__call__(**input_qties).state_dict[qties_names[1]]
+            qty2_ = Q_(unknowns[0], qties_units[2])
+            input_qties_ = {qties_names[0]: qties[0], qties_names[2]: qty2_}
+            qty1_new = self.__call__(**input_qties_).state_dict[qties_names[1]]
             out = (qty1_new - qties[1]).to(qties_units[1]).m
             return np.array([out])
 
@@ -264,7 +286,7 @@ class Fluid:
         }
         return FluidState(fluid_attrs, fluid_state)
 
-    def __call__(self, **input_qties: Quantity) -> FluidState:
+    def __call__(self, phase: str | None = None, **input_qties: Quantity) -> FluidState:
         """Pass the input state variables that change the fluid's current state
         and get the new state wrapped in a `FluidState` instance.
         Normally, only two input state variables are needed to define the state.

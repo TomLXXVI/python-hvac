@@ -9,13 +9,11 @@ from collections.abc import Iterable
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
 from scipy.interpolate import interp1d
 from hvac import Quantity
 from hvac.fluids import Fluid
 from hvac.heat_transfer.forced_convection.internal_flow import CircularTube
 from hvac.refrigerant_piping.copper_tubing import CopperTube
-from hvac.refrigerant_piping.copper_fittings import CopperFittings
 
 
 Q_ = Quantity
@@ -130,7 +128,6 @@ class RefrigerantLine(ABC):
         copper_tube: CopperTube,
         L: Quantity,
         Q_dot_evp_max: Quantity,
-        fittings: Iterable[tuple[str, int]] | None = None,
         elevation: Quantity = Q_(0.0, 'm'),
         Q_dot_evp_min: Quantity | None = None
     ) -> None:
@@ -150,14 +147,6 @@ class RefrigerantLine(ABC):
         Q_dot_evp_max:
             Maximum evaporator load. This will determine the maximum
             flow velocity of the refrigerant in the tube.
-        fittings:
-            Iterable of records (tuples) which contain the copper fitting ID and
-            the number of fittings with this ID present in the refrigerant line.
-            The following IDs (strings) are defined:
-            - 'long-radius-elbow',
-            - 'short-radius-elbow',
-            - 'tee-thru-flow', 'tee-branch-flow',
-            - 'ball-valve', 'sight-glass'
         elevation:
             The difference in height between the outlet and the inlet of the
             refrigerant line. If the outlet is below the inlet, the elevation
@@ -169,7 +158,6 @@ class RefrigerantLine(ABC):
         """
         self.copper_tube = copper_tube
         self.L = L
-        self.fittings = fittings
         self.elevation = elevation
         self.cycle_info = cycle_info
         self.Q_dot_evp_max = Q_dot_evp_max
@@ -180,6 +168,8 @@ class RefrigerantLine(ABC):
         self.m_dot_min = self._get_m_dot(self.Q_dot_evp_min)
         self.V_dot_min = self._get_V_dot(self.m_dot_min)
 
+        self._tube: CircularTube | None = None
+        self.fittings: Iterable[tuple[str, Quantity, int]] | None = None
         self.u_max: Quantity = Q_(float('nan'), 'm / s')
         self.u_min: Quantity = Q_(float('nan'), 'm / s')
         self.L_eq: Quantity = Q_(float('nan'), 'm')
@@ -218,22 +208,27 @@ class RefrigerantLine(ABC):
     def _check_u_min(self, u_min: Quantity) -> str:
         ...
 
-    def _calculate_equivalent_length(self) -> Quantity:
-        """Calculates the equivalent length of the refrigeration line and the
-        fittings present in the line.
+    def _calculate_equivalent_length(
+        self,
+        fittings: Iterable[tuple[str, Quantity, int]] | None
+    ) -> Quantity:
+        """Calculates the equivalent length of the refrigeration line together
+        with the fittings present in the line.
         """
-        fitting_L_eq = Q_(0.0, 'm')
-        if isinstance(self.fittings, Iterable):
-            fitting_L_eq = sum(
-                n * CopperFittings.get_Leq(ID, self.copper_tube.DN)
-                for ID, n in self.fittings
+        fittings_L_eq = Q_(0.0, 'm')
+        if isinstance(fittings, Iterable):
+            self.fittings = fittings
+            fittings_L_eq = sum(
+                n * fitting_L_eq
+                for _, fitting_L_eq, n in fittings
             )
-        self.L_eq = self.L + fitting_L_eq
+        self.L_eq = self.L + fittings_L_eq
         return self.L_eq
 
     @abstractmethod
     def pressure_drop(
         self,
+        fittings: Iterable[tuple[str, Quantity, int]] | None = None,
         dP_add: Quantity | Iterable[Quantity] | None = None
     ) -> tuple[Quantity, Quantity]:
         """Returns the pressure loss across the refrigeration line at the
@@ -244,6 +239,21 @@ class RefrigerantLine(ABC):
         with the pressure drop.
         """
         ...
+
+    def get_equivalent_length(self) -> Quantity | None:
+        """Returns the total equivalent length of the line including all its
+        fittings and other accessories. Note that before calling this method,
+        the pressure drop along the line must have been calculated by calling
+        method `pressure_drop(...)`.
+        """
+        if not math.isnan(self.dP.magnitude):
+            f = self._tube.friction_factor()
+            u = self._tube.mean_velocity()
+            D = self._tube.Dh
+            rho = self._tube.fluid.rho
+            L_eq = 2 * D * self.dP / (f * rho * u ** 2)
+            return L_eq.to('m')
+        return None
 
     def __str__(self):
         u_u = self.units['u']
@@ -323,6 +333,7 @@ class VaporLine(RefrigerantLine):
     @abstractmethod
     def pressure_drop(
         self,
+        fittings: Iterable[tuple[str, Quantity, int]] | None = None,
         dP_add: Quantity | Iterable[Quantity] | None = None
     ) -> tuple[Quantity, Quantity]:
         ...
@@ -343,13 +354,14 @@ class SuctionLine(VaporLine):
 
     def pressure_drop(
         self,
+        fittings: Iterable[tuple[str, Quantity, int]] | None = None,
         dP_add: Quantity | Iterable[Quantity] | None = None
     ) -> tuple[Quantity, Quantity]:
         rfg = self.cycle_info.rfg_evp_out
-        L_eq = self._calculate_equivalent_length()
-        tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
-        tube.m_dot = self.m_dot_max
-        dP_friction = tube.pressure_drop()
+        L_eq = self._calculate_equivalent_length(fittings)
+        self._tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
+        self._tube.m_dot = self.m_dot_max
+        dP_friction = self._tube.pressure_drop()
         if self.elevation.magnitude > 0.0:
             dP_elevation = g * rfg.rho * self.elevation
         else:
@@ -364,8 +376,9 @@ class SuctionLine(VaporLine):
                 dP_add = sum(dP_add)
         else:
             dP_add = Q_(0.0, 'Pa')
-        self.dP = dP_friction + dP_elevation + dP_add
-        P = self.cycle_info.P_evp - self.dP
+        self.dP = dP_friction + dP_add
+        dP = self.dP + dP_elevation
+        P = self.cycle_info.P_evp - dP
         T_sat = self.cycle_info.refrigerant(P=P, x=Q_(1.0, 'frac')).T
         self.dT_sat = self.cycle_info.T_evp - T_sat
         return self.dP.to('Pa'), self.dT_sat.to('K')
@@ -386,13 +399,14 @@ class DischargeLine(VaporLine):
 
     def pressure_drop(
         self,
+        fittings: Iterable[tuple[str, Quantity, int]] | None = None,
         dP_add: Quantity | Iterable[Quantity] | None = None
     ) -> tuple[Quantity, Quantity]:
         rfg = self.cycle_info.rfg_cnd_in
-        L_eq = self._calculate_equivalent_length()
-        tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
-        tube.m_dot = self.m_dot_max
-        dP_friction = tube.pressure_drop()
+        L_eq = self._calculate_equivalent_length(fittings)
+        self._tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
+        self._tube.m_dot = self.m_dot_max
+        dP_friction = self._tube.pressure_drop()
         if self.elevation.magnitude > 0.0:
             dP_elevation = g * rfg.rho * self.elevation
         else:
@@ -407,8 +421,9 @@ class DischargeLine(VaporLine):
                 dP_add = sum(dP_add)
         else:
             dP_add = Q_(0.0, 'Pa')
-        self.dP = dP_friction + dP_elevation + dP_add
-        P = self.cycle_info.P_cnd + self.dP
+        self.dP = dP_friction + dP_add
+        dP = self.dP + dP_elevation
+        P = self.cycle_info.P_cnd + dP
         T_sat = self.cycle_info.refrigerant(P=P, x=Q_(1.0, 'frac')).T
         self.dT_sat = T_sat - self.cycle_info.T_cnd
         return self.dP.to('Pa'), self.dT_sat.to('K')
@@ -431,13 +446,14 @@ class LiquidLine(RefrigerantLine):
 
     def pressure_drop(
         self,
+        fittings: Iterable[tuple[str, Quantity, int]] = None,
         dP_add: Quantity | Iterable[Quantity] | None = None
     ) -> tuple[Quantity, Quantity]:
         rfg = self.cycle_info.rfg_cnd_out
-        L_eq = self._calculate_equivalent_length()
-        tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
-        tube.m_dot = self.m_dot_max
-        dP_friction = tube.pressure_drop()
+        L_eq = self._calculate_equivalent_length(fittings)
+        self._tube = CircularTube(self.copper_tube.D_int, L_eq, rfg, e=Q_(0.0015, 'mm'))
+        self._tube.m_dot = self.m_dot_max
+        dP_friction = self._tube.pressure_drop()
         if self.elevation.magnitude > 0.0:
             dP_elevation = g * rfg.rho * self.elevation
         else:
@@ -452,8 +468,9 @@ class LiquidLine(RefrigerantLine):
                 dP_add = sum(dP_add)
         else:
             dP_add = Q_(0.0, 'Pa')
-        self.dP = dP_friction + dP_elevation + dP_add
-        P = self.cycle_info.P_cnd - self.dP
+        self.dP = dP_friction + dP_add
+        dP = self.dP + dP_elevation
+        P = self.cycle_info.P_cnd - dP
         T_sat = self.cycle_info.refrigerant(P=P, x=Q_(0.0, 'frac')).T
         self.dT_sat = self.cycle_info.T_cnd - T_sat
         if not self._check_remaining_subcooling():
@@ -501,7 +518,6 @@ class RefrigerantLineSizer(ABC):
         cycle_info: RefrigerantCycleInfo,
         Q_dot_evp_max: Quantity,
         Q_dot_evp_min: Quantity | None = None,
-        copper_fittings_path: Path = Path("./copper-fittings.csv")
     ) -> None:
         """
         Parameters
@@ -516,10 +532,6 @@ class RefrigerantLineSizer(ABC):
             Minimum system cooling capacity in case the circuit contains a
             compressor capable of unloading. If there is only one compressor
             that cycles on and off, `Q_dot_evp_min` should be left to `None`.
-        copper_fittings_path:
-            File path where equivalent lengths of copper fittings are shelved.
-            If the shelf is not found, a new fitting shelf will be automatically
-            created.
         """
         self.cycle_info = cycle_info
         self.Q_dot_evp_max = Q_dot_evp_max
@@ -530,13 +542,11 @@ class RefrigerantLineSizer(ABC):
             copper_tubes,
             key=lambda copper_tube: copper_tube.D_int.to('mm').m
         )
-        CopperFittings.db_path = copper_fittings_path
 
     def size(
         self,
         L: Quantity,
-        elevation: Quantity = Q_(0.0, 'm'),
-        fittings: Iterable[tuple[str, int]] | None = None
+        elevation: Quantity = Q_(0.0, 'm')
     ) -> RefrigerantLine | tuple[RefrigerantLine, RefrigerantLine] | None:
         """Sizes the refrigerant line so that the refrigerant flow velocity is
         between the minimum and maximum allowable limit (to ensure proper oil
@@ -556,14 +566,6 @@ class RefrigerantLineSizer(ABC):
         elevation:
             Height of the line outlet with respect to the line inlet. Only
             relevant if the suction line has a vertical riser.
-        fittings
-            List of 2-tuples containing the ID and number of each type of
-            fitting present in the refrigerant line.
-            The following IDs are defined:
-            - 'long-radius-elbow',
-            - 'short-radius-elbow',
-            - 'tee-thru-flow', 'tee-branch-flow',
-            - 'ball-valve', 'sight-glass'
 
         Returns
         -------
@@ -579,7 +581,6 @@ class RefrigerantLineSizer(ABC):
                 copper_tube=copper_tube,
                 L=L,
                 Q_dot_evp_max=self.Q_dot_evp_max,
-                fittings=fittings,
                 elevation=elevation,
                 Q_dot_evp_min=self.Q_dot_evp_min
             )
@@ -596,7 +597,6 @@ class RefrigerantLineSizer(ABC):
             small_section, large_section = self._create_double_riser(
                 L=L,
                 elevation=elevation,
-                fittings=fittings
             )
             return small_section, large_section
         return None
@@ -605,7 +605,6 @@ class RefrigerantLineSizer(ABC):
         self,
         L: Quantity,
         elevation: Quantity,
-        fittings: Iterable[tuple[str, int]] | None = None
     ) -> tuple[RefrigerantLine, RefrigerantLine]:
         small_section, large_section = None, None
         for copper_tube in self.copper_tubes:
@@ -616,7 +615,6 @@ class RefrigerantLineSizer(ABC):
                 copper_tube=copper_tube,
                 L=L,
                 Q_dot_evp_max=self.Q_dot_evp_min,
-                fittings=fittings,
                 elevation=elevation,
             )
             u_max, flag_max, u_min, flag_min = small_section_.flow_velocity()
@@ -630,7 +628,6 @@ class RefrigerantLineSizer(ABC):
                 copper_tube=copper_tube,
                 L=L,
                 Q_dot_evp_max=self.Q_dot_evp_max - self.Q_dot_evp_min,
-                fittings=fittings,
                 elevation=elevation,
                 Q_dot_evp_min=self.Q_dot_evp_min
             )
@@ -663,8 +660,7 @@ class LiquidLineSizer(RefrigerantLineSizer):
     def size(
         self,
         L: Quantity,
-        elevation: Quantity = Q_(0.0, 'm'),
-        fittings: Iterable[tuple[str, int]] | None = None
+        elevation: Quantity = Q_(0.0, 'm')
     ) -> RefrigerantLine | None:
         """Sizes the liquid line so that the refrigerant flow velocity is below
         the maximum allowable limit (to prevent noise and pipe wall erosion).
@@ -683,14 +679,6 @@ class LiquidLineSizer(RefrigerantLineSizer):
         elevation:
             Height of the line outlet with respect to the line inlet. Only
             relevant if the suction line has a vertical riser.
-        fittings
-            List of 2-tuples containing the ID and number of each type of
-            fitting present in the refrigerant line.
-            The following IDs are defined:
-            - 'long-radius-elbow',
-            - 'short-radius-elbow',
-            - 'tee-thru-flow', 'tee-branch-flow',
-            - 'ball-valve', 'sight-glass'
 
         Returns
         -------
@@ -703,7 +691,6 @@ class LiquidLineSizer(RefrigerantLineSizer):
                 copper_tube=copper_tube,
                 L=L,
                 Q_dot_evp_max=self.Q_dot_evp_max,
-                fittings=fittings,
                 elevation=elevation,
             )
             # Calculate the flow velocity in the liquid line that correspond

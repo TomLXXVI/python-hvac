@@ -22,7 +22,11 @@ from hvac.heat_exchanger.recuperator.fintube.continuous_fin.air_condenser import
     PlainFinTubeCounterFlowAirCondenser,
     CondenserError
 )
-
+from hvac.vapor_compression.refrigerant_lines import (
+    SuctionLine,
+    DischargeLine,
+    LiquidLine
+)
 
 Q_ = Quantity
 logger = ModuleLogger.get_logger(__name__)
@@ -359,7 +363,10 @@ class SingleStageVaporCompressionMachine:
         refrigerant: Fluid,
         dT_sh: Quantity,
         n_cmp_min: Quantity | None = None,
-        n_cmp_max: Quantity | None = None
+        n_cmp_max: Quantity | None = None,
+        suction_line: SuctionLine | None = None,
+        discharge_line: DischargeLine | None = None,
+        liquid_line: LiquidLine | None = None
     ) -> None:
         """
         Creates a `SingleStageVaporCompressionMachine` object.
@@ -377,12 +384,18 @@ class SingleStageVaporCompressionMachine:
         dT_sh:
             The setting on the expansion device of the degree of refrigerant
             superheating.
-        n_cmp_min:
+        n_cmp_min: optional
             The minimum speed that can be set on the compressor if it is a
             variable speed compressor.
-        n_cmp_max:
+        n_cmp_max: optional
             The maximum speed that can be set on the compressor if it is a
             variable speed compressor.
+        suction_line: optional
+            Suction line between evaporator and compressor.
+        discharge_line: optional
+            Discharge line between compressor and condenser.
+        liquid_line: optional
+            Liquid line between condenser and expansion device.
         """
         self.evaporator = evaporator
         self.condenser = condenser
@@ -391,6 +404,13 @@ class SingleStageVaporCompressionMachine:
         self.dT_sh = dT_sh
         self.n_cmp_min = n_cmp_min
         self.n_cmp_max = n_cmp_max
+
+        self.suction_line = suction_line
+        self.discharge_line = discharge_line
+        self.liquid_line = liquid_line
+        self._refrigeration_lines: bool = False
+        if all([self.suction_line, self.discharge_line, self.liquid_line]):
+            self._refrigeration_lines = True
 
         self.evp_air_in: HumidAir | None = None
         self.evp_air_m_dot: Quantity | None = None
@@ -526,7 +546,7 @@ class SingleStageVaporCompressionMachine:
         self._init(
             evp_air_in, evp_air_m_dot,
             cnd_air_in, cnd_air_m_dot,
-            n_cmp
+            n_cmp  # <-- compressor speed is fixed
         )
 
         T_evp_ini = self._guess_initial_T_evp(T_evp_ini)
@@ -841,8 +861,8 @@ class SingleStageVaporCompressionMachine:
             f"Try with: T_evp = {T_evp:~P.3f}, T_cnd = {T_cnd:~P.3f}"
         )
 
-        self.compressor.T_evp = T_evp
-        self.compressor.T_cnd = T_cnd
+        self.compressor.T_evp = T_evp  # saturation temperature at compressor inlet
+        self.compressor.T_cnd = T_cnd  # saturation temperature at compressor outlet
         cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
         dev = self._get_deviation(cmp_rfg_m_dot, i)
         counter[0] += 1
@@ -1012,7 +1032,15 @@ class SingleStageVaporCompressionMachine:
                 f"{cmp_rfg_m_dot:~P.3f}"
             )
 
-        cnd_rfg_in = self.compressor.discharge_gas
+        if not self._refrigeration_lines:
+            cnd_rfg_in = self.compressor.discharge_gas
+        else:
+            self.discharge_line.m_dot = cmp_rfg_m_dot
+            self.discharge_line.rfg_state = self.compressor.discharge_gas
+            dP_dis = self.discharge_line.pressure_drop
+            P_dis = self.compressor.discharge_gas.P
+            T_dis = self.compressor.discharge_gas.T
+            cnd_rfg_in = self.refrigerant(T=T_dis, P=P_dis - dP_dis)
 
         if logger_on:
             logger.info(
@@ -1048,10 +1076,23 @@ class SingleStageVaporCompressionMachine:
                 f"P = {self.condenser.rfg_out.P.to('bar'):~P.3f}"
             )
 
-        evp_rfg_in = self.refrigerant(
-            h=self.condenser.rfg_out.h,
-            P=self.compressor.P_evp
-        )
+        if not self._refrigeration_lines:
+            evp_rfg_in = self.refrigerant(
+                P=self.compressor.P_evp,
+                h=self.condenser.rfg_out.h,
+            )
+        else:
+            self.liquid_line.m_dot = cmp_rfg_m_dot
+            self.liquid_line.rfg_state = self.condenser.rfg_out
+            dP_liq = self.liquid_line.pressure_drop
+            P_liq = self.condenser.rfg_out.P
+            T_liq = self.condenser.rfg_out.T
+            h_liq = self.refrigerant(P=P_liq - dP_liq, T=T_liq).h
+            self.suction_line.m_dot = cmp_rfg_m_dot
+            self.suction_line.rfg_state = self.compressor.suction_gas
+            dP_suc = self.suction_line.pressure_drop
+            P_suc = self.compressor.suction_gas.P
+            evp_rfg_in = self.refrigerant(P=P_suc + dP_suc, h=h_liq)
 
         if logger_on:
             logger.info(

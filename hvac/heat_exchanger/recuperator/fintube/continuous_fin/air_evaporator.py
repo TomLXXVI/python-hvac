@@ -146,7 +146,7 @@ class InternalSurface(ABC):
         self.m_dot: Quantity | None = None
 
     def _m_dot_tube(self) -> Quantity:
-        # Here it is assumed that every tube in the first row is connected to
+        # It is assumed that every tube in the first row is connected to
         # the supply header.
         A_min = self.parent.A_min_tot
         n_r = self.parent.N_rows_tot
@@ -171,7 +171,7 @@ class SinglePhaseInternalSurface(InternalSurface):
     def heat_transfer_coeff(self, *args, **kwargs) -> Quantity:
         tube = single_phase_flow.CircularTube(
             Di=self.parent.geometry.d_i,
-            L=self.parent.geometry.length,
+            L=self.parent.geometry.width,
             fluid=self.rfg
         )
         tube.m_dot = self._m_dot_tube()
@@ -853,11 +853,11 @@ class PlainFinTubeCounterFlowAirEvaporator:
         # the whole evaporator; we need this, together with the number of rows
         # of the whole evaporator, to determine the mass flow rate of
         # refrigerant in 1 tube.
-        geometry = ContinuousFinStaggeredTubeBank(
+        self.geometry = ContinuousFinStaggeredTubeBank(
             W_fro, H_fro, N_rows, S_trv, S_lon,
             D_ext, D_int, t_fin, N_fin, k_fin
         )
-        A_min_tot = geometry.internal.A_min
+        A_min_tot = self.geometry.internal.A_min
         # Create the geometry of the superheating region and the boiling region:
         self.superheating_region = SuperheatingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int,

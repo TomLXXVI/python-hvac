@@ -10,9 +10,9 @@ class CopperFittings:
 
     @classmethod
     def _create_table(cls) -> None:
-        """Creates a Pandas DataFrame with the equivalent lengths of fittings.
-        The index of the data frame points to nominal tube diameters; the
-        columns list the different fittings or accessories:
+        """Creates a Pandas DataFrame with the equivalent lengths of fittings
+        in feet. The index of the data frame points to nominal tube diameters;
+        the columns list the different fittings or accessories:
         - 'long-radius-elbow',
         - 'short-radius-elbow',
         - 'tee-thru-flow', 'tee-branch-flow',

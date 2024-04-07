@@ -173,7 +173,7 @@ class SinglePhaseInternalSurface(InternalSurface):
     def heat_transfer_coeff(self, *args, **kwargs) -> Quantity:
         tube = single_phase_flow.CircularTube(
             Di=self.parent.geometry.d_i,
-            L=self.parent.geometry.length,
+            L=self.parent.geometry.width,
             fluid=self.rfg
         )
         tube.m_dot = self._m_dot_tube()
@@ -1011,11 +1011,11 @@ class PlainFinTubeCounterFlowAirCondenser:
         # of the whole condenser, to determine the mass flow rate of
         # refrigerant in 1 tube (see class `InternalSurface`, method
         # `_m_dot_tube()`).
-        geometry = ContinuousFinStaggeredTubeBank(
+        self.geometry = ContinuousFinStaggeredTubeBank(
             W_fro, H_fro, N_rows, S_trv, S_lon,
             D_ext, D_int, t_fin, N_fin, k_fin
         )
-        A_min_tot = geometry.internal.A_min
+        A_min_tot = self.geometry.internal.A_min
         # Create the geometry of the desuperheating region, the condensing
         # region, and the subcooling region:
         self.desuperheating_region = DesuperheatingRegion(
