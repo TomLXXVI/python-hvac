@@ -1,13 +1,12 @@
-"""
-SIDE-WALL SUPPLY (ONLY COOLING)
+"""SIDE-WALL SUPPLY (ONLY COOLING)
 
 References
 ----------
-[1]     Awbi, H. B. (2003). Ventilation of Buildings. Taylor & Francis.
-sec. 6.4.1
-[2]     Hagström K., Sirén K., Zhivov A. M. (1999). Calculation Methods for Air
-Supply Design in Industrial Facilities. Helsinki Univeristy of Technology,
-Laboratory of Heating, Ventilating and Air Conditioning.
+[1] Awbi, H. B. (2003). Ventilation of Buildings. Taylor & Francis.
+    sec. 6.4.1
+[2] Hagström K., Sirén K., Zhivov A. M. (1999). Calculation Methods for Air
+    Supply Design in Industrial Facilities. Helsinki University of Technology,
+    Laboratory of Heating, Ventilating and Air Conditioning.
 """
 import warnings
 from dataclasses import dataclass
@@ -234,12 +233,12 @@ class SideWallSupply:
         self._d = d.to('m')
         self._K1 = K1
         self._Ar_r_crit = Ar_r_crit
-        self._K2 = CompactJet.calculacte_K2(K1)
+        self._K2 = CompactJet.calculate_K2(K1)
         self._throw_ratio = 0.75
-        self._compact_jet: CompactJet | None = None
+        self.compact_jet: CompactJet | None = None
         # Class `CompactJet` will be used to calculate the throw, the centerline
         # velocity and temperature along the jet's trajectory.
-        self._output: Output | None = None
+        self.output: Output | None = None
         # Class `Output` will be used to gather all the calculation results.
 
     def _supply_volume_flow_rate(self) -> Quantity:
@@ -339,7 +338,7 @@ class SideWallSupply:
 
     def _throw(self, U_x: Quantity) -> Quantity:
         # Returns the throw length to velocity `U_x`
-        L_th = self._compact_jet.throw_zone3(U_x)
+        L_th = self.compact_jet.throw_zone3(U_x)
         return L_th.to('m')
 
     def design(
@@ -380,7 +379,7 @@ class SideWallSupply:
         # room length.
         U_x = Q_(0.5, 'm / s')
 
-        def _fun(v_r: float, L_th_frac: float) -> float:
+        def _fun(v_r: float, L_th_frac: float) -> float | None:
             v_r = Q_(v_r, 'm / s')
             # Calculate the supply air momentum that corresponds with the
             # mean room air speed:
@@ -394,13 +393,13 @@ class SideWallSupply:
                 # Use an instance of class `CompactJet` to calculate jet
                 # characteristics (throw, centerline velocity, centerline
                 # temperature).
-                self._compact_jet = CompactJet(A_o, U_o, supply_air, self._room.air, self._K1)
+                self.compact_jet = CompactJet(A_o, U_o, supply_air, self._room.air, self._K1)
                 L_th = self._throw(U_x)
                 dev = (L_th - L_th_frac * self._room.L).to('m').magnitude
                 return dev
             return None
 
-        # Check if the targeted throw length can be attained between the minimum
+        # Check if the targeted throw length can be achieved between the minimum
         # and maximum mean room air speed.
         v_r_min, v_r_max = v_r_minmax
         dev_min = _fun(v_r_min, L_th_frac)
@@ -418,7 +417,7 @@ class SideWallSupply:
             M_o = self._required_supply_air_momentum(v_r, supply_air.rho)
             A_o = self._effective_area(V_dot, M_o, supply_air.rho)
             U_o = self._supply_air_velocity(V_dot, A_o)
-            self._compact_jet = CompactJet(A_o, U_o, supply_air, self._room.air, self._K1)
+            self.compact_jet = CompactJet(A_o, U_o, supply_air, self._room.air, self._K1)
             L_th = self._throw(U_x)
         else:
             if np.sign(dev_min) < -0.5:
@@ -467,12 +466,12 @@ class SideWallSupply:
         N_min = V_dot / self._room.V
         # Gather results in an `Output` object:
         # noinspection PyUnboundLocalVariable
-        self._output = Output(
+        self.output = Output(
             N_min, V_dot, supply_air.T,
             dT_o, U_o, M_o, v_r,
             L_th, A_o, AR, b_o, h_o, dy_max
         )
-        return self._output
+        return self.output
 
     def analyze(
         self,
@@ -489,7 +488,7 @@ class SideWallSupply:
         b_o:
             Effective length of the supply opening.
         h_o:
-            Effecitive height of the supply opening.
+            Effective height of the supply opening.
         L_th_frac:
             Target throw length to a jet centerline velocity of 0.5 m/s,
             expressed as a fraction of the room length.
@@ -515,12 +514,10 @@ class SideWallSupply:
         v_r = self._mean_room_air_speed(M_o, supply_air.rho)
         # Use an instance of class `CompactJet` to calculate jet characteristics
         # (throw, centerline velocity, centerline temperature).
-        self._compact_jet = CompactJet(A_o, U_o, supply_air, self._room.air, self._K1)
+        self.compact_jet = CompactJet(A_o, U_o, supply_air, self._room.air, self._K1)
         # Calculate the throw length to 0.5 m/s:
         U_x = Q_(0.5, 'm / s')
         if U_o > U_x:
-            # Use an instance of class `CompactJet` to calculate jet behavior
-            # (throw, centerline velocity, centerline temperature):
             L_th = self._throw(U_x)
             L_th_frac_min = L_th_frac - 0.05
             L_th_frac_max = L_th_frac + 0.05
@@ -543,11 +540,11 @@ class SideWallSupply:
         # Air change rate:
         N_min = (V_dot / self._room.V).to('1 / hr')
         # Gather results in an `Output` object:
-        self._output = Output(
+        self.output = Output(
             N_min, V_dot, supply_air.T, dT_o, U_o, M_o,
             v_r, L_th, A_o, AR, b_o, h_o, dy_max
         )
-        return self._output
+        return self.output
 
     def trajectory(self, x: Quantity, h_o: Quantity | None = None) -> tuple[Quantity, ...]:
         """Given the horizontal distance `x` from the supply opening, returns
@@ -575,13 +572,13 @@ class SideWallSupply:
         Awbi, H. B. (2003). Ventilation of Buildings. Taylor & Francis. sec.
         6.2.3, p. 249, eq. 6.47.
         """
-        if self._output is None: self.design(h_o)
-        dT_o = self._output.dT_o.to('K')
+        if self.output is None: self.design(h_o)
+        dT_o = self.output.dT_o.to('K')
         d = self._d.to('m')
-        h_o = self._output.h_o.to('m')
-        AR = self._output.AR
-        A_o = self._output.A_o.to('m**2')
-        U_o = self._output.U_o.to('m / s')
+        h_o = self.output.h_o.to('m')
+        AR = self.output.AR
+        A_o = self.output.A_o.to('m**2')
+        U_o = self.output.U_o.to('m / s')
         # Trajectory:
         a = self.psi * self._K2 / self._K1 ** 2
         b = d / (h_o * AR) ** 3
@@ -589,8 +586,8 @@ class SideWallSupply:
         k = a * b * Ar_o
         y = k * (x ** 3)
         # Centerline velocity and centerline temperature:
-        U_x = self._compact_jet.centerline_velocity_zone3(x)
-        T_x = self._compact_jet.centerline_temperature_zone3(x)
+        U_x = self.compact_jet.centerline_velocity_zone3(x)
+        T_x = self.compact_jet.centerline_temperature_zone3(x)
         return y, U_x, T_x
 
 
@@ -602,7 +599,7 @@ def design_side_wall_supply(
     v_r_minmax: tuple[Quantity, Quantity] = (Q_(0.1, 'm / s'), Q_(0.3, 'm / s')),
     L_th_frac: float = 0.75,
     Ar_r_crit: float = 1.e4
-) -> Output:
+) -> SideWallSupply:
     """Calculates the supply air volume flow rate, the supply/room air
     temperature difference, and the effective size of the supply opening
     based on a given critical room Archimedes number and an allowable range
@@ -631,11 +628,12 @@ def design_side_wall_supply(
 
     Returns
     -------
-    An instance of dataclass `Output` (see its docstring).
+    An instance of `SideWallSupply`. Get the design results through its
+    `output` attribute (an instance of class `Output`).
     """
     sws_obj = SideWallSupply(room_info, d, K1, Ar_r_crit)
-    output = sws_obj.design(h_o, v_r_minmax, L_th_frac)
-    return output
+    sws_obj.design(h_o, v_r_minmax, L_th_frac)
+    return sws_obj
 
 
 def analyze_side_wall_supply(
@@ -646,10 +644,10 @@ def analyze_side_wall_supply(
     K1: float,
     L_th_frac: float = 0.75,
     Ar_r_crit: float = 1.e4
-) -> Output:
+) -> SideWallSupply:
     """For a given effective size of the supply opening, calculates the
     needed supply air volume flow rate and the needed supply/room air
-    temperature difference based on the criticial room Archimedes number.
+    temperature difference based on the critical room Archimedes number.
 
     Parameters
     ----------
@@ -659,7 +657,7 @@ def analyze_side_wall_supply(
     b_o:
         Effective length of the supply opening.
     h_o:
-        Effecitive height of the supply opening.
+        Effective height of the supply opening.
     d:
         Distance between the top of the supply opening and the ceiling.
     K1:
@@ -674,8 +672,9 @@ def analyze_side_wall_supply(
 
     Returns
     -------
-    An instance of dataclass `Output` (see its docstring).
+    An instance of `SideWallSupply`. Get the analysis results through its
+    `output` attribute (an instance of class `Output`).
     """
     sws_obj = SideWallSupply(room_info, d, K1, Ar_r_crit)
-    output = sws_obj.analyze(b_o, h_o, L_th_frac)
-    return output
+    sws_obj.analyze(b_o, h_o, L_th_frac)
+    return sws_obj

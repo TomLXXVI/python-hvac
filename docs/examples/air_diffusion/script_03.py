@@ -21,10 +21,10 @@ room_info = RoomInfo(
     Q_dot=Q_(1.280, 'kW')
 )
 
-output = design_sill_supply(
+ss = design_sill_supply(
     room_info,
     b=Q_(1.2, 'm'),
     H_sc=Q_(2.5, 'm'),
     dT_o=Q_(-10, 'K')  # initial guess
 )
-print(output)
+print(ss.output)

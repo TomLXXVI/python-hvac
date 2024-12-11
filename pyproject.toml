@@ -23,6 +23,7 @@ lmfit = "^1.2.2"
 mpld3 = "^0.5.9"
 pyarrow = "^15.0.0"
 openpyxl = "^3.1.2"
+numdifftools = "^0.9.41"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

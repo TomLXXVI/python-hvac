@@ -19,9 +19,9 @@ room_info = RoomInfo(
     Q_dot=Q_(2400, 'W')
 )
 
-output = design_linear_ceiling_supply(
+lcs = design_linear_ceiling_supply(
     room_info,
     dT_o=Q_(-15, 'K'),
     position='end'
 )
-print(output)
+print(lcs.output)

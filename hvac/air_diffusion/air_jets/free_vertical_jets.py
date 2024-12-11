@@ -4,7 +4,7 @@ VERTICAL UPWARD OR DOWNWARD, ISOTHERMAL OR NON-ISOTHERMAL FREE AIR JETS
 References
 ----------
 Hagström K., Sirén K., Zhivov A. M. (1999). Calculation Methods for Air Supply
-Design in Industrial Facilities. Helsinki Univeristy of Technology, Laboratory
+Design in Industrial Facilities. Helsinki University of Technology, Laboratory
 of Heating, Ventilating and Air Conditioning.
 """
 import numpy as np

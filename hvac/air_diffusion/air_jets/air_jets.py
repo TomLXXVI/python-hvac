@@ -3,12 +3,12 @@ HORIZONTAL AND INCLINED, ISOTHERMAL OR NON-ISOTHERMAL FREE AIR JETS
 
 References
 ----------
-[1]     Hagström K., Sirén K., Zhivov A. M. (1999). Calculation Methods for Air
-Supply Design in Industrial Facilities. Helsinki Univeristy of Technology,
-Laboratory of Heating, Ventilating and Air Conditioning.
-[2]     Goodfellow, H. D., & Kosonen, R. (2020). Industrial Ventilation Design
-Guidebook: Volume 1: Fundamentals. Academic Press.
-[3]     Awbi, H. B. (2003). Ventilation of Buildings. Taylor & Francis.
+[1] Hagström K., Sirén K., Zhivov A. M. (1999). Calculation Methods for Air
+    Supply Design in Industrial Facilities. Helsinki University of Technology,
+    Laboratory of Heating, Ventilating and Air Conditioning.
+[2] Goodfellow, H. D., & Kosonen, R. (2020). Industrial Ventilation Design
+    Guidebook: Volume 1: Fundamentals. Academic Press.
+[3] Awbi, H. B. (2003). Ventilation of Buildings. Taylor & Francis.
 """
 import warnings
 from abc import ABC, abstractmethod
@@ -45,8 +45,8 @@ class Jet(ABC):
             dev = (U_x - U_o).magnitude
             return dev
 
-        x_min = Q_(0.1, 'm')
-        x_max = self.throw_zone3(U_x=Q_(0.1, 'm / s')).to('m')
+        x_min = Q_(0.01, 'm')
+        x_max = self.throw_zone3(U_x=Q_(0.05, 'm / s')).to('m')
         sol = root_scalar(_fun, bracket=(x_min.m, x_max.m))
         x_o = Q_(sol.root, 'm')
         return x_o
@@ -233,7 +233,7 @@ class CompactJet(Jet):
         self.K1 = K1
         self.c = self._calculate_c()
         # Thermal characteristic of the diffuser jet:
-        self.K2 = self.calculacte_K2(K1)
+        self.K2 = self.calculate_K2(K1)
         # Archimedes number at the supply outlet:
         d_o = np.sqrt(4 * self.A_o / np.pi).to('m')
         dT_o = (self.supply_air.T - self.room_air.T).to('K')
@@ -242,7 +242,7 @@ class CompactJet(Jet):
         self.x_o = self._find_supply_outlet_distance(self.U_o)
 
     @classmethod
-    def calculacte_K2(cls, K1: float) -> float:
+    def calculate_K2(cls, K1: float) -> float:
         K2 = np.sqrt((1 + cls.Pr) / 2) * K1
         return K2
 

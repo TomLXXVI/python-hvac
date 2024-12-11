@@ -117,6 +117,14 @@ these controller classes can be used to simulate a zone with a temperature
 controlled heating/cooling system. Script `example_02.py` in 
 `docs/examples/heating_load_calc` shows an example with an on/off controller.
 
+**kitchen_ventilation**<br>
+This subpackage implements the detailed calculation method according to European
+standard EN 16282-1:2017 *Equipment for commercial kitchens - Components for 
+ventilation in commercial kitchens - Part 1: General requirements including 
+calculation method* for the design calculation of the extraction air volume flow
+rates in commercial kitchens. It also includes two quick methods that can be 
+used for a preliminary calculation.
+
 Besides the aforementioned application-oriented packages, `hvac` also includes a 
 number of more basic subpackages which are used throughout the modules of 
 `hvac`:

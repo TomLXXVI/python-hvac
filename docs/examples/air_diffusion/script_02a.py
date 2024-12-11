@@ -21,11 +21,11 @@ room_info = RoomInfo(
     Q_dot=Q_(1.280, 'kW')
 )
 
-output = design_side_wall_supply(
+sws = design_side_wall_supply(
     room_info,
     h_o=Q_(400, 'mm'),
     d=Q_(200, 'mm'),
     K1=6.3,
     Ar_r_crit=5500
 )
-print(output)
+print(sws.output)

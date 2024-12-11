@@ -26,8 +26,8 @@ def find_target(target: Quantity, values: Quantity) -> int:
 
 def main():
     room = RoomInfo(
-        L=Q_(11, 'm'),
-        B=Q_(23 / 4, 'm'),
+        L=Q_(23 / 4, 'm'),
+        B=Q_(11, 'm'),
         H=Q_(6, 'm'),
         Z=Q_(1.8, 'm'),
         T_r=Q_(26, 'degC'),
@@ -36,7 +36,7 @@ def main():
     print(f"room load per unit area: {room.q_dot.to('W / m**2'):~P.3f}")
 
     # Throw constant of supply outlet:
-    K1 = 2.0
+    K1 = 0.5
     # Height between upper edge of supply opening and ceiling:
     d = Q_(0.5, 'm')
 
@@ -47,7 +47,7 @@ def main():
 
     output = sws.design(
         h_o=Q_(0.2, 'm'),
-        L_th_frac=0.75,
+        L_th_frac=0.25,
         v_r_minmax=(Q_(0.1, 'm / s'), Q_(0.3, 'm / s'))
     )
     print(output)
@@ -72,9 +72,9 @@ def main():
     x_i_cj, y_i_cj, U_x_i_cj, T_x_i_cj = x[i], y_cj[i], U_x_cj[i], T_x_cj[i]
     
     # Free jet:
-    y_fj = sws._compact_jet.trajectory(x)
-    U_x_fj = sws._compact_jet.centerline_velocity_zone3(x)
-    T_x_fj = sws._compact_jet.centerline_temperature_zone3(x)
+    y_fj = sws.compact_jet.trajectory(x)
+    U_x_fj = sws.compact_jet.centerline_velocity_zone3(x)
+    T_x_fj = sws.compact_jet.centerline_temperature_zone3(x)
     i = find_target(target=-room.H + room.Z, values=y_fj)
     x_i_fj, y_i_fj, U_x_i_fj, T_x_i_fj = x[i], y_fj[i], U_x_fj[i], T_x_fj[i]
 

@@ -115,6 +115,7 @@ class CircularCeilingSupply:
             room.
         """
         self._room = room_info
+        self.output: Output | None = None
 
     def _mean_room_air_speed(self, M_o: Quantity) -> Quantity:
         Q_dot = abs(self._room.Q_dot.to('kW').magnitude)
@@ -266,8 +267,8 @@ class CircularCeilingSupply:
             d_o = Q_(sol.root, 'm')
             h = self._effective_slot_width(A_o, d_o)
             T = self._throw_length(U_o, h, K_v)
-            output = Output(dT_o, V_dot, v_r, U_o, A_o, d_o, h, T, dT_r)
-            return output
+            self.output = Output(dT_o, V_dot, v_r, U_o, A_o, d_o, h, T, dT_r)
+            return self.output
 
 
 def design_circular_ceiling_supply(
@@ -275,7 +276,7 @@ def design_circular_ceiling_supply(
     dT_o: Quantity,
     d_o: Quantity,
     K_v: float = 1.05
-) -> Output:
+) -> CircularCeilingSupply:
     """Calculates the required air supply rate and the dimensions of the
     supply opening.
 
@@ -299,12 +300,12 @@ def design_circular_ceiling_supply(
 
     Returns
     -------
-    An instance of dataclass `Output` that bundles the calculation results
-    (see its docstring).
+    An instance of `CircularCeilingSupply`. Get the design results through its
+    `output` attribute (an instance of class `Output`).
     """
     ccs_obj = CircularCeilingSupply(room_info)
-    output = ccs_obj.calculate(dT_o, d_o, K_v)
-    return output
+    ccs_obj.calculate(dT_o, d_o, K_v)
+    return ccs_obj
 
 
 class LinearCeilingSupply:
@@ -330,6 +331,7 @@ class LinearCeilingSupply:
             horizontal directions.
         """
         self._room = room_info
+        self.output: Output | None = None
         if position == 'central':
             self._L = self._room.L / 2
         else:
@@ -432,11 +434,11 @@ class LinearCeilingSupply:
         M_o = self._supply_air_momentum(U_o, h)
         v_r = self._mean_room_air_speed(M_o)
         dT_r = self._room_temperature_gradient(M_o)
-        output = Output(
+        self.output = Output(
             dT_o, V_dot * self._room.B, v_r,
             U_o, None, None, h, T, dT_r
         )
-        return output
+        return self.output
 
 
 def design_linear_ceiling_supply(
@@ -444,7 +446,7 @@ def design_linear_ceiling_supply(
     dT_o: Quantity,
     K_v: float = 2.35,
     position: str = 'central'
-) -> Output:
+) -> LinearCeilingSupply:
     """Calculates for a selected supply/return air temperature difference
     `dT_o`, the required supply air volume flow rate to compensate the room
     load, the required effective slot width of the linear diffuser to
@@ -469,12 +471,12 @@ def design_linear_ceiling_supply(
 
     Returns
     -------
-    An instance of dataclass `Output` that bundles the calculation
-    results (see its docstring).
+    An instance of `LinearCeilingSupply`. Get the design results through its
+    `output` attribute (an instance of class `Output`).
     """
     lcs_obj = LinearCeilingSupply(room_info, position)
-    output = lcs_obj.calculate(dT_o, K_v)
-    return output
+    lcs_obj.calculate(dT_o, K_v)
+    return lcs_obj
 
 
 class DiffuserType(StrEnum):

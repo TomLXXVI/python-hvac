@@ -95,6 +95,7 @@ class SillSupply:
         """
         self._room = room_info
         self._v_r = v_r.to('m / s')
+        self.output: Output | None = None
 
     def _supply_volume_flow_rate(self, dT_o: Quantity) -> Quantity:
         rho = self._room.air.rho
@@ -251,8 +252,8 @@ class SillSupply:
             dT_c = self._dT_c(H_sc, h, dT_o)
             y_m = self._drop(dT_c, A_o, U_c)
             T_o = self._room.T_r + dT_o
-            output = Output(V_dot, T_o, U_o, A_o, h, b, y_m)
-            return output
+            self.output = Output(V_dot, T_o, U_o, A_o, h, b, y_m)
+            return self.output
 
 
 def design_sill_supply(
@@ -261,7 +262,7 @@ def design_sill_supply(
     H_sc: Quantity,
     dT_o: Quantity,
     v_r: Quantity = Q_(0.2, 'm / s'),
-) -> Output:
+) -> SillSupply:
     """Calculates the air supply rate, the temperature difference between
     supply and room air, and the dimensions of the supply opening.
     The routine starts with the given initial guess of the supply/return air
@@ -285,8 +286,9 @@ def design_sill_supply(
 
     Returns
     -------
-    An instance of dataclass `Output` (see its docstring).
+    An instance of `SillSupply`. Get the design results through its `output`
+    attribute (an instance of class `Output`).
     """
     sill_supply = SillSupply(room_info, v_r)
-    output = sill_supply.calculate(b, H_sc, dT_o)
-    return output
+    sill_supply.calculate(b, H_sc, dT_o)
+    return sill_supply

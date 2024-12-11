@@ -23,18 +23,18 @@ room_info = RoomInfo(
     Q_dot=Q_(800, 'W')
 )
 
-output = design_circular_ceiling_supply(
+ccs = design_circular_ceiling_supply(
     room_info,
     dT_o=Q_(-5, 'K'),
     d_o=Q_(0.6, 'm'),
 )
-print(output)
+print(ccs.output)
 
 
 vav_supply = VAVSupply(
     room_info,
-    A_o=output.A_o,
-    dT_o=output.dT_o,
+    A_o=ccs.output.A_o,
+    dT_o=ccs.output.dT_o,
 )
 print(
     f"minimum room load that can be handled "
