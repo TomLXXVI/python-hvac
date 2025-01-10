@@ -96,7 +96,7 @@ class Output:
             'm_dot': ('kg / hr', 3),
             'T': ('degC', 3),
             'W': ('g / kg', 3),
-            'n': ('1 / min', 3),
+            'n': ('rpm', 3),
             'dT': ('K', 3),
             'Q_dot': ('kW', 3),
             'W_dot': ('kW', 3),

@@ -9,12 +9,8 @@ from .water import Water
 
 from .ice import Ice
 
-from .fluid import (
-    Fluid,
-    FluidState,
-    CoolPropWarning,
-    CoolPropError,
-    CoolPropMixtureError
-)
+from .fluid import Fluid, FluidState
 
 from .humid_air import HumidAir
+
+from .exceptions import CoolPropWarning, CoolPropError, CoolPropMixtureError

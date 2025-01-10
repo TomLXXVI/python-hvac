@@ -134,7 +134,7 @@ class FixedSpeedCompressor:
         'W_dot': 'kW',
         'm_dot': 'kg / hr',
         'T_dis': 'degC',
-        'n': '1 / min'
+        'n': 'rpm'
     }
 
     def __init__(

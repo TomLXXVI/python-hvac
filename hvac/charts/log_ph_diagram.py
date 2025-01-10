@@ -158,7 +158,8 @@ class LogPhDiagram:
 
     def setCycle(self, cycle: StandardVaporCompressionCycle):
         """Pass a `StandardVaporCompressionCycle` instance to draw this cycle on
-        the log(P)-h diagram."""
+        the log(P)-h diagram.
+        """
         self.cycle = cycle
         self._scc_cycle = SimpleCompressionCycle(
             self.refrigerant.coolprop_abstract_state,

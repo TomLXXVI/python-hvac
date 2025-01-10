@@ -5,22 +5,11 @@ import CoolProp
 import CoolProp.CoolProp as CP
 import numpy as np
 from scipy.optimize import fsolve
+from .exceptions import CoolPropWarning, CoolPropError, CoolPropMixtureError
 from .. import Quantity
 
 
 Q_ = Quantity
-
-
-class CoolPropWarning(Warning):
-    pass
-
-
-class CoolPropError(Exception):
-    pass
-
-
-class CoolPropMixtureError(CoolPropError):
-    pass
 
 
 @dataclass

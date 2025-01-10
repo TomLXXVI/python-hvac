@@ -140,6 +140,7 @@ object-oriented wrappers around third-party libraries `CoolProp` and `aipws`.
 The principal classes of `fluids`, that are used extensively throughout 
 the code, are `Fluid` and `HumidAir`, which encapsulate CoolProp's API and
 allow to accept `Quantity` objects.
+A new module `fluid_experimental` has been added to subpackage `fluids` which has a better structured and understandable user interface, especially for defining mixtures. This module has not been integrated yet in other modules or subpackages, while it's still in an experimental stage.
 
 Finally, subpackage `charts` contains a package `matplotlibwrapper`, being a 
 tiny wrapper around third-party library `matplotlib`, meant to ease the drawing
