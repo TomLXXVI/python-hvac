@@ -171,7 +171,9 @@ class FixedSpeedCompressor:
         units: optional
             Dictionary with the units used in the coefficient file. The default
             units are: {'Q_dot': 'kW', 'W_dot': 'kW', 'm_dot': 'kg / hr', 
-            'T_dis': 'degC'}
+            'T_dis': 'degC'} where 'Q_dot' stands for cooling capacity, 'W_dot'
+            for compressor power, 'm_dot' for refrigerant mass flow rate, and
+            'T_dis' for discharge temperature.
         """
         self.dT_sh = dT_sh
         self.dT_sc = dT_sc
@@ -422,6 +424,13 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
             Amount of subcooling for which the polynomial coefficients are valid.
         refrigerant:
             Refrigerant for which the polynomial coefficients are valid.
+        units: optional
+            Dictionary with the units used in the coefficient file. The default
+            units are: {'Q_dot': 'kW', 'W_dot': 'kW', 'm_dot': 'kg / hr', 
+            'T_dis': 'degC', 'n': 'rpm'} where 'Q_dot' stands for cooling 
+            capacity, 'W_dot' for compressor power, 'm_dot' for refrigerant mass
+            flow rate, 'T_dis' for discharge temperature, and 'n' for compressor
+            speed.
         """
         super().__init__(coeff_file, refrigerant, dT_sh, dT_sc, units)
         self._n = float('nan')

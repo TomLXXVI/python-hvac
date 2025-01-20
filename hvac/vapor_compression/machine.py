@@ -10,16 +10,13 @@ import numpy as np
 from scipy import optimize
 
 from hvac import Quantity
+from hvac.logging import ModuleLogger
 from hvac.fluids import HumidAir, Fluid, FluidState
 from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
-from hvac.logging import ModuleLogger
-
-from hvac.heat_exchanger.recuperator.fintube.continuous_fin.air_evaporator import (
+from hvac.heat_exchanger.recuperator.fintube.continuous_fin import (
     PlainFinTubeCounterFlowAirEvaporator,
-    EvaporatorError
-)
-from hvac.heat_exchanger.recuperator.fintube.continuous_fin.air_condenser import (
     PlainFinTubeCounterFlowAirCondenser,
+    EvaporatorError, 
     CondenserError
 )
 from hvac.vapor_compression.refrigerant_lines import (
@@ -30,7 +27,6 @@ from hvac.vapor_compression.refrigerant_lines import (
 
 Q_ = Quantity
 logger = ModuleLogger.get_logger(__name__)
-
 
 Evaporator = PlainFinTubeCounterFlowAirEvaporator
 Condenser = PlainFinTubeCounterFlowAirCondenser
@@ -53,7 +49,7 @@ class Output:
             'm_dot': ('kg / hr', 3),
             'T': ('degC', 3),
             'W': ('g / kg', 3),
-            'n': ('1 / min', 3),
+            'n': ('rpm', 3),
             'dT': ('K', 3),
             'Q_dot': ('kW', 3),
             'W_dot': ('kW', 3),
@@ -354,7 +350,6 @@ class SingleStageVaporCompressionMachine:
     flow rate of refrigerant displaced by the compressor. This method can only
     be used if the compressor has a variable speed drive.
     """
-
     def __init__(
         self,
         evaporator: Evaporator,
@@ -508,17 +503,21 @@ class SingleStageVaporCompressionMachine:
         evaporation and condensation temperature at steady-state machine
         operation under the given operating conditions.
         The algorithm tries to find an evaporation and condensation temperature
-        for which the difference becomes minimal between the mass flow rate of
+        for which the difference is minimal between the mass flow rate of
         refrigerant according to the compressor model and the mass flow rate
         of refrigerant according to the evaporator model (where the expansion
         device regulates the mass flow rate of refrigerant in order to maintain
         the set degree of refrigerant superheating at the evaporator outlet).
+        In the end, the mass flow rate of refrigerant displaced by the 
+        compressor should balance with the mass flow rate let through by the
+        expansion device.
+        
         1. The algorithm starts with an initial guess for the evaporation
            temperature and the condensing temperature.
         2. With these two values, the refrigerant mass flow rate displaced by
            the compressor is determined with the compressor model, and also the
            state of the discharge gas, which enters the condenser.
-        3. At the condenser, the state of the entering air and the air mass flow
+        3. At the condenser, the state of entering air and the air mass flow
            rate are fixed. With the state of the entering refrigerant and the
            refrigerant mass flow rate, a solution is determined with the
            condenser model for the condenser's performance, i.e., the state of
@@ -708,8 +707,8 @@ class SingleStageVaporCompressionMachine:
         Notes
         -----
         This method can only be used with a variable speed compressor.
-        Also, the minimum and maximum compressor speed must have been set when
-        creating the `SingleStageVaporCompressionMachine` object.
+        Also, the minimum and maximum compressor speed must be set when
+        instantiating the `SingleStageVaporCompressionMachine` object.
 
         Returns
         -------
@@ -749,8 +748,8 @@ class SingleStageVaporCompressionMachine:
             )
 
             # Find balanced speed between min and max compressor speed:
-            n_cmp_min = self.n_cmp_min.to('1 / min').m
-            n_cmp_max = self.n_cmp_max.to('1 / min').m
+            n_cmp_min = self.n_cmp_min.to('rpm').m
+            n_cmp_max = self.n_cmp_max.to('rpm').m
             counter = [0]
             try:
                 res = optimize.root_scalar(
@@ -762,7 +761,7 @@ class SingleStageVaporCompressionMachine:
                     rtol=r_tol,
                     maxiter=i_max
                 )
-                self.n_cmp = Q_(res.root, '1 / min')
+                self.n_cmp = Q_(res.root, 'rpm')
             except Exception as err:
                 if isinstance(err, ValueError):
                     logger.error(
@@ -770,7 +769,7 @@ class SingleStageVaporCompressionMachine:
                         "given evaporation temperature "
                         f"{self.compressor.T_evp.to('degC'):~P.3f} and condensing "
                         f"temperature {self.compressor.T_cnd.to('degC'):~P.3f} "
-                        f"under the given operating conditions."
+                        f"under given operating conditions."
                     )
                 else:
                     logger.error(
@@ -893,7 +892,7 @@ class SingleStageVaporCompressionMachine:
             f"Try with: {n_cmp:.3f} rpm"
         )
 
-        self.compressor.speed = Q_(n_cmp, '1 / min')
+        self.compressor.speed = Q_(n_cmp, 'rpm')
         cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
         dev = self._get_deviation(cmp_rfg_m_dot, i)
         counter[0] += 1
@@ -1016,10 +1015,9 @@ class SingleStageVaporCompressionMachine:
         logger_on: bool = True
     ) -> float:
         """
-        Calculates the deviation in a single cycle between the mass flow rate
-        of refrigerant let through by the expansion device (to maintain the set
-        degree of refrigerant superheating at the evaporator outlet) and the
-        mass flow rate of refrigerant displaced by the compressor.
+        Calculates the mass flow rate of refrigerant let through by the 
+        expansion device and returns the deviation with the mass flow rate of
+        refrigerant displaced by the compressor.
 
         Returns
         -------
@@ -1109,7 +1107,6 @@ class SingleStageVaporCompressionMachine:
                 air_m_dot=self.evp_air_m_dot,
                 rfg_in=evp_rfg_in,
                 dT_sh=self.dT_sh,
-                rfg_m_dot_ini=cmp_rfg_m_dot
             )
         except EvaporatorError as err:
             logger.error(

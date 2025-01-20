@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
@@ -7,7 +8,7 @@ from scipy.optimize import fsolve
 import CoolProp
 import CoolProp.CoolProp as CP
 from .. import Quantity
-from .exceptions import CoolPropMixtureError
+from .exceptions import CoolPropError, CoolPropMixtureError, CoolPropWarning
 
 Q_ = Quantity
 
@@ -101,11 +102,20 @@ def _get_phase_description(phase_index: Quantity) -> str:
 
 
 @dataclass
-class FluidState:
+class FluidState(ABC):
     name: str
     backend: str
     reference_state: str
     _state_dict: dict[str, Quantity]
+    
+    @property
+    @abstractmethod
+    def fluid(self) -> 'Fluid':
+        ...
+
+
+@dataclass
+class PureFluidState(FluidState):
 
     def __post_init__(self):
         for k, v in self._state_dict.items():
@@ -122,6 +132,14 @@ class FluidState:
             else:
                 s += f"{k} = {v}\n"
         return s
+
+    @property
+    def fluid(self) -> 'PureFluid':
+        return PureFluid(
+            self.name,
+            self.backend,
+            self.reference_state
+        )
 
 
 class FractionType(StrEnum):
@@ -153,11 +171,21 @@ class Constituent:
 
 
 @dataclass
-class MixtureState:
+class InteractionParams(dict):
+    betaT: float | None = None
+    gammaT: float | None = None
+    betaV: float | None = None
+    gammaV: float | None = None
+
+    def __post_init__(self):
+        for k, v in self.__dict__.items():
+            self[k] = v
+            
+
+@dataclass
+class MixtureState(FluidState):
     constituents: list[Constituent]
-    backend: str
-    reference_state: str
-    _state_dict: dict[str, Quantity]
+    interaction_params: tuple[InteractionParams] | str | None
 
     def __post_init__(self):
         frac_type = self.constituents[0].fraction_type
@@ -167,7 +195,7 @@ class MixtureState:
             labels = [f"{c.name}[{c.mass_fraction}]" for c in self.constituents]
         else:
             labels = [f"{c.name}[{c.volume_fraction}]" for c in self.constituents]
-        self.name = '&'.join(labels) + " " + str(frac_type.value)
+        self.constituent_names = ' & '.join(labels) + " " + str(frac_type.value)
         for k, v in self._state_dict.items():
             if k == 'phase':
                 v = _get_phase_description(v)
@@ -175,36 +203,34 @@ class MixtureState:
             setattr(self, k, v)
 
     def __str__(self) -> str:
-        s = f"{self.name}\n"
+        s = f"{self.name} | {self.constituent_names}\n"
         for k, v in self._state_dict.items():
             if isinstance(v, Quantity):
                 s += f"{k} = {v:~P}\n"
             else:
                 s += f"{k} = {v}\n"
         return s
-
-
-@dataclass
-class InteractionParams(dict):
-    betaT: float | None = None
-    gammaT: float | None = None
-    betaV: float | None = None
-    gammaV: float | None = None
-    zeta: float | None = None
-    xi: float | None = None
     
-    def __post_init__(self):
-        for k, v in self.__dict__.items():
-            self[k] = v
+    @property
+    def fluid(self) -> 'Mixture':
+        return Mixture(
+            self.name,
+            self.constituents,
+            self.backend,
+            self.reference_state,
+            self.interaction_params
+        )
 
 
 class Fluid(ABC):
 
     def __init__(
         self,
+        name: str,
         backend: str = CoolPropBackend.HEOS.value,
         reference_state: str = ReferenceState.DEF.value
     ) -> None:
+        self.name = name
         self.backend = backend
         self.ref_state = reference_state
         self.abstract_state: CP.AbstractState | None = None
@@ -233,16 +259,43 @@ class Fluid(ABC):
         cp_param = CPStateParameters[key]
         try:
             val = self.abstract_state.keyed_output(cp_param.ID)
-        except ValueError:
+        except ValueError as err:
+            warnings.warn(
+                f"Property '{key}' could not be determined. "
+                f"CoolProp says: {err}",
+                category=CoolPropWarning
+            )
             qty = Q_(float('nan'), cp_param.unit)
         else:
             qty = Q_(val, cp_param.unit)
         return qty
 
+    @staticmethod
+    def _get_phase(phase: str | None = None) -> int:
+        match phase:
+            case 'liquid':
+                return CoolProp.iphase_liquid
+            case 'gas':
+                return CoolProp.iphase_gas
+            case 'two_phase':
+                return CoolProp.iphase_twophase
+            case 'supercritical_liquid':
+                return CoolProp.iphase_supercritical_liquid
+            case 'supercritical_gas':
+                return CoolProp.iphase_supercritical_gas
+            case 'supercritical':
+                return CoolProp.iphase_supercritical
+            case None:
+                return CoolProp.iphase_not_imposed
+    
     @abstractmethod
-    def __call__(self, **input_params: Quantity) -> FluidState | MixtureState:
+    def __call__(self, **input_params: Quantity) -> FluidState:
         ...
-
+    
+    @abstractmethod
+    def __deepcopy__(self, memo):
+        ...
+    
     @property
     def critical_point(self) -> FluidState:
         T_crit = self.abstract_state.T_critical()
@@ -305,8 +358,7 @@ class PureFluid(Fluid):
         reference_state: optional
             Reference state of the fluid.
         """
-        super().__init__(backend, reference_state)
-        self.name = name
+        super().__init__(name, backend, reference_state)
         self.abstract_state = self._create_abstract_state()
 
     def _create_abstract_state(self) -> CoolProp.AbstractState:
@@ -316,22 +368,38 @@ class PureFluid(Fluid):
         )
         return CoolProp.AbstractState(self.backend, self.name)
 
-    def __call__(self, **input_params: Quantity) -> FluidState:
+    def __call__(self, **input_params: Quantity) -> PureFluidState:
+        phase = self._get_phase(input_params.pop('phase', None))
         update_pair = self._generate_update_pair(**input_params)
-        self.abstract_state.update(*update_pair)
-        state = FluidState(
-            self.name,
-            self.backend,
-            self.ref_state,
-            {k: self._create_quantity(k) for k in CPStateParameters.keys()}
+        try:
+            self.abstract_state.specify_phase(phase)
+            self.abstract_state.update(*update_pair)
+        except ValueError as err:
+            raise CoolPropError(err) from None
+        state = PureFluidState(
+            name=self.name,
+            backend=self.backend,
+            reference_state=self.ref_state,
+            _state_dict={
+                k: self._create_quantity(k) 
+                for k in CPStateParameters.keys()
+            }
         )
         return state
+    
+    def __deepcopy__(self, memo):
+        return PureFluid(
+            name=self.name,
+            backend=self.backend,
+            reference_state=self.ref_state
+        )
 
 
 class Mixture(Fluid):
 
     def __init__(
         self,
+        name: str,
         constituents: tuple[Constituent, ...],
         backend: str = CoolPropBackend.HEOS.value,
         reference_state: str = ReferenceState.DEF.value,
@@ -341,6 +409,8 @@ class Mixture(Fluid):
         
         Parameters
         ----------
+        name:
+            Name given to the mixture.
         constituents:
             The pure constituents of the mixture (`Constituent` objects).
         backend:
@@ -352,11 +422,12 @@ class Mixture(Fluid):
         interaction_params:
             The interaction parameters between each pair of constituents (see
             CoolProp's online documentation about mixtures). Either a tuple of
-            `InteractionParams` objects -one for each pair of constituents-, or 
-            one of the strings 'linear' or 'Lorentz-Berthelot'.
+            `InteractionParams` objects (one for each pair of constituents), or 
+            either one of the strings 'linear' or 'Lorentz-Berthelot'.
         """
-        super().__init__(backend, reference_state)
+        super().__init__(name, backend, reference_state)
         self.constituents = self._create_pure_fluids(constituents)
+        self.interaction_params = interaction_params
         self.abstract_state = self._create_abstract_state(interaction_params)
         self._set_fractions()
 
@@ -378,11 +449,11 @@ class Mixture(Fluid):
                 CP.get_fluid_param_string(c.name, 'CAS')
                 for c in self.constituents
             )
-            # Dummy entry in the library of interaction parameters.
             CAS_pairs = self._get_binary_combinations(CAS_numbers)
             if isinstance(interaction_params, str):
                 for cp in CAS_pairs: 
                     CP.apply_simple_mixing_rule(cp[0], cp[1], interaction_params)
+            # Dummy entry in the library of interaction parameters.
             if isinstance(interaction_params, tuple):
                 for cp in CAS_pairs:
                     CP.apply_simple_mixing_rule(cp[0], cp[1], 'linear')
@@ -390,8 +461,8 @@ class Mixture(Fluid):
             # be overwritten.
             CP.set_config_bool(CP.OVERWRITE_BINARY_INTERACTION, True)
 
-        self.name = '&'.join([c.name for c in self.constituents])
-        abstract_state = CoolProp.AbstractState(self.backend, self.name)
+        name = '&'.join([c.name for c in self.constituents])
+        abstract_state = CoolProp.AbstractState(self.backend, name)
 
         if isinstance(interaction_params, tuple):
             constituent_indices = tuple(i for i in range(len(self.constituents)))
@@ -456,33 +527,37 @@ class Mixture(Fluid):
         return {val_key_1: qty_1, search_key: search_qty}
    
     def __call__(self, **input_params: Quantity) -> MixtureState:
-        """Determines the complete mixture state for the given set of known
-        state variables.
+        """Determines the full mixture state when known state variables are
+        given.
         
         Parameters
         ----------
         input_params:
-            Keyword arguments `key=value, ...` with `key` the symbol of the
+            Keyword arguments `key=value, ...` where `key` is the symbol of the
             known state variable and `value` its corresponding value. Normally,
-            two known state variables suffice to determine the state. However,
-            in case of mixtures the allowable combinations are limited to: 
+            two known state variables suffice to determine the full state. 
+            However, in case of mixtures the allowable combinations of state 
+            variables are limited to: 
             - pressure (`P`) and temperature (`T`), 
             - `P` and vapor quality (`x`),
             - `T` and `x`
             To bypass this limitation somehow, a third keyword argument can be
-            passed to find the mixture state iteratively. The first (or second)
-            keyword argument must be `P`, `T`, or `x`. The other keyword 
-            argument can be any known state variable and its value. The
-            third keyword argument must be again `P`, `T`, or `x` with an 
-            initial guess value assigned to it to start the iterative routine.
+            passed to determine the mixture state iteratively. The first 
+            (or second) keyword argument must be either `P`, `T`, or `x`. The 
+            second (or first) keyword argument can be any known state variable 
+            with its value. The third keyword argument must be again either 
+            `P`, `T`, or `x` with an initially guessed value being assigned to 
+            it for starting the iterative routine.
         
         Raises
         ------
         CoolPropMixtureError:
             If the mixture state could not be determined. 
         """
+        phase = self._get_phase(input_params.pop('phase', None))
         update_pair = self._generate_update_pair(**input_params)
         try:
+            self.abstract_state.specify_phase(phase)
             self.abstract_state.update(*update_pair)
         except ValueError:
             keys = list(input_params.keys())[:2]
@@ -495,21 +570,17 @@ class Mixture(Fluid):
             else:
                 input_params = self._solve_iteratively(**input_params)
                 update_pair = self._generate_update_pair(**input_params)
-                self.abstract_state.update(*update_pair)
-        
-        constituents = [
-            Constituent(
-                c.name,
-                c.mole_fraction,
-                c.mass_fraction,
-                c.volume_fraction
-            ) for c in self.constituents
-        ]
+                try:
+                    self.abstract_state.update(*update_pair)
+                except ValueError as err:
+                    raise CoolPropMixtureError(err)
         state = MixtureState(
-            constituents,
-            self.backend,
-            self.ref_state,
-            {k: self._create_quantity(k) for k in CPStateParameters.keys()}
+            name=self.name,
+            backend=self.backend,
+            reference_state=self.ref_state,
+            constituents=self.constituents,
+            interaction_params=self.interaction_params,
+            _state_dict={k: self._create_quantity(k) for k in CPStateParameters.keys()}
         )
         return state
 
@@ -524,3 +595,12 @@ class Mixture(Fluid):
         cpp_T_freeze = CPFluidParameters['T_freeze']
         T_freeze = self.abstract_state.keyed_output(cpp_T_freeze.ID)
         return Q_(T_freeze, cpp_T_freeze.unit)
+    
+    def __deepcopy__(self, memo):
+        return Mixture(
+            name=self.name,
+            constituents=self.constituents,
+            backend=self.backend,
+            reference_state=self.ref_state,
+            interaction_params=self.interaction_params
+        )

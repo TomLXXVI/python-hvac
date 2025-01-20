@@ -12,11 +12,10 @@ from ...general import eps_ntu_wet as wet
 from .geometry import ContinuousFinStaggeredTubeBank
 from .air_to_water import ExternalSurface
 
-
 Q_ = Quantity
 
 logger = ModuleLogger.get_logger(__name__)
-logger.setLevel(ModuleLogger.DEBUG)
+logger.setLevel(ModuleLogger.ERROR)
 
 
 class EvaporatorError(Exception):
@@ -282,15 +281,12 @@ class SuperheatingRegion:
         # Parameters to be solved for:
         self.rfg_m_dot: Quantity | None = None
         self.air_out: HumidAir | None = None
+        self.Q_dot: Quantity | None = None
         self.L_flow: Quantity | None = None
 
     def __fun__(
         self,
         L_flow: float,
-        rfg_m_dot: Quantity,
-        Q_dot: Quantity,
-        air_mean: HumidAir,
-        rfg_mean: FluidState,
         counter: list[int]
     ) -> float:
         """
@@ -298,37 +294,40 @@ class SuperheatingRegion:
         heat exchanger and the heat absorbed by the refrigerant stream, which
         is also the heat rejected by the air stream.
         """
-        # Set the current flow length:
+        # Set the current flow length of the superheating region.
         self.core.geometry.length = Q_(L_flow, 'mm')
-                
-        # Set the parameters on the heat exchanger core needed to determine
-        # the overall heat transfer conductance of the superheated region:
+        # The mean states of air and refrigerant in the superheating region.
+        air_mean, rfg_mean = self._get_fluid_mean_states()
+        # Determine the overall heat transfer conductance of the superheated 
+        # region.
         hex_props = self.core.hex_properties(
             air_mean=air_mean,
             air_in=self.air_in,
             air_out=self.air_out,
             rfg_mean=rfg_mean,
             air_m_dot=self.air_m_dot,
-            rfg_m_dot=rfg_m_dot,
-            Q_dot=Q_dot
+            rfg_m_dot=self.rfg_m_dot,
+            Q_dot=self.Q_dot
         )
-
-        # Determine the heat transfer rate through the heat exchanger core:
+        # Determine the heat transfer rate through the heat exchanger core 
+        # in the superheated region.
         cnt_flow_hex = dry.CounterFlowHeatExchanger(
-            C_cold=rfg_mean.cp * rfg_m_dot,
+            C_cold=rfg_mean.cp * self.rfg_m_dot,
             C_hot=air_mean.cp * self.air_m_dot,
             T_cold_in=self.rfg_in.T,
             T_hot_in=self.air_in.Tdb,
             UA=hex_props['UA']
         )
-        dev = (cnt_flow_hex.Q - Q_dot).to('kW')
-
+        # Check heat balance. Determine deviation between heat transfer rate 
+        # through the heat exchanger core and the heat transfer rate needed to 
+        # superheat the refrigerant vapor.
+        dev = (cnt_flow_hex.Q - self.Q_dot).to('W')
         i = counter[0]
         logger.debug(
             f"{i}. Superheating flow length "
             f"{self.core.geometry.length.to('mm'):~P.3f} -> "
             f"heat transfer rate = {cnt_flow_hex.Q.to('W'):~P.3f} "
-            f"({dev.to('W'):~P.3f})"
+            f"(deviation = {dev.to('W'):~P.3f})"
         )
         counter[0] += 1
         return dev.m
@@ -339,9 +338,10 @@ class SuperheatingRegion:
         L_flow_max: Quantity
     ) -> tuple[Quantity, HumidAir]:
         """
-        Finds the flow length of the superheating region for a given mass flow
-        rate of refrigerant so that the refrigerant leaving the evaporator has
-        the degree of superheating set on the expansion device.
+        Solves for the required flow length of the superheating region when mass
+        flow rate of refrigerant is given so that refrigerant leaving the 
+        evaporator has reached the degree of superheating set on the expansion 
+        device.
 
         Parameters
         ----------
@@ -355,48 +355,42 @@ class SuperheatingRegion:
         The flow length of the evaporator's superheating region and the state
         of air leaving the superheating region.
         """
-        # Heat absorbed by the refrigerant stream.
-        Q_dot = rfg_m_dot * (self.rfg_out.h - self.rfg_in.h)
-        
+        self.rfg_m_dot = rfg_m_dot
+        # Heat that must be absorbed by the refrigerant stream.
+        self.Q_dot = self.rfg_m_dot * (self.rfg_out.h - self.rfg_in.h)
         logger.debug(
-            f"Heat transfer in superheating region = "
-            f"{Q_dot.to('W'):~P.3f}"
+            f"Heat transfer required in superheating region = "
+            f"{self.Q_dot.to('W'):~P.3f}"
         )
-        
         # As the heat absorbed by the refrigerant is also the heat rejected by 
         # the air, the state of air leaving the superheating region can be 
         # determined. Only sensible air cooling in the superheating region is 
         # assumed.
-        T_air_out = self.air_in.Tdb - Q_dot / (CP_HUMID_AIR * self.air_m_dot)
+        T_air_out = self.air_in.Tdb - self.Q_dot / (CP_HUMID_AIR * self.air_m_dot)
         self.air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
-        # The mean states of air and refrigerant in the superheating region.
-        air_mean, rfg_mean = self._get_fluid_mean_states(self.air_out, rfg_m_dot)
         # Find the flow length of the superheating region so that the heat 
-        # transfer from air to refrigerant balances the heat absorbed by the
-        # refrigerant and the heat rejected by the air:
+        # transfer rate from air to refrigerant balances the heat rate that
+        # must be absorbed by the refrigerant.
         counter = [0]
         try:
+            L_flow_min = Q_(1.0, 'mm').m
+            L_flow_max = L_flow_max.to('mm').m
             sol = optimize.root_scalar(
                 self.__fun__,
-                args=(rfg_m_dot, Q_dot, air_mean, rfg_mean, counter),
-                bracket=(Q_(1.0, 'mm').m, L_flow_max.to('mm').m),
+                args=(counter,),
+                bracket=(L_flow_min, L_flow_max),
                 xtol=0.01,  # mm
                 rtol=0.001,  # 0.1 %
                 maxiter=20
             )
         except ValueError:
-            raise SuperheatingError(
-                "Required degree of refrigerant superheating cannot be reached."
-            ) from None
+            raise SuperheatingError
         else:
             self.L_flow = Q_(sol.root, 'mm')
+            self.core.geometry.length = self.L_flow
             return self.L_flow, self.air_out
 
-    def _get_fluid_mean_states(
-        self,
-        air_out: HumidAir,
-        rfg_m_dot: FluidState
-    ) -> tuple[HumidAir, FluidState]:
+    def _get_fluid_mean_states(self) -> tuple[HumidAir, FluidState]:
         """
         Determines the mean state of air and refrigerant in the superheating
         region of the evaporator.
@@ -404,8 +398,8 @@ class SuperheatingRegion:
         We need this to calculate the overall heat transfer conductance of the
         superheating region in method `__fun__`.
         """
-        T_air_avg = (self.air_in.Tdb + air_out.Tdb) / 2
-        W_air_avg = (self.air_in.W + air_out.W) / 2
+        T_air_avg = (self.air_in.Tdb + self.air_out.Tdb) / 2
+        W_air_avg = (self.air_in.W + self.air_out.W) / 2
         air_avg = HumidAir(Tdb=T_air_avg, W=W_air_avg)
 
         Rfg = self.rfg_in.fluid
@@ -414,7 +408,7 @@ class SuperheatingRegion:
         rfg_avg = Rfg(P=P_evp, T=T_rfg_avg)
 
         C_air = self.air_m_dot * air_avg.cp
-        C_rfg = rfg_m_dot * rfg_avg.cp
+        C_rfg = self.rfg_m_dot * rfg_avg.cp
         C_max = max(C_air, C_rfg)
         C_min = min(C_air, C_rfg)
         C_rat = C_min / C_max
@@ -422,7 +416,7 @@ class SuperheatingRegion:
         if C_rat >= 0.5:
             return air_avg, rfg_avg
         else:
-            lmtd = self._get_lmtd(air_out)
+            lmtd = self._get_lmtd(self.air_out)
             if C_max == C_rfg:
                 T_air_avg = rfg_avg.T + lmtd
                 air_avg = HumidAir(Tdb=T_air_avg, W=W_air_avg)
@@ -453,21 +447,12 @@ class SuperheatingRegion:
         return lmtd
 
     @property
-    def Q_dot(self) -> Quantity:
-        """
-        Returns the heat transfer rate in the superheating region of the
-        evaporator.
-        """
-        Q_dot = self.rfg_m_dot * (self.rfg_out.h - self.rfg_in.h)
-        return Q_dot
-
-    @property
     def Q_dot_max(self) -> Quantity:
         """
         Returns the theoretically maximum heat transfer rate between the
         air and refrigerant stream in the superheating region.
         """
-        air_mean, rfg_mean = self._get_fluid_mean_states(self.air_out, self.rfg_m_dot)
+        air_mean, rfg_mean = self._get_fluid_mean_states()
         C_air = self.air_m_dot * air_mean.cp
         C_rfg = self.rfg_m_dot * rfg_mean.cp
         C_min = min(C_air, C_rfg)
@@ -562,20 +547,85 @@ class BoilingRegion:
         self.air_in: HumidAir | None = None
         self.air_out: HumidAir | None = None
         self.rfg_m_dot: Quantity | None = None
+        self.Q_dot: Quantity | None = None
         self.L_flow: Quantity | None = None
-
+    
+    def __fun__(self, L_flow: float, counter: list[int]) -> float:
+        # Set the current flow length of the boiling region.
+        self.core.geometry.length = Q_(L_flow, 'mm')
+        # Mean state of refrigerant in the boiling region.
+        rfg_mean = self._get_rfg_mean()
+        # Initially assume that leaving air is saturated.
+        h_air_out = self.air_in.h - self.Q_dot / self.air_m_dot
+        self.air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
+        i = 0
+        i_max = 10
+        Q_dot = None
+        while i < i_max:
+            # Mean state of air in the boiling region.
+            air_mean = self._get_air_mean()
+            # Determine overall heat transfer conductance of the boiling region.
+            hex_props = self.core.hex_properties(
+                air_mean=air_mean,
+                air_in=self.air_in,
+                air_out=self.air_out,
+                rfg_mean=rfg_mean,
+                air_m_dot=self.air_m_dot,
+                rfg_m_dot=self.rfg_m_dot,
+                Q_dot=self.Q_dot
+            )
+            # Determine heat transfer rate through heat exchanger core.
+            # Note: It is assumed that in the boiling region the air-side heat
+            # transfer surface is fully wet.
+            A_ext = self.core.geometry.external.A_tot.to('m ** 2')
+            A_int = self.core.geometry.internal.A_tot.to('m ** 2')
+            cnt_flow_hex = wet.CounterFlowHeatExchanger(
+                m_dot_r=self.rfg_m_dot,
+                m_dot_a=self.air_m_dot,
+                T_r_in=self.rfg_in.T,
+                T_r_out=self.rfg_out.T,
+                T_r_out_ini=None,
+                P_r=self.rfg_in.P,
+                refrigerant=self.rfg_in.fluid,
+                air_in=self.air_in,
+                h_ext=hex_props['h_ext'],
+                h_int=hex_props['h_int'],
+                eta_surf_wet=hex_props['eta_surf'],
+                A_ext_to_A_int=A_ext.m / A_int.m,
+                A_ext=A_ext
+            )
+            Q_dot = cnt_flow_hex.Q
+            air_out = cnt_flow_hex.air_out
+            dev_air_out = air_out.W.to('g / kg').m - self.air_out.W.to('g / kg').m
+            if abs(dev_air_out) < 0.1:
+                break
+            self.air_out = cnt_flow_hex.air_out
+            i += 1
+        # Check heat balance. Determine deviation between heat transfer rate 
+        # through the heat exchanger core and heat transfer rate needed to 
+        # boil the refrigerant vapor.
+        dev = (Q_dot - self.Q_dot).to('W')
+        i = counter[0]
+        logger.debug(
+            f"{i}. Boiling flow length "
+            f"{self.core.geometry.length.to('mm'):~P.3f} -> "
+            f"heat transfer rate = {Q_dot.to('W'):~P.3f} "
+            f"(deviation = {dev.to('W'):~P.3f})"
+        )
+        counter[0] += 1
+        return dev.m
+        
     def solve(
         self,
         air_in: HumidAir,
         rfg_m_dot: Quantity,
-        L_flow: Quantity,
-        tol: Quantity = Q_(0.001, 'kg / hr'),
-        i_max: int = 50
+        L_flow_max: Quantity,
     ) -> Quantity:
         """
-        Solves for the refrigerant mass flow rate needed to boil the
-        entering liquid/vapor mixture completely into saturated vapor, given
-        the available flow length `L_flow` of the boiling region.
+        Solves for the required flow length of the boiling region so that the 
+        heat transfer rate through the heat exchanger core balances with the 
+        heat rate that must be absorbed by the refrigerant to turn into 
+        saturated vapor at the exit of the boiling region.
 
         Parameters
         ----------
@@ -583,104 +633,47 @@ class BoilingRegion:
             State of air entering the boiling region (this is also the state
             of air leaving the superheating region).
         rfg_m_dot:
-            Initial guess for the refrigerant mass flow rate through the
-            evaporator.
-        L_flow:
-            The available flow length of the boiling region (after the flow
-            length of the superheating region has been determined).
-        tol:
-            Allowable difference between the last and previous calculated
-            refrigerant mass flow rate for which iteration is terminated.
-        i_max:
-            The maximum number of iterations to find an acceptable solution
-            for the refrigerant mass flow rate.
+            The refrigerant mass flow rate through the evaporator.
+        L_flow_max:
+            The maximum flow length possible of the boiling region.
 
         Returns
         -------
-        The calculated mass flow rate of refrigerant.
+        The flow length of the boiling region.
         """
-        # Available flow length for refrigerant boiling.
-        self.core.geometry.length = L_flow
-        # Mean state of the refrigerant in the boiling region.
-        rfg_mean = self._get_rfg_mean()
-        # State of air entering the boiling region.
+        # Set current state of air entering the boiling region and current
+        # mass flow rate of refrigerant.
         self.air_in = air_in
-        # Initially, assume saturated air is leaving the evaporator.
-        Q_dot = rfg_m_dot * (self.rfg_out.h - self.rfg_in.h)
-        h_air_out = air_in.h - Q_dot / self.air_m_dot
-        air_out = HumidAir(h=h_air_out, RH=Q_(100, 'pct'))
-        # Determine by iteration the refrigerant mass flow rate so that the heat
-        # transfer rate from air to refrigerant balances with the heat flow
-        # rate the refrigerant flow absorbs to become a saturated vapor: 
-        for i in range(i_max):
-            # Determine mean state of air in the boiling region:
-            air_mean = self._get_air_mean(air_in, air_out)
-            # Set the parameters on the heat exchanger core needed to determine
-            # the air-side and refrigerant-side heat transfer coefficients, and
-            # the air-side finned surface efficiency in the superheated region:
-            hex_props = self.core.hex_properties(
-                air_mean=air_mean,
-                air_in=self.air_in,
-                air_out=air_out,
-                rfg_mean=rfg_mean,
-                air_m_dot=self.air_m_dot,
-                rfg_m_dot=rfg_m_dot,
-                Q_dot=Q_dot
+        self.rfg_m_dot = rfg_m_dot
+        # Determine heat rate that must be absorbed by the refrigerant stream.
+        self.Q_dot = self.rfg_m_dot * (self.rfg_out.h - self.rfg_in.h)
+        logger.debug(
+            f"Heat transfer required in boiling region = "
+            f"{self.Q_dot.to('W'):~P.3f}"
+        )
+        # Find the flow length of the boiling region so that the heat transfer
+        # rate through the heat exchanger core balances with the heat rate that
+        # must be absorbed by the refrigerant.
+        counter = [0]
+        L_flow_min = Q_(1.0, 'mm').m
+        L_flow_max = L_flow_max.to('mm').m
+        try:
+            sol = optimize.root_scalar(
+                self.__fun__,
+                args=(counter,),
+                bracket=(L_flow_min, L_flow_max),
+                xtol=0.01,  # mm
+                rtol=0.001,  # 0.1 %
+                maxiter=20
             )
-            # Determine the heat transfer rate through heat exchanger core.
-            # Note: It is assumed that in the boiling region the air-side heat
-            # transfer surface is fully wet.
-            A_ext = self.core.geometry.external.A_tot.to('m ** 2')
-            A_int = self.core.geometry.internal.A_tot.to('m ** 2')
-            cnt_flow_hex = wet.CounterFlowHeatExchanger(
-                m_dot_r=rfg_m_dot,
-                m_dot_a=self.air_m_dot,
-                T_r_in=self.rfg_in.T,
-                T_r_out=self.rfg_out.T,
-                T_r_out_ini=None,
-                P_r=self.rfg_in.P,
-                refrigerant=self.rfg_in.fluid,
-                air_in=air_in,
-                h_ext=hex_props['h_ext'],
-                h_int=hex_props['h_int'],
-                eta_surf_wet=hex_props['eta_surf'],
-                A_ext_to_A_int=A_ext.m / A_int.m,
-                A_ext=A_ext
-            )
-            # Determine a new value for refrigerant mass flow rate:
-            rfg_m_dot_new = cnt_flow_hex.Q / (self.rfg_out.h - self.rfg_in.h)
-            # Check deviation between current and previous calculated mass flow 
-            # rate.
-            dev = (rfg_m_dot_new - rfg_m_dot).to('kg / hr')
-            
-            logger.debug(
-                f"{i+1}. Mass flow rate refrigerant "
-                f"{rfg_m_dot.to('kg / hr'):~P.3f} -> "
-                f"deviation = {dev:~P.3f}"
-            )
-            
-            if abs(dev) < tol.to('kg / hr'):
-                self.rfg_m_dot = rfg_m_dot
-                self.air_out = air_out
-                self.L_flow = L_flow
-                
-                logger.debug(
-                    f"Heat transfer in boiling region = "
-                    f"{cnt_flow_hex.Q.to('W'):~P.3f}"
-                )
-                
-                return rfg_m_dot
-            
-            # Deviation too big: repeat the loop with the new values.
-            rfg_m_dot = rfg_m_dot_new
-            Q_dot = cnt_flow_hex.Q
-            air_out = cnt_flow_hex.air_out
+        except ValueError:
+            raise BoilingError
         else:
-            raise BoilingError(
-                f"No acceptable solution found after {i_max} iterations."
-            ) from None
+            self.L_flow = Q_(sol.root, 'mm')
+            self.__fun__(self.L_flow, counter)
+            return self.L_flow
 
-    def _get_air_mean(self, air_in: HumidAir, air_out: HumidAir) -> HumidAir:
+    def _get_air_mean(self) -> HumidAir:
         """
         Calculates the mean state of air in the boiling region.
         We need this to calculate the heat transfer coefficients in method
@@ -689,8 +682,8 @@ class BoilingRegion:
         # Calculate LMED to determine average air enthalpy:
         sat_air_in = HumidAir(Tdb=self.rfg_out.T, RH=Q_(100, 'pct'))
         sat_air_out = HumidAir(Tdb=self.rfg_in.T, RH=Q_(100, 'pct'))
-        dh_in = air_in.h - sat_air_in.h
-        dh_out = air_out.h - sat_air_out.h
+        dh_in = self.air_in.h - sat_air_in.h
+        dh_out = self.air_out.h - sat_air_out.h
         dh_max = max(dh_in, dh_out)
         dh_min = min(dh_in, dh_out)
         if dh_min.m <= 0.0:
@@ -701,13 +694,11 @@ class BoilingRegion:
             )
             dh_min = Q_(1.e-12, 'kJ / kg')
         lmed = (dh_max - dh_min) / math.log(dh_max / dh_min)
-
         h_sat_air_avg = (sat_air_in.h + sat_air_out.h) / 2
         h_air_avg = h_sat_air_avg + lmed
-
         # Calculate LMTD to determine average air temperature:
-        dT_in = air_in.Tdb - self.rfg_out.T
-        dT_out = air_out.Tdb - self.rfg_in.T
+        dT_in = self.air_in.Tdb - self.rfg_out.T
+        dT_out = self.air_out.Tdb - self.rfg_in.T
         dT_max = max(dT_in, dT_out)
         dT_min = min(dT_in, dT_out)
         if dT_min.m <= 0.0:
@@ -729,27 +720,17 @@ class BoilingRegion:
     def _get_rfg_mean(self) -> FluidState:
         """
         Calculates the mean state of refrigerant in the boiling region.
-        We need this to calculate the heat transfer coefficients in method
-        `solve`.
         """
         Rfg = self.rfg_in.fluid
-        # Determine average enthalpy of refrigerant:
+        # Determine average enthalpy of refrigerant.
         h_rfg_avg = (self.rfg_in.h + self.rfg_out.h) / 2
-        # Evaporation pressure is assumed constant in evaporator:
+        # Evaporation pressure is assumed constant in evaporator.
         P_evp = self.rfg_in.P
         try:
             rfg_mean = Rfg(P=P_evp, h=h_rfg_avg)
         except CoolPropMixtureError:
             rfg_mean = Rfg(P=P_evp, h=h_rfg_avg, x=Q_(0.0, 'frac'))
         return rfg_mean
-
-    @property
-    def Q_dot(self) -> Quantity:
-        """
-        Returns the heat transfer rate in the boiling region of the evaporator.
-        """
-        Q_dot = self.rfg_m_dot * (self.rfg_out.h - self.rfg_in.h)
-        return Q_dot
 
     @property
     def Q_dot_max(self) -> Quantity:
@@ -853,31 +834,30 @@ class PlainFinTubeCounterFlowAirEvaporator:
             Thickness of the plain fins.
         N_fin:
             Number of fins per unit length of tube (i.e., the inverse of fin
-            density).
+            spacing).
         k_fin:
             Thermal conductivity of the fin material. The default value applies
             to aluminum.
         """
-        # Create the geometry of the whole evaporator to determine `A_min` of
-        # the whole evaporator; we need this, together with the number of rows
-        # of the whole evaporator, to determine the mass flow rate of
-        # refrigerant in 1 tube.
+        # Create the heat exchanger geometry of the evaporator.
         self.geometry = ContinuousFinStaggeredTubeBank(
             W_fro, H_fro, N_rows, S_trv, S_lon,
             D_ext, D_int, t_fin, N_fin, k_fin
         )
         A_min_tot = self.geometry.internal.A_min
-        # Create the geometry of the superheating region and the boiling region:
+        # Create the heat exchanger geometry of the superheating region.
         self.superheating_region = SuperheatingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int,
             D_ext, t_fin, N_fin, k_fin,
             A_min_tot, N_rows  # <-- A_min and N_rows of the whole evaporator
         )
+        # Create the heat exchanger geometry of the boiling region.
         self.boiling_region = BoilingRegion(
             W_fro, H_fro, S_trv, S_lon, D_int,
             D_ext, t_fin, N_fin, k_fin,
             A_min_tot, N_rows  # <-- A_min and N_rows of the whole evaporator
         )
+        # Determine the total flow length of the evaporator.
         self.L_flow = N_rows * S_lon
 
         # Known parameters:
@@ -911,7 +891,65 @@ class PlainFinTubeCounterFlowAirEvaporator:
         Q_dot_max = self.air_m_dot * (self.air_in.h - sat_air_out.h)
         rfg_m_dot_max = Q_dot_max / (self.rfg_out.h - self.rfg_in.h)
         return rfg_m_dot_max
-
+    
+    def _calc_flow_length(self, rfg_m_dot: Quantity) -> Quantity:
+        """
+        Returns the flow length of the evaporator that is needed to superheat
+        the refrigerant to the required degree when the mass flow rate of
+        refrigerant is given.
+        """
+        # Superheating region: determine the superheating flow length for
+        # the current refrigerant mass flow rate.
+        L_flow_superheat, air_out = None, None
+        for k in range(4):
+            L_flow_max = (5 ** k) * self.L_flow
+            try:
+                L_flow_superheat, air_out = self.superheating_region.solve(
+                    rfg_m_dot=rfg_m_dot,
+                    L_flow_max=L_flow_max
+                )
+            except SuperheatingError:
+                logger.debug('Try again...')
+                continue
+            else:
+                break
+        if L_flow_superheat is None:
+            raise SuperheatingError(
+                "Required flow length of superheating region "
+                "could not be determined."
+            ) from None
+        logger.debug(
+            f"Required superheating flow length = "
+            f"{L_flow_superheat.to('mm'):~P.3f}"
+        )
+        # Boiling region: determine the boiling flow length for the current
+        # refrigerant mass flow rate.
+        L_flow_boil = None
+        for k in range(4):
+            L_flow_max = (5 ** k) * self.L_flow
+            try:
+                L_flow_boil = self.boiling_region.solve(
+                    air_in=air_out,
+                    rfg_m_dot=rfg_m_dot,
+                    L_flow_max=L_flow_max
+                )
+            except BoilingError:
+                logger.debug('Try again...')
+                continue
+            else:
+                break
+        if L_flow_boil is None:
+            raise BoilingError(
+                "Required flow length of boiling region "
+                "could not be determined"
+            ) from None
+        logger.debug(
+            f"Required boiling flow length = "
+            f"{L_flow_boil.to('mm'):~P.3f}"
+        )
+        L_flow = L_flow_superheat + L_flow_boil
+        return L_flow
+    
     def __fun__(self, rfg_m_dot: float, counter: list[int]) -> float:
         """
         Returns the deviation between the mass flow rate in the boiling region
@@ -921,44 +959,18 @@ class PlainFinTubeCounterFlowAirEvaporator:
         """
         rfg_m_dot = Q_(rfg_m_dot, 'kg / hr')
         i = counter[0]
-        
         logger.debug(
             f"Iteration {i + 1}"
         )
         logger.debug(
-            f"Refrigerant mass flow rate = {rfg_m_dot:~P.3f}"
+            f"Try with refrigerant mass flow rate = {rfg_m_dot:~P.3f}"
         )
-        
-        # Superheating region: determine the superheating flow length for
-        # the current refrigerant mass flow rate.
-        L_flow_superheat, air_out_shr = self.superheating_region.solve(
-            rfg_m_dot=rfg_m_dot,
-            L_flow_max=self.L_flow
-        )
-        
+        L_flow = self._calc_flow_length(rfg_m_dot)
+        dev = (L_flow - self.L_flow).to('mm')
         logger.debug(
-            f"Superheating flow length = {L_flow_superheat.to('mm'):~P.3f}"
+            f"Total flow length = {L_flow.to('mm'):~P.3f} "
+            f"(deviation = {dev:~P.3f})"
         )
-        
-        # Boiling region: get the mass flow rate of refrigerant needed
-        # to boil the refrigerant completely within the available boiling flow
-        # length:
-        L_flow_boil = self.L_flow - L_flow_superheat
-
-        logger.debug(
-            f"Boiling flow length = {L_flow_boil.to('mm'):~P.3f}"
-        )
-        
-        rfg_m_dot_new = self.boiling_region.solve(
-            air_in=air_out_shr,
-            rfg_m_dot=rfg_m_dot,
-            L_flow=L_flow_boil,
-        )
-
-        # Determine the deviation between the mass flow rate in the boiling
-        # region and the mass flow rate in the superheating region. Ultimately,
-        # the deviation should become zero.
-        dev = (rfg_m_dot_new - rfg_m_dot).to('kg / hr')
         counter[0] += 1
         return dev.m
 
@@ -968,12 +980,19 @@ class PlainFinTubeCounterFlowAirEvaporator:
         air_m_dot: Quantity,
         rfg_in: FluidState,
         dT_sh: Quantity,
-        rfg_m_dot_ini: Quantity | None = None
-    ) -> Quantity:
+        rfg_m_dot: Quantity | None = None
+    ) -> Quantity | tuple[Quantity, int]:
         """
-        Solves for the refrigerant mass flow rate needed to transform
-        the liquid/vapor mixture entering the evaporator into superheated vapor
-        at the evaporator's outlet under the given operating conditions.
+        This function can have two different applications:
+        
+        1. If the mass flow rate of refrigerant is not specified (`rfg_m_dot` is
+        `None`): Solves for the refrigerant mass flow rate that is required to 
+        turn the liquid/vapor mixture entering the evaporator into superheated 
+        vapor at the evaporator's outlet under the given operating conditions.
+        
+        2. If the mass flow rate of refrigerant is specified: Solves for the 
+        required flow length of the evaporator so that the refrigerant leaves 
+        the evaporator at the required degree of superheat.
 
         Parameters
         ----------
@@ -986,14 +1005,29 @@ class PlainFinTubeCounterFlowAirEvaporator:
         dT_sh:
             The required degree of refrigerant superheating set on the expansion
             device.
-        rfg_m_dot_ini:
-            Optional, initial guess for the refrigerant mass flow rate through
-            the evaporator.
+        rfg_m_dot: optional
+            The mass flow rate of refrigerant.
 
         Returns
         -------
-        The calculated mass flow rate of refrigerant.
-
+        In case of application 1: 
+            The calculated mass flow rate of refrigerant.
+        In case of application 2: 
+            The required flow length of the evaporator and the corresponding 
+            number of rows.
+        
+        Raises
+        ------
+        SuperheatingError:
+            If the required flow length for superheating the refrigerant to the
+            required degree could not be determined.
+        BoilingError:
+            If the required flow length for boiling the refrigerant could not be
+            determined.
+        EvaporatorError:
+            If the required mass flow rate of refrigerant for superheating the 
+            refrigerant to the required degree could not be determined.  
+        
         Notes
         -----
         The evaporator has two regions. First, the refrigerant is boiled into
@@ -1002,22 +1036,43 @@ class PlainFinTubeCounterFlowAirEvaporator:
         Under steady-state operation, the mass flow rate of refrigerant through
         the evaporator is such that the degree of refrigerant superheating is
         maintained to the setting on the expansion device.
-        The flow length needed to superheat the refrigerant depends on this mass
-        flow rate.
-        We make an initial guess for the refrigerant mass flow rate. With this,
-        we determine the superheating flow length so that the heat transfer
-        rate from air to refrigerant through the superheating part of the
-        heat exchanger balances with the heat rate needed to superheat the
-        refrigerant vapor.
-        Since the total flow length of the evaporator is fixed, we also retrieve
-        the flow length that remains available for refrigerant boiling. Now, we
-        calculate the mass flow rate of refrigerant required to boil the
-        refrigerant from the known inlet state into fully saturated vapor.
-        Using a root-finding algorithm, these steps are repeated until the
-        deviation between the mass flow rate in the boiling region and in the
-        superheating region has become small enough.
+        The required flow length needed to superheat the refrigerant depends on 
+        this mass flow rate. The required flow length needed to turn the 
+        refrigerant from the specified inlet state into saturated vapor also 
+        depends on this mass flow rate.
+        The required flow length of both the superheating region and the boiling
+        region is determined such that the heat transfer rate through the heat
+        exchanger core in the superheating and in the boiling region balances 
+        with the heat rate absorbed by the refrigerant in the superheating
+        and boiling region respectively. The entering and leaving states of the
+        refrigerant in the superheating and in the boiling region are known, and
+        for a given mass flow rate of refrigerant it can be determined what
+        heat rate the refrigerant must absorb to reach these states.
+        To ultimately solve the first application problem, the mass flow rate 
+        of refrigerant needs to be found for which the sum of the required 
+        superheating flow length and required boiling flow length equals the 
+        actual flow length of the evaporator.
+        
+        To determine the required flow length of the superheating region and the
+        boiling region, Scipy's root-finding algorithm `root_scalar` is used. 
+        This algorithm needs a minimum and a maximum limit between which it 
+        searches for a flow length so that the deviation between the required
+        heat rate that the refrigerant must absorb in the superheating/boiling
+        region and the heat transfer rate through the heat exchanger core 
+        becomes (near) zero. The function uses the initial number of rows 
+        specified by the user to determine the maximum limit for the flow 
+        length. When a `SuperheatingError` or `BoilingError` is raised, it 
+        could indicate that the number of rows should be increased.
+        
+        To determine the required refrigerant mass flow rate for which the
+        required flow length of the evaporator equals its actual flow length,
+        Scipy's root-finding algorithm `root_scalar` is also used. The maximum
+        limit for the refrigerant mass flow rate is determined as 90 % of the 
+        theoretically maximum heat rate that can be transferred from the air to 
+        the refrigerant in the evaporator, and the minimum limit as 10 % of the 
+        maximum limit.
         """
-        # Assign or calculate what is known or can be known directly:
+        # Assign/calculate what is known or can be calculated directly:
         self.air_in = air_in
         self.superheating_region.air_in = air_in
         self.air_m_dot = air_m_dot
@@ -1035,55 +1090,77 @@ class PlainFinTubeCounterFlowAirEvaporator:
         T_rfg_out = self.T_evp + self.dT_sh
         self.rfg_out = Rfg(P=self.P_evp, T=T_rfg_out)
         self.superheating_region.rfg_out = self.rfg_out
-
-        # Solve for the unknown mass flow rate of refrigerant through the
-        # evaporator so that the required degree of refrigerant superheating
-        # is achieved under the current operating conditions:
-        counter = [0]
-        if rfg_m_dot_ini is not None:
-            rfg_m_dot_max = max(
-                self._guess_rfg_m_dot_max().to('kg / hr').m,
-                rfg_m_dot_ini.to('kg / hr').m
-            )
-        else:
-            rfg_m_dot_max = self._guess_rfg_m_dot_max().to('kg / hr').m
-        try:
-            sol = optimize.root_scalar(
-                self.__fun__,
-                args=(counter,),
-                method='secant',
-                x0=0.6 * rfg_m_dot_max,
-                x1=rfg_m_dot_max,
-                xtol=0.01,   # kg/hr
-                rtol=0.001,  # 0.1 %
-                maxiter=20
-            )
-        except ValueError as err:
-            message = (
-                "The refrigerant cannot be superheated to the required degree "
-                "in the evaporator under the current operating conditions."
-            )
-            logger.error(f"{type(err).__name__}: {err}")
-            raise EvaporatorError(message) from None
-        except (BoilingError, SuperheatingError) as err:
-            logger.error(f"{type(err).__name__}: {err}")
-            raise err
-        else:
-            logger.debug(
-                f"Calculation finished: {sol.flag}"
-            )
-            self.rfg_m_dot = Q_(sol.root, 'kg / hr')
+        # Determine the mass flow rate of refrigerant so that the required flow
+        # length of the evaporator equals the actual flow length of the 
+        # evaporator.
+        if rfg_m_dot is None:
+            rfg_m_dot_max = 0.9 * self._guess_rfg_m_dot_max().to('kg / hr').m
+            rfg_m_dot_min = 0.1 * rfg_m_dot_max
+            counter = [0]
+            try:
+                sol = optimize.root_scalar(
+                    self.__fun__,
+                    args=(counter,),
+                    bracket=(rfg_m_dot_min, rfg_m_dot_max),
+                    xtol=0.01,
+                    rtol=0.001,
+                    maxiter=20
+                )
+            except ValueError as err:
+                message = (
+                    f"The required refrigerant mass flow rate to superheat "
+                    f"the refrigerant with {dT_sh.to('K'):~P.1f} could not be "
+                    f"determined."
+                )
+                logger.error(f"{type(err).__name__}: {err}")
+                raise EvaporatorError(message) from None
+            except (BoilingError, SuperheatingError) as err:
+                logger.error(f"{type(err).__name__}: {err}")
+                raise err
+            else:
+                logger.debug(
+                    f"Calculation finished: {sol.flag}"
+                )
+                self.rfg_m_dot = Q_(sol.root, 'kg / hr')
+                self.boiling_region.rfg_m_dot = self.rfg_m_dot
+                self.superheating_region.rfg_m_dot = self.rfg_m_dot
+                self.air_out = self.boiling_region.air_out
+                self.Q_dot = (
+                    self.boiling_region.Q_dot 
+                    + self.superheating_region.Q_dot
+                )
+                self.Q_dot_max = (
+                    self.boiling_region.Q_dot_max
+                    + self.superheating_region.Q_dot_max
+                )
+                self.eps = self.Q_dot / self.Q_dot_max
+                self.air_dP = (
+                    self.boiling_region.dP_air
+                    + self.superheating_region.dP_air
+                )
+                return self.rfg_m_dot
+        # Determine the required flow length of the evaporator so that the 
+        # refrigerant leaves the evaporator at the required degree of superheat.
+        elif isinstance(rfg_m_dot, Quantity):
+            L_flow = self._calc_flow_length(rfg_m_dot)
+            N_rows = int(round(
+                L_flow.to('mm').m / self.geometry.pitch_lon.to('mm').m
+            ))
+            self.rfg_m_dot = rfg_m_dot
             self.boiling_region.rfg_m_dot = self.rfg_m_dot
             self.superheating_region.rfg_m_dot = self.rfg_m_dot
-            self.Q_dot = self.boiling_region.Q_dot + self.superheating_region.Q_dot
             self.air_out = self.boiling_region.air_out
+            self.Q_dot = (
+                self.boiling_region.Q_dot
+                + self.superheating_region.Q_dot
+            )
             self.Q_dot_max = (
                 self.boiling_region.Q_dot_max
                 + self.superheating_region.Q_dot_max
             )
             self.eps = self.Q_dot / self.Q_dot_max
             self.air_dP = (
-                    self.boiling_region.dP_air
-                    + self.superheating_region.dP_air
+                self.boiling_region.dP_air
+                + self.superheating_region.dP_air
             )
-            return self.rfg_m_dot
+            return L_flow, N_rows

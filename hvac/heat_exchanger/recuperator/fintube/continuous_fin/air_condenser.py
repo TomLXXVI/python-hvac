@@ -274,62 +274,10 @@ class DesuperheatingRegion:
         counter: list[int]
     ) -> float:
         """
-        Calculates a new value for the flow length of the desuperheating region
-        and returns the deviation between this new value and the current value
-        `L_flow`.
-        """
-        # Set the parameters on the heat exchanger core needed to determine
-        # the overall heat transfer conductance of the desuperheating region:
-        L_flow = Q_(L_flow, 'mm')
-        self.core.geometry.length = L_flow
-        self.core.hex_properties(
-            air_mean=air_mean,
-            air_in=self.air_in,
-            air_out=self.air_out,
-            rfg_mean=rfg_mean,
-            air_m_dot=self.air_m_dot,
-            rfg_m_dot=self.rfg_m_dot
-        )
-
-        # Determine a new value the flow length:
-        # First, the convection heat transfer coefficient `h_int` on the
-        # refrigerant side of the heat exchanger is determined.
-        # Then, the total thermal resistance `R_int` between the refrigerant and
-        # the heat exchanger wall is determined based on the known heat rate
-        # `self.Q_dot` rejected by the refrigerant stream in the desuperheating
-        # region.
-        # From these, the internal surface area `A_int` of the heat exchanger
-        # can be determined.
-        # Finally, in the function `_get_flow_length` the flow length of the
-        # desuperheating region is calculated that corresponds with `A_int`.
-        R_int = (rfg_mean.T - self.core.T_wall) / self.Q_dot
-        A_int = 1 / (R_int * self.core.h_int)
-        L_flow_new = self._get_flow_length(A_int.to('m ** 2'))
-
-        dev = (L_flow_new - L_flow).to('mm')
-        # Should we have passed the correct flow length `L_flow` immediately,
-        # the deviation with the new value would be zero.
-
-        i = counter[0]
-        logger.debug(
-            f"Desuperheating region/Iteration {i + 1}: "
-            f"Flow length deviation = {dev:~P.3f}."
-        )
-        counter[0] += 1
-        return dev.magnitude
-
-    def __fun__new(
-        self,
-        L_flow: float,
-        air_mean: HumidAir,
-        rfg_mean: FluidState,
-        counter: list[int]
-    ) -> float:
-        """
         Calculates the heat transfer rate through the heat exchanger core of the
-        desuperheating region and returns the deviation between this value and the
-        heat rate that the refrigerant must reject to turn from superheated vapor
-        into saturated vapor.
+        desuperheating region and returns the deviation between this value and 
+        the heat rate that the refrigerant must reject to turn from superheated 
+        vapor into saturated vapor.
         """
         L_flow = Q_(L_flow, 'mm')
         self.core.geometry.length = L_flow
@@ -341,7 +289,6 @@ class DesuperheatingRegion:
             air_m_dot=self.air_m_dot,
             rfg_m_dot=self.rfg_m_dot
         )
-
         cnt_flw_hex = CounterFlowHeatExchanger(
             C_cold=self.air_m_dot * air_mean.cp,
             C_hot=self.rfg_m_dot * rfg_mean.cp,
@@ -349,15 +296,17 @@ class DesuperheatingRegion:
             T_hot_in=self.rfg_in.T,
             UA=self.core.UA
         )
-
-        dev = (cnt_flw_hex.Q - self.Q_dot).to('kW')
+        Q_dot = cnt_flw_hex.Q
+        dev = (Q_dot - self.Q_dot).to('W')
         i = counter[0]
         logger.debug(
-            f"Desuperheating region/Iteration {i + 1}: "
-            f"Heat transfer deviation = {dev:~P.3f}."
+            f"{i + 1}. Desuperheating region. "
+            f"Flow length = {L_flow:~P.3f} -> "
+            f"heat transfer rate = {Q_dot.to('W'):~P.3f} "
+            f"(deviation = {dev:~P.3f})."
         )
         counter[0] += 1
-        return dev.magnitude
+        return dev.m
 
     def solve(
         self,
@@ -367,27 +316,24 @@ class DesuperheatingRegion:
         i_max: int = 20
     ) -> Quantity:
         """
-        Returns the flow length of the desuperheating region such that the heat
-        transfer rate through the heat exchanger balances with the heat rate
-        being rejected by the refrigerant stream (and, at the same time, being
-        absorbed by the air stream in the desuperheating region).
+        Returns the required flow length of the desuperheating region so that 
+        the heat transfer rate through the heat exchanger core would balance 
+        with the heat rate the refrigerant must reject to turn into saturated
+        vapor.
         """
-        # Determine the state of air leaving the desuperheating region:
+        # Determine the state of air leaving the desuperheating region.
         h_air_out = self.air_in.h + self.Q_dot / self.air_m_dot
         self.air_out = HumidAir(h=h_air_out, W=self.air_in.W)
-
         # Determine the mean states of air and refrigerant in the desuperheating
-        # region:
+        # region.
         air_mean, rfg_mean = self._get_fluid_mean_states()
-
-        # Initialize iteration counter and set maximum number of iterations:
+        # Initialize iteration counter and set maximum number of iterations.
         counter = [0]
-
         # Within the given bracket, find the flow length of the desuperheating
         # region for which function `__fun__` returns a deviation near zero.
         try:
             sol = optimize.root_scalar(
-                self.__fun__new,
+                self.__fun__,
                 args=(air_mean, rfg_mean, counter),
                 method='brentq',
                 bracket=(1.0, L_flow_max.to('mm').m),
@@ -398,9 +344,10 @@ class DesuperheatingRegion:
         except ValueError:
             raise DesuperheatingError(
                 "The refrigerant cannot be desuperheated into saturated vapor"
-                "in the condenser under the current operating conditions."
+                "under current operating conditions."
             ) from None
         self.L_flow = Q_(sol.root, 'mm')
+        self.core.geometry.length = self.L_flow
         return self.L_flow
 
     def _get_fluid_mean_states(self) -> tuple[HumidAir, FluidState]:
@@ -535,58 +482,6 @@ class CondensingRegion:
         counter: list[int]
     ) -> float:
         """
-        Calculates a new value for the flow length of the condensing region
-        and returns the deviation between this new value and the current value
-        `L_flow`.
-        """
-        # Set the parameters on the heat exchanger core needed to determine
-        # the overall heat transfer conductance of the condensing region:
-        L_flow = Q_(L_flow, 'mm')
-        self.core.geometry.length = L_flow
-        self.core.hex_properties(
-            air_mean=air_mean,
-            air_in=self.air_in,
-            air_out=self.air_out,
-            rfg_mean=rfg_mean,
-            air_m_dot=self.air_m_dot,
-            rfg_m_dot=self.rfg_m_dot
-        )
-
-        # Determine a new value the flow length:
-        # First, the convection heat transfer coefficient `h_int` on the
-        # refrigerant side of the heat exchanger is determined.
-        # Then, the total thermal resistance `R_int` between the refrigerant and
-        # the heat exchanger wall is determined based on the known heat rate
-        # `self.Q_dot` rejected by the refrigerant stream in the condensing
-        # region.
-        # From these, the internal surface area `A_int` of the heat exchanger
-        # can be determined.
-        # Finally, in the function `_get_flow_length` the flow length of the
-        # condensing region is calculated that corresponds with `A_int`.
-        R_int = (rfg_mean.T - self.core.T_wall) / self.Q_dot
-        A_int = 1 / (R_int * self.core.h_int)
-        L_flow_new = self._get_flow_length(A_int.to('m ** 2'))
-
-        dev = (L_flow_new - L_flow).to('mm')
-        # Should we have passed the correct flow length `L_flow` immediately,
-        # the deviation with the new value would be zero.
-
-        i = counter[0]
-        logger.debug(
-            f"Condensing region/Iteration {i + 1}: "
-            f"Flow length deviation = {dev:~P.3f}."
-        )
-        counter[0] += 1
-        return dev.magnitude
-
-    def __fun__new(
-        self,
-        L_flow: float,
-        air_mean: HumidAir,
-        rfg_mean: FluidState,
-        counter: list[int]
-    ) -> float:
-        """
         Calculates the heat transfer rate through the heat exchanger core of the
         condensing region and returns the deviation between this value and the
         heat rate that the refrigerant must reject to turn from saturated vapor
@@ -602,7 +497,6 @@ class CondensingRegion:
             air_m_dot=self.air_m_dot,
             rfg_m_dot=self.rfg_m_dot
         )
-
         cnt_flw_hex = CounterFlowHeatExchanger(
             C_cold=self.air_m_dot * air_mean.cp,
             C_hot=Q_(float('inf'), 'W / K'),  # self.rfg_m_dot * rfg_mean.cp,
@@ -610,16 +504,17 @@ class CondensingRegion:
             T_hot_in=self.rfg_in.T,
             UA=self.core.UA
         )
-
-        dev = (cnt_flw_hex.Q - self.Q_dot).to('kW')
+        Q_dot = cnt_flw_hex.Q
+        dev = (Q_dot - self.Q_dot).to('W')
         i = counter[0]
         logger.debug(
-            f"Condensing region/Iteration {i + 1}: "
-            f"Flow length = {L_flow:~P.3f}. "
-            f"Heat transfer deviation = {dev:~P.3f}."
+            f"{i + 1}. Condensing region. "
+            f"Flow length = {L_flow:~P.3f} -> "
+            f"heat transfer rate = {Q_dot.to('W'):~P.3f} "
+            f"(deviation = {dev:~P.3f})."
         )
         counter[0] += 1
-        return dev.magnitude
+        return dev.m
 
     def solve(
         self,
@@ -629,27 +524,24 @@ class CondensingRegion:
         i_max: int = 20
     ) -> Quantity:
         """
-        Returns the flow length of the condensing region such that the heat
-        transfer rate through the heat exchanger balances with the heat rate
-        being rejected by the refrigerant stream (and, at the same time, being
-        absorbed by the air stream in the condensing region.)
+        Returns the required flow length of the condensing region so that the 
+        heat transfer rate through the heat exchanger core would balance with 
+        the heat rate that the refrigerant must reject in the condensing region 
+        to turn from saturated vapor into saturated liquid.
         """
-        # Determine the state of air leaving the condensing region:
+        # Determine the state of air leaving the condensing region.
         h_air_out = self.air_in.h + self.Q_dot / self.air_m_dot
         self.air_out = HumidAir(h=h_air_out, W=self.air_in.W)
-
         # Determine the mean states of air and refrigerant in the condensing
-        # region:
+        # region.
         air_mean, rfg_mean = self._get_fluid_mean_states()
-
-        # Initialize iteration counter:
+        # Initialize iteration counter.
         counter = [0]
-
         # Within the given bracket, find the flow length of the condensing
         # region for which function `__fun__` returns a deviation near zero.
         try:
             sol = optimize.root_scalar(
-                self.__fun__new,
+                self.__fun__,
                 args=(air_mean, rfg_mean, counter),
                 method='brentq',
                 bracket=(1.0, L_flow_max.to('mm').m),
@@ -659,10 +551,11 @@ class CondensingRegion:
             )
         except ValueError:
             raise CondensingError(
-                "The refrigerant cannot be fully condensed in the "
-                "condenser under the current operating conditions."
+                "The refrigerant cannot be condensed into saturated liquid"
+                "under current operating conditions."
             ) from None
         self.L_flow = Q_(sol.root, 'mm')
+        self.core.geometry.length = self.L_flow
         return self.L_flow
 
     def _get_fluid_mean_states(self) -> tuple[HumidAir, FluidState]:
@@ -786,26 +679,21 @@ class SubcoolingRegion:
         counter: list[int]
     ) -> tuple[Quantity, Quantity]:
         """
-        Calculates for the given flow length `L_flow` of the subcooling region,
-        a new value for the temperature of the refrigerant leaving the
-        condenser, so that the heat transfer rate through the heat exchanger
-        would balance with the heat rate rejected by the refrigerant in the
-        subcooling region.
+        With the given flow length `L_flow` of the subcooling region, calculates
+        a new value for the temperature of the refrigerant leaving the 
+        condenser.
         """
-        # Current state of the refrigerant leaving the condenser:
+        # Current state of the refrigerant leaving the condenser.
         rfg_out = self._get_rfg_out(T_rfg_out)
-
         # Heat rate rejected by the refrigerant in the subcooling region for
-        # the current state of the leaving refrigerant:
+        # the current state of the leaving refrigerant.
         Q_dot = self.rfg_m_dot * (self.rfg_in.h - rfg_out.h)
-
         # Determine the mean states of air and refrigerant in the subcooling
-        # region:
+        # region.
         T_air_out = self.air_in.Tdb + Q_dot / (CP_HUMID_AIR * self.air_m_dot)
         air_out = HumidAir(Tdb=T_air_out, W=self.air_in.W)
         air_mean, rfg_mean = self._get_fluid_mean_states(air_out, rfg_out)
-
-        # Set heat exchanger core parameters to calculate UA:
+        # Set heat exchanger core parameters to calculate UA.
         self.core.geometry.length = L_flow
         self.core.hex_properties(
             air_mean=air_mean,
@@ -815,9 +703,8 @@ class SubcoolingRegion:
             air_m_dot=self.air_m_dot,
             rfg_m_dot=self.rfg_m_dot
         )
-
         # Determine a new value for the heat transfer rate through the heat
-        # exchanger core of the subcooling region:
+        # exchanger core of the subcooling region.
         cnt_flw_hex = CounterFlowHeatExchanger(
             C_cold=self.air_m_dot * air_mean.cp,
             C_hot=self.rfg_m_dot * rfg_mean.cp,
@@ -826,22 +713,19 @@ class SubcoolingRegion:
             UA=self.core.UA
         )
         Q_dot_new = cnt_flw_hex.Q
-
-        # Determine the new state of the refrigerant leaving the condenser:
+        # Determine the new state of refrigerant leaving the condenser.
         h_rfg_out_new = self.rfg_in.h - Q_dot_new / self.rfg_m_dot
         Rfg = self.rfg_in.fluid
         P_cnd = self.rfg_in.P
         rfg_out_new = Rfg(P=P_cnd, h=h_rfg_out_new)
-
         # Temperature deviation between the new state and the current state of
-        # the refrigerant leaving the condenser:
+        # the refrigerant leaving the condenser.
         dev = (rfg_out_new.T - rfg_out.T).to('K')
-
         i = counter[0]
         logger.debug(
-            f"Subcooling region/Iteration {i + 1}: "
-            f"Flow length = {L_flow.to('mm'):~P.3f}. "
-            f"Temperature deviation of leaving refrigerant = {dev:~P.3f}."
+            f"{i + 1}. Subcooling region. "
+            f"Temperature of leaving refrigerant = {rfg_out_new.T.to('degC'):~P.3f} "
+            f"(deviation = {dev:~P.3f})."
         )
         counter[0] += 1
         return dev, rfg_out_new.T
@@ -853,25 +737,22 @@ class SubcoolingRegion:
         i_max: int = 20
     ) -> HumidAir:
         """
-        For the given subcooling flow length `L_flow`, solve for the output
-        parameters of the subcooling region (attributes `air_out`, `rfg_out`,
-        and `Q_dot`).
-
-        Returns
-        -------
-        The state of air leaving the subcooling region and entering the
-        condensing region of the condenser.
+        With the given subcooling flow length `L_flow`, solve for the output
+        parameters of the subcooling region `air_out`, `rfg_out`, and `Q_dot`.
         """
         T_rfg_out_min = self.air_in.Tdb.to('degC')
         T_rfg_out_max = self.rfg_in.T.to('degC')
-
         counter = [0]
-
         # Initial guess of the temperature of the refrigerant leaving the
-        # condenser:
+        # condenser.
         T_rfg_out = (T_rfg_out_min.to('K') + T_rfg_out_max.to('K')) / 2
-
         for i in range(i_max):
+            # Determine the heat transfer rate in the subcooling region and from
+            # this determine the corresponding new state of refrigerant leaving 
+            # the condenser.
+            # Repeat these calculations until the temperature of the leaving
+            # refrigerant becomes nearly constant (or until the maximum number 
+            # of loop iterations has been reached).
             dev, T_rfg_out_new = self.__fun__(T_rfg_out, L_flow, counter)
             if abs(dev) < tol:
                 Rfg = self.rfg_in.fluid
@@ -884,7 +765,8 @@ class SubcoolingRegion:
             T_rfg_out = T_rfg_out_new
         else:
             raise SubcoolingError(
-                f"No acceptable solution found after {i_max} iterations."
+                f"State of refrigerant leaving the condenser "
+                f"could not be determined after {i_max} iterations."
             ) from None
 
     def _get_fluid_mean_states(
@@ -1051,7 +933,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         self.eps: Quantity | None = None
         self.dT_sc: Quantity | None = None
         self.air_dP: Quantity | None = None
-
+        
     def __fun__(self, L_flow_sub: float, counter: list[int]) -> float:
         """
         Calculates the deviation between the calculated total flow length of the
@@ -1060,57 +942,46 @@ class PlainFinTubeCounterFlowAirCondenser:
         """
         L_flow_sub = Q_(L_flow_sub, 'mm')
         i = counter[0]
-
         logger.debug(
-            f"Condenser/Iteration {i + 1}: "
+            f"Iteration {i + 1}"
+        )
+        logger.debug(        
             f"Try with subcooling flow length {L_flow_sub:~P.3f}."
         )
-
         # Solve the subcooling region with the given subcooling flow length for
         # the state of air leaving the subcooling region:
         air_out = self.subcooling_region.solve(L_flow_sub)
-
         logger.debug(
-            f"Condenser(SCR)/Iteration {i + 1}: "
-            f"Leaving air temperature = {air_out.Tdb.to('degC'):~P.3f}. "
-            "Determine condensing flow length to reject "
-            f"{self.condensing_region.Q_dot.to('kW'):~P.3f}..."
+            f"Subcooling region. "
+            f"Leaving air temperature = {air_out.Tdb.to('degC'):~P.3f}."
         )
-
         # Set the state of air entering the condensing region to the state of
         # air leaving the subcooling region, and solve the condensing region
         # for its condensing flow length:
         self.condensing_region.air_in = air_out
         L_flow_cnd = self.condensing_region.solve(self.L_flow)
-
         logger.debug(
-            f"Condenser(CDR)/Iteration {i + 1}: "
-            f"Flow length = {L_flow_cnd.to('mm'):~P.3f}. "
-            "Determine desuperheating flow length to reject "
-            f"{self.desuperheating_region.Q_dot.to('kW'):~P.3f}"
+            f"Condenser region. "
+            f"Required flow length = {L_flow_cnd.to('mm'):~P.3f}."
         )
-
         # Set the state of air entering the desuperheating region to the state
         # of air leaving the condensing region, and solve the desuperheating
         # region for its desuperheating flow length:
         self.desuperheating_region.air_in = self.condensing_region.air_out
         L_flow_dsh = self.desuperheating_region.solve(self.L_flow)
-
         logger.debug(
-            f"Condenser(DSR)/Iteration {i + 1}: "
-            f"Flow length = {L_flow_dsh.to('mm'):~P.3f}."
+            f"Superheating region. "
+            f"Required flow length = {L_flow_dsh.to('mm'):~P.3f}."
         )
-
         # Determine the deviation between the currently calculated total flow
         # length of the condenser and its actual total flow length:
         L_flow_new = L_flow_sub + L_flow_cnd + L_flow_dsh
         dev = (L_flow_new - self.L_flow).to('mm')
-
         logger.debug(
-            f"Condenser/Iteration {i + 1}: "
-            f"Deviation with actual condenser flow length = {dev:~P.3f}."
+            f"Condenser. "
+            f"Total flow length = {L_flow_new.to('mm'):~P.3f} "
+            f"(deviation = {dev:~P.3f})."
         )
-
         counter[0] += 1
         return dev.m
 
@@ -1126,11 +997,9 @@ class PlainFinTubeCounterFlowAirCondenser:
         i_max: int = 20
     ) -> tuple[HumidAir, FluidState]:
         """
-        Solves for the operating state of the condenser under the given
-        operating conditions.
-
-        The operating state is fully determined once the states of the air
-        and the refrigerant leaving the condenser are determined.
+        Under the given operating conditions, solves for the full operating 
+        state of the condenser. This operating state is determined once the 
+        states of the air and refrigerant leaving the condenser are determined.
 
         Parameters
         ----------
@@ -1151,45 +1020,63 @@ class PlainFinTubeCounterFlowAirCondenser:
             Relative tolerance for root-finding algorithm.
         i_max: optional
             Maximum number of iterations for root-finding algorithm
-
+        
         Returns
         -------
         The states of the air and refrigerant leaving the condenser.
 
+        Raises
+        ------
+        SubcoolingError:
+            If the state of refrigerant leaving the condensor cannot be
+            determined.
+        CondensingError:
+            If the required flow length for condensing the refrigerant cannot
+            be determined (i.e. if the heat transfer rate through the heat 
+            exchanger core of the condensing region cannot be balanced with the 
+            heat rate the refrigerant must reject to turn from saturated vapor 
+            into saturated liquid).
+        DesuperheatingError:
+            If the required flow length for desuperheating the refrigerant 
+            cannot be determined (i.e. if the heat transfer rate through the 
+            heat exchanger core of the desuperheating region cannot be balanced 
+            with the heat rate the refrigerant must reject to turn from the 
+            inlet state into saturated vapor into saturated).
+        CondenserError:
+            If the required flow length of the condenser cannot be made equal
+            to the actual flow length of the condenser.
+        
         Notes
         -----
-        The condenser has three regions. First, the refrigerant is desuperheated.
-        Next, the refrigerant condenses. Finally, the refrigerant is subcooled.
-        We know the mass flow rate of refrigerant, and we know the state of air
-        and refrigerant entering the subcooling region, respectively the
+        The condenser has three regions. First, the refrigerant is desuperheated
+        to become saturated vapor. Next, the refrigerant condenses into 
+        saturated liquid. Finally, the refrigerant is subcooled before it leaves
+        the condenser.
+        We know already the mass flow rate of refrigerant and the mass flow rate
+        of air, we also know the state of air entering the subcooled region and
+        the state of refrigerant entering the desuperheating region.
+        Now we can choose a subcooling flow length and solve for the state of 
+        air leaving the subcooling region and entering the condensing region.
+        The refrigerant state at the entrance of the desuperheating region, at
+        the entrance of the condensing region (saturated vapor), and at the 
+        entrance of the subcooling region (saturated liquid) are known from the
+        start. Since we also know the refrigerant mass flow rate, we can 
+        determine the required heat rate the refrigerant must release in the 
+        condensing and in the desuperheating region. From this, we can determine 
+        the required flow length of the condensing region and of the 
         desuperheating region.
-        We can choose a subcooling flow length and solve for the state of air
-        leaving the subcooling region and entering the condensing region.
-        The states of refrigerant at the entrance of the desuperheating region,
-        the condensing region, and the subcooling region are all known. Since we
-        also know the refrigerant mass flow rate, we can determine the heat
-        transfer in the condensing and the desuperheating region. With these, we
-        can determine the flow length of the condensing region and of the
-        desuperheating region, and also the state of air leaving the condensing
-        region and the desuperheating region.
-        The sum of the chosen subcooling flow length and the flow lengths of
-        the condensing and the desuperheating region calculated from it, must
-        ultimately be equal to the actual total flow length of the condenser.
-        To find the subcooling flow length, for which the sum of the flow lengths
-        of the three regions equals the actual total condenser flow length, we
-        use a root-finding algorithm.
+        The sum of the chosen subcooling flow length and the calculated flow 
+        lengths of the condensing and the desuperheating region must ultimately
+        be equal to the actual total flow length of the condenser.
         """
+        # Assign/calculate what is known or can be calculated directly:
         self._set_air_in(air_in)
         self._set_air_m_dot(air_m_dot)
         self._set_rfg_in(rfg_in)
         self._set_rfg_m_dot(rfg_m_dot)
-
         # Find the flow length of the subcooling region so that the sum of the
         # flow lengths of the subcooling, condensing, and desuperheating region
         # equals the actual, total flow length of the condenser:
-        logger.debug(
-            'Solving for the operating state of the condenser...'
-        )
         L_flow_sub_min = L_flow_sub_min.to('mm').m
         L_flow_sub_max = self.L_flow.to('mm').m
         counter = [0]
@@ -1205,8 +1092,8 @@ class PlainFinTubeCounterFlowAirCondenser:
             )
         except ValueError:
             message = (
-                "The refrigerant cannot be subcooled in the condenser "
-                "under the current operating conditions."
+                "The refrigerant cannot be subcooled under "
+                "current operating conditions."
             )
             logger.error(message)
             raise CondenserError(message) from None

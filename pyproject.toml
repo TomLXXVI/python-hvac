@@ -17,16 +17,17 @@ astral = ">=3.2"
 iapws = ">=1.5.3"
 dill = ">=0.3.6"
 pint = ">=0.20.1"
-odfpy = "^1.4.1"
-multiprocess = "^0.70.14"
-lmfit = "^1.2.2"
-mpld3 = "^0.5.9"
-pyarrow = "^15.0.0"
-openpyxl = "^3.1.2"
-numdifftools = "^0.9.41"
+odfpy = ">=1.4.1"
+multiprocess = ">=0.70.14"
+lmfit = ">=1.2.2"
+mpld3 = ">=0.5.9"
+pyarrow = ">=15.0.0"
+openpyxl = ">=3.1.2"
+numdifftools = ">=0.9.41"
+notebook = "==7.4.0a1"
 
 [tool.poetry.group.dev.dependencies]
-jupyter = "^1.0.0"
+jupyter = ">=1.0.0"
 
 [build-system]
 requires = ["poetry-core"]
