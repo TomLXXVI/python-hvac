@@ -74,7 +74,7 @@ is given), the heat transfer rate in the superheating region can be determined
 for the given mass flow rate of refrigerant.
 
 On the air-side of the superheating region of the evaporator, the state of the 
-entering air is given and it is further assumed that heat transfer is only 
+entering air is given, and it is further assumed that heat transfer is only 
 sensible. This implies that the humidity ratio of the air across the 
 superheating region remains constant and equal to the humidity ratio of the air 
 entering the evaporator. As the heat transfer rate and the air mass flow rate 

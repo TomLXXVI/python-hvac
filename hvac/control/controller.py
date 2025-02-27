@@ -159,7 +159,7 @@ class PIDController:
         return Q_(out, 'frac').to('pct')
 
     def P_characteristic(self) -> tuple[Quantity, Quantity]:
-        """Returns the percentual P-control characteristic. The abscissa is
+        """Returns the percent P-control characteristic. The abscissa is
         the controller's output in percent. The ordinate is the process value in
         percent.
         """

@@ -40,7 +40,7 @@ building components and the interior thermal mass of a zone into account.
 This package is about solar radiation on surfaces. It implements a number of
 sky-models (isotropic, anisotropic Perez, anisotropic HDKR, KT) to estimate the 
 solar radiation incident on exterior surfaces.
-It can generate solar radiation data based on the clear-sky model or it can use
+It can generate solar radiation data based on the clear-sky model, or it can use
 TMY-data of a certain geographic location .
 Subpackage *sun* implements the equations in chapters 1 and 2 of *Duffie, 
 J. A., Beckman, W. A., & Blair, N. (2020). SOLAR ENGINEERING OF THERMAL 

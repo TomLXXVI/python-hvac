@@ -177,7 +177,7 @@ class VAVSingleZoneAirHeatingSystem:
         i_max: int = 50,
         T_tol: Quantity = Q_(0.01, 'K'),
         W_tol: Quantity = Q_(0.01, 'g / kg')
-    ) -> Output:
+    ) -> Output | None:
         """Analyzes VAV system heating operation at the external conditions
         given.
 

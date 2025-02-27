@@ -19,10 +19,10 @@ from hvac.heating_load_calc import (
     SurfaceFilm,
     MaterialShelf
 )
-import hvac.cooling_load_calc_old.wtcb.exterior_walls as ew
-import hvac.cooling_load_calc_old.wtcb.interior_walls as iw
-import hvac.cooling_load_calc_old.wtcb.floors as fl
-import hvac.cooling_load_calc_old.wtcb.roofs as rf
+import hvac.cooling_load_calc.construction_data.wtcb.exterior_walls as ew
+import hvac.cooling_load_calc.construction_data.wtcb.interior_walls as iw
+import hvac.cooling_load_calc.construction_data.wtcb.floors as fl
+import hvac.cooling_load_calc.construction_data.wtcb.roofs as rf
 
 Q_ = Quantity
 

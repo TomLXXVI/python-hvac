@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from hvac import Quantity
-from hvac.cooling_load_calc_old import ConstructionAssembly
+from hvac.cooling_load_calc import ConstructionAssembly
 from ..core import (
     TBuildingElement,
     ExteriorBuildingElement,

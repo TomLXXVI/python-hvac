@@ -16,7 +16,7 @@ from .archimedes_number import archimedes_number
 class CompactJet:
     """Jets formed by cylindrical tubes, nozzles, square or rectangular openings
     with a small aspect ratio, unshaded or shaded by perforated plates, grilles.
-    Compact air jets are three dimensional and axisymmetric.
+    Compact air jets are three-dimensional and axi-symmetric.
     """
     Pr = 0.75  # overall turbulent Prandtl number
 

@@ -6,12 +6,9 @@ In this example the heating load under design conditions is calculated for a
 (very) simple, small single-zone building. Based on this heat load, the heating
 system can be sized.
 
-Then, in part 2 of this example, we will simulate the operation of this
-building's heating system on a winter day.
-
-And in the final part 3 of this example, we will estimate the heating energy
-consumption of this building using the bin table method with TMY data valid for
-the geographic location where the building is situated.
+In part 2 of this example, we will estimate the heating energy consumption of 
+this building using the bin table method with TMY data valid for the geographic 
+location where the building is situated.
 """
 import warnings
 from dataclasses import dataclass
@@ -22,7 +19,7 @@ from hvac.heating_load_calc import (
     Building,
     ConstructionAssembly,
 )
-from hvac.cooling_load_calc_old import wtcb, shelves
+from hvac.cooling_load_calc.construction_data import wtcb, shelves
 
 
 warnings.filterwarnings('ignore', category=CoolPropWarning)

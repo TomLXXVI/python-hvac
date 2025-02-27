@@ -88,7 +88,7 @@ def clock_to_solar_time(dt_clock: DateTime, L_loc: float) -> DateTime:
     To create a time-zone aware date-time object, we can use the package `pytz`.
     ```
     tz = pytz.timezone('Europe/Brussels')
-    dt_naive = datetime(2023, 7, 17, 12, 0, 0)  # July 17 2023 12:00
+    dt_naive = datetime(2023, 7, 17, 12, 0, 0)
     dt_std = tz.localize(dt_naive)
     ```
     """

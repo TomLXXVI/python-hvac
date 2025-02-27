@@ -1,11 +1,11 @@
-"""EXAMPLE 02 (part 3)
+"""EXAMPLE 02 (part 2)
 ----------------------
 ESTIMATION OF HEATING ENERGY CONSUMPTION USING THE BIN TABLE METHOD
 
-In this final part 3 of example 02, we will estimate the heating energy
-consumption of the building using the bin table method with TMY data valid for
-the geographic location where the building is situated. The heating load
-characteristics are derived from the design heating load calculation in part 1.
+In part 2 of example 02, we will estimate the heating energy consumption of the 
+building using the bin table method with TMY data valid for the geographic 
+location where the building is situated. The heating load characteristics are 
+derived from the design heating load calculation in part 1.
 """
 import pandas as pd
 from hvac import Quantity
