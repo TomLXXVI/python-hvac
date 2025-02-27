@@ -16,7 +16,7 @@ import pandas as pd
 from hvac import Quantity
 from hvac.charts import LineChart
 from hvac.sun import Location, ReferenceDates
-from hvac.cooling_load_calc import (
+from hvac.cooling_load_calc_old import (
     Geometry,
     HeatFlowDirection,
     Material,
@@ -31,7 +31,7 @@ from hvac.cooling_load_calc import (
     WeatherData,
     PeopleHeatGain,
 )
-from hvac.cooling_load_calc.core.utils import (
+from hvac.cooling_load_calc_old.core.utils import (
     AirLayerTemperatureSolver,
     convert_to_solar_seconds
 )

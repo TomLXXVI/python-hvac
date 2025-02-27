@@ -343,7 +343,7 @@ class DesuperheatingRegion:
             )
         except ValueError:
             raise DesuperheatingError(
-                "The refrigerant cannot be desuperheated into saturated vapor"
+                "Refrigerant cannot be desuperheated to saturated vapor "
                 "under current operating conditions."
             ) from None
         self.L_flow = Q_(sol.root, 'mm')
@@ -551,7 +551,7 @@ class CondensingRegion:
             )
         except ValueError:
             raise CondensingError(
-                "The refrigerant cannot be condensed into saturated liquid"
+                "Refrigerant cannot be condensed to saturated liquid "
                 "under current operating conditions."
             ) from None
         self.L_flow = Q_(sol.root, 'mm')
@@ -1023,7 +1023,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         
         Returns
         -------
-        The states of the air and refrigerant leaving the condenser.
+        The states of air and refrigerant leaving the condenser.
 
         Raises
         ------

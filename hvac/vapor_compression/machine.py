@@ -500,7 +500,7 @@ class SingleStageVaporCompressionMachine:
         Notes
         -----
         This method uses the Nelder-Mead minimization algorithm to determine the
-        evaporation and condensation temperature at steady-state machine
+        evaporation and condensation temperature in steady-state machine
         operation under the given operating conditions.
         The algorithm tries to find an evaporation and condensation temperature
         for which the difference is minimal between the mass flow rate of
@@ -519,12 +519,13 @@ class SingleStageVaporCompressionMachine:
            state of the discharge gas, which enters the condenser.
         3. At the condenser, the state of entering air and the air mass flow
            rate are fixed. With the state of the entering refrigerant and the
-           refrigerant mass flow rate, a solution is determined with the
-           condenser model for the condenser's performance, i.e., the state of
-           refrigerant leaving the condenser and the state of air leaving the
-           condenser are determined.
+           refrigerant mass flow rate, a solution is determined from the
+           condenser model for the condenser's performance. In particular, the 
+           state of refrigerant leaving the condenser and the state of air 
+           leaving the condenser are determined.
         4. Considering that the expansion process is an isenthalpic process,
-           the state of refrigerant entering the evaporator is determined.
+           the state of refrigerant entering the evaporator is now also 
+           determined.
         5. At the evaporator, the state of entering air, the air mass flow
            rate, and the degree of refrigerant superheating (being a setting on
            the expansion device) are fixed. The refrigerant mass flow rate is

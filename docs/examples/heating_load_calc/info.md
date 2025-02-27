@@ -544,6 +544,7 @@ and transfer volume flow rates are indicated on the floor plan.
 ### 1. Imports
 Of course the first step when writing a Python script is to import everything
 we'll need:
+
 ```python
 from hvac import Quantity
 from hvac.heating_load_calc import (
@@ -563,10 +564,10 @@ from hvac.heating_load_calc import (
     MaterialsShelf
 )
 
-import hvac.cooling_load_calc.wtcb_catalog.exterior_walls as ew
-import hvac.cooling_load_calc.wtcb_catalog.interior_walls as iw
-import hvac.cooling_load_calc.wtcb_catalog.floors as fl
-import hvac.cooling_load_calc.wtcb_catalog.roofs as rf
+import hvac.cooling_load_calc_old.wtcb_catalog.exterior_walls as ew
+import hvac.cooling_load_calc_old.wtcb_catalog.interior_walls as iw
+import hvac.cooling_load_calc_old.wtcb_catalog.floors as fl
+import hvac.cooling_load_calc_old.wtcb_catalog.roofs as rf
 
 Q_ = Quantity
 ```

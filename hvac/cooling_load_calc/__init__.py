@@ -1,36 +1,4 @@
-from .core import (
-    Material,
-    Geometry,
-    HeatFlowDirection,
-    MechanicalFastening,
-    SurfaceFilm,
-    SolidLayer,
-    AirLayer,
-    ConstructionAssembly,
-    WeatherData,
-    ExteriorBuildingElement,
-    ExteriorShadingDevice,
-    InteriorShadingDevice,
-    Window,
-    WindowThermalProperties,
-    InteriorBuildingElement,
-    Machine,
-    HoodedCookingAppliance,
-    OfficeAppliance,
-    OfficeEquipment,
-    GenericAppliance,
-    LightingFixture,
-    SpaceLighting,
-    EquipmentHeatGain,
-    LightingHeatGain,
-    PeopleHeatGain,
-    InternalHeatGain
-)
-from .building import (
-    FixedTemperatureZone,
-    LocalVentilation,
-    VentilationZone,
-    VariableTemperatureZone,
-    BuildingEntity,
-    Building
-)
+from .building import *
+from .internal_heat_gains import *
+from .time_conversion import *
+from .ventilation import VentilationZone

@@ -20,7 +20,7 @@ from hvac.air_conditioning.single_zone.vav_cooling_sim import (
     Output
 )
 from hvac.sun import Location
-from hvac.cooling_load_calc import WeatherData
+from hvac.cooling_load_calc_old import WeatherData
 from building_model import BuildingModeler
 
 Q_ = Quantity

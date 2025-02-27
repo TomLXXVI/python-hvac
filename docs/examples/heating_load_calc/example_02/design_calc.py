@@ -22,7 +22,7 @@ from hvac.heating_load_calc import (
     Building,
     ConstructionAssembly,
 )
-from hvac.cooling_load_calc import wtcb, shelves
+from hvac.cooling_load_calc_old import wtcb, shelves
 
 
 warnings.filterwarnings('ignore', category=CoolPropWarning)

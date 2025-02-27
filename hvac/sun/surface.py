@@ -55,9 +55,9 @@ class Location:
         climate_type: str = ClimateType.MID_LATITUDE_SUMMER,
         timezone: str = 'UTC'
     ) -> None:
-        """Creates a `Location` instance where the solar geometry and radiation
-        can be determined at given date and at a given solar time through its
-        attribute `sun`.
+        """
+        Creates a `Location` object with which the solar path and the solar
+        radiation can be determined at a given date and solar time.
 
         Parameters
         ----------
@@ -210,7 +210,8 @@ class Sun:
     G_sc = Q_(1367.0, 'W / m ** 2')  # solar constant
 
     def __init__(self, location: Location):
-        """Creates a `Sun` instance linked to a given geographic location.
+        """
+        Creates a `Sun` instance linked to a given geographic location.
 
         Parameters
         ----------
@@ -231,8 +232,9 @@ class Sun:
 
     @property
     def gamma(self) -> Quantity:
-        """Solar azimuth angle, with zero due south, east negative, and
-        west positive; -pi <= gamma <= pi.
+        """
+        Solar azimuth angle, with zero due south, east negative, and west 
+        positive; -pi <= gamma <= pi.
         """
         gamma_s = solar_azimuth_angle(
             self.location.omega.m,
@@ -254,7 +256,8 @@ class Sun:
 
     @property
     def G_on(self) -> Quantity:
-        """Extraterrestrial irradiance incident on the plane normal to the
+        """
+        Extraterrestrial irradiance incident on the plane normal to the
         radiation (beam radiation).
         """
         n = day_number(self.location.date)
@@ -263,7 +266,8 @@ class Sun:
 
     @property
     def G_o(self) -> Quantity:
-        """Extraterrestrial irradiance incident on a horizontal plane (outside
+        """
+        Extraterrestrial irradiance incident on a horizontal plane (outside
         the atmosphere).
         """
         n = day_number(self.location.date)
@@ -272,7 +276,8 @@ class Sun:
 
     @property
     def H_o(self) -> Quantity:
-        """Integrated daily extraterrestrial irradiation (insolation)
+        """
+        Integrated daily extraterrestrial irradiation (insolation)
         on a horizontal surface.
         """
         omega_sr = self.location.omega_sr.to('rad').m
@@ -300,7 +305,8 @@ class Sun:
 
     @property
     def H_o_avg(self) -> Quantity:
-        """Monthly mean daily extraterrestrial irradiation (insolation) on a
+        """
+        Monthly mean daily extraterrestrial irradiation (insolation) on a
         horizontal surface for the current month in `self.location.date`.
         """
         num_days = pd.Period(self.location.date, freq='D').days_in_month
@@ -317,7 +323,8 @@ class Sun:
         return Q_(H_o_avg, 'J / m**2')
 
     def I_o(self, t1: Time, t2: Time) -> Quantity:
-        """Extraterrestrial irradiation (insolation) on a horizontal surface
+        """
+        Extraterrestrial irradiation (insolation) on a horizontal surface
         between solar times `t1` and `t2`.
         """
         t1_hr = time_to_decimal_hour(t1)
@@ -343,7 +350,8 @@ class Sun:
 
     @property
     def tau_b(self) -> Quantity:
-        """Atmospheric transmittance for clear-sky beam radiation.
+        """
+        Atmospheric transmittance for clear-sky beam radiation.
 
         This is the ratio of beam radiation to the extraterrestrial beam
         radiation on a horizontal or tilted surface.
@@ -367,7 +375,8 @@ class Sun:
         return self.tau_b * self.G_o
 
     def I_cb(self, t1: Time, t2: Time) -> Quantity:
-        """Clear-sky beam irradiation on horizontal surface between solar times
+        """
+        Clear-sky beam irradiation on horizontal surface between solar times
         `t1` and `t2`.
         """
         t1_hr = time_to_decimal_hour(t1)
@@ -399,7 +408,8 @@ class Sun:
 
     @property
     def tau_d(self) -> Quantity:
-        """Atmospheric transmittance for clear-sky diffuse radiation.
+        """
+        Atmospheric transmittance for clear-sky diffuse radiation.
 
         This is the ratio of diffuse radiation `G_cd` to the extraterrestrial
         beam radiation on the horizontal plane `G_o`.
@@ -413,7 +423,8 @@ class Sun:
         return self.tau_d * self.G_o
 
     def I_cd(self, t1: Time, t2: Time) -> Quantity:
-        """Clear-sky diffuse irradiation on horizontal surface between solar
+        """
+        Clear-sky diffuse irradiation on horizontal surface between solar
         times `t1` and `t2`.
         """
         t1_hr = time_to_decimal_hour(t1)
@@ -451,7 +462,8 @@ class Sun:
         H_avg: Quantity | None = None,
         time_interval: tuple[Time, Time] | None = None
     ) -> tuple[Quantity, Quantity]:
-        """Splits total radiation on horizontal surface into beam and diffuse
+        """
+        Splits total radiation on horizontal surface into beam and diffuse
         radiation.
 
         Parameters
@@ -506,7 +518,8 @@ class Surface:
         gamma: Quantity | None,
         beta: Quantity | None
     ) -> None:
-        """Creates a `Surface` instance at a given geographical location.
+        """
+        Creates a `Surface` instance at a given geographical location.
 
         Parameters
         ----------
@@ -529,14 +542,18 @@ class Surface:
 
     @property
     def gamma(self) -> Quantity:
-        """Surface azimuth angle, with zero due south, east negative, and
-        west positive; -pi <= gamma <= pi."""
+        """
+        Surface azimuth angle, with zero due south, east negative, and
+        west positive; -pi <= gamma <= pi.
+        """
         return self._gamma
 
     @gamma.setter
     def gamma(self, v: Quantity):
-        """Set surface azimuth angle, with zero due south, east negative, and
-        west positive; -pi <= gamma <= pi."""
+        """
+        Set surface azimuth angle, with zero due south, east negative, and
+        west positive; -pi <= gamma <= pi.
+        """
         self._gamma = v.to('rad')
         # ensure that internally `gamma` is always in radians
 
@@ -563,7 +580,8 @@ class Surface:
 
     @property
     def alpha_p(self) -> Quantity:
-        """Profile angle of beam radiation.
+        """
+        Profile angle of beam radiation.
 
         It is the projected solar altitude angle onto a vertical plane that
         is perpendicular to the surface in question.
@@ -576,7 +594,8 @@ class Surface:
         return Q_(alpha_p, 'rad')
 
     def _find_omega_sr_ss(self, which: str) -> Quantity:
-        """Hour angle at which sunrise or sunset occurs on the surface.
+        """
+        Hour angle at which sunrise or sunset occurs on the surface.
 
         Notes
         -----
@@ -637,14 +656,16 @@ class Surface:
 
     @property
     def R_b(self) -> Quantity:
-        """The ratio of beam radiation on the tilted surface to that on a
+        """
+        The ratio of beam radiation on the tilted surface to that on a
         horizontal plane, i.e. the gain in incident beam radiation by tilting
         a receiving surface, at the currently set date and solar time.
         """
         return np.cos(self.theta) / np.cos(self.location.sun.theta)
 
     def R_b_ave(self, t1: Time, t2: Time) -> Quantity:
-        """The average ratio of beam radiation on the tilted surface to that on
+        """
+        The average ratio of beam radiation on the tilted surface to that on
         a horizontal plane between the given solar times `t1` and `t2` on the
         currently set date.
         """
@@ -678,7 +699,8 @@ class Surface:
         return self.location.sun.G_cbn * np.cos(self.theta.to('rad').m)
 
     def estimate_I_Tb(self, H: Quantity, t1: Time, t2: Time) -> Quantity:
-        """Estimate hourly beam radiation on tilted surface at solar times `t1`
+        """
+        Estimate hourly beam radiation on tilted surface at solar times `t1`
         and `t2` when daily total radiation on horizontal surface `H` is given.
         """
         H = H.to('MJ / m ** 2').m
@@ -708,8 +730,10 @@ class Surface:
 
     @property
     def H_To(self) -> Quantity:
-        """Integrated daily extraterrestrial irradiation (insolation)
-        on tilted surface."""
+        """
+        Integrated daily extraterrestrial irradiation (insolation) on tilted 
+        surface.
+        """
         omega_sr = self.omega_sr.to('rad').m
         omega_ss = self.omega_ss.to('rad').m
         beta = self.beta.to('rad').m
@@ -741,7 +765,8 @@ class Surface:
 
 
 class TrackingSurfaceEWS(Surface):
-    """Tracking surface rotated about a horizontal east-west axis with a single
+    """
+    Tracking surface rotated about a horizontal east-west axis with a single
     daily adjustment so that beam radiation is normal to the surface at noon
     each day.
     """
@@ -754,8 +779,9 @@ class TrackingSurfaceEWS(Surface):
 
 
 class TrackingSurfaceEWC(Surface):
-    """Tracking surface rotated about a horizontal east-west axis with
-    continuous adjustment to minimize the angle of incidence.
+    """
+    Tracking surface rotated about a horizontal east-west axis with continuous 
+    adjustment to minimize the angle of incidence.
     """
 
     def __init__(self, location: Location):
@@ -781,8 +807,9 @@ class TrackingSurfaceEWC(Surface):
 
 
 class TrackingSurfaceNSC(Surface):
-    """Tracking surface rotated about a horizontal north-south axis with
-    continuous adjustment to minimize the angle of incidence.
+    """
+    Tracking surface rotated about a horizontal north-south axis with continuous
+    adjustment to minimize the angle of incidence.
     """
 
     def __init__(self, location: Location):
@@ -808,7 +835,8 @@ class TrackingSurfaceNSC(Surface):
 
 
 class TrackingSurfaceFSV(Surface):
-    """Tracking surface with a fixed slope rotated about a vertical axis.
+    """
+    Tracking surface with a fixed slope rotated about a vertical axis.
     The angle of incidence is minimized when the surface azimuth angle tracks
     the solar azimuth angle.
     """
@@ -823,7 +851,8 @@ class TrackingSurfaceFSV(Surface):
 
 
 class TrackingSurfaceNSE(Surface):
-    """Tracking surface rotated about a north-south axis parallel to the
+    """
+    Tracking surface rotated about a north-south axis parallel to the
     earth's axis with continuous adjustment to minimize the incidence angle.
     """
 
@@ -866,7 +895,8 @@ class TrackingSurfaceNSE(Surface):
 
 
 class TrackingSurface2Axes(Surface):
-    """Tracking surface that is continuously tracking about two axes to minimize
+    """
+    Tracking surface that is continuously tracking about two axes to minimize
     the angle of incidence.
     """
     def __init__(self, location: Location):

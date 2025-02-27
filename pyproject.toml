@@ -10,7 +10,6 @@ packages = [{include = "hvac"}]
 python = ">=3.11,<3.13"
 coolprop = ">=6.4.3.post1"
 scipy = ">=1.10.1"
-matplotlib = ">=3.7.1"
 pandas = ">=1.5.3"
 sympy = ">=1.11.1"
 astral = ">=3.2"
@@ -24,7 +23,8 @@ mpld3 = ">=0.5.9"
 pyarrow = ">=15.0.0"
 openpyxl = ">=3.1.2"
 numdifftools = ">=0.9.41"
-notebook = "==7.4.0a1"
+control = "^0.10.1"
+matplotlib = "^3.10.0"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = ">=1.0.0"

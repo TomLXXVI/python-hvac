@@ -1,4 +1,5 @@
 import warnings
+from collections.abc import Sequence
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
@@ -184,7 +185,7 @@ class InteractionParams(dict):
 
 @dataclass
 class MixtureState(FluidState):
-    constituents: list[Constituent]
+    constituents: Sequence[Constituent]
     interaction_params: tuple[InteractionParams] | str | None
 
     def __post_init__(self):
@@ -270,6 +271,7 @@ class Fluid(ABC):
             qty = Q_(val, cp_param.unit)
         return qty
 
+    # noinspection PyTypeChecker
     @staticmethod
     def _get_phase(phase: str | None = None) -> int:
         match phase:
@@ -400,7 +402,7 @@ class Mixture(Fluid):
     def __init__(
         self,
         name: str,
-        constituents: tuple[Constituent, ...],
+        constituents: Sequence[Constituent],
         backend: str = CoolPropBackend.HEOS.value,
         reference_state: str = ReferenceState.DEF.value,
         interaction_params: tuple[InteractionParams] | str | None = None
@@ -433,8 +435,8 @@ class Mixture(Fluid):
 
     def _create_pure_fluids(
         self,
-        constituents: tuple[Constituent, ...]
-    ) -> tuple[Constituent, ...]:
+        constituents: Sequence[Constituent]
+    ) -> Sequence[Constituent]:
         for constituent in constituents:
             fluid = PureFluid(constituent.name, self.backend, self.ref_state)
             constituent.fluid = fluid
@@ -515,10 +517,11 @@ class Mixture(Fluid):
         qty_1 = input_params[val_key_1]
         val_2 = input_params[val_key_2].to_base_units().m
         
-        def _objective(search_val: np.ndarray) -> np.ndarray:
-            search_qty = Q_(search_val[0], search_unit)
-            state = self(**{val_key_1: qty_1, search_key: search_qty})
-            _temp_val = state._state_dict[val_key_2].to_base_units().m
+        def _objective(search_val_: np.ndarray) -> np.ndarray:
+            search_qty_ = Q_(search_val_[0], search_unit)
+            state_ = self(**{val_key_1: qty_1, search_key: search_qty_})
+            # noinspection PyProtectedMember
+            _temp_val = state_._state_dict[val_key_2].to_base_units().m
             deviation = val_2 - _temp_val
             return np.array([deviation])
         

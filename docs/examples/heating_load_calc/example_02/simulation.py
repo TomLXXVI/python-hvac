@@ -27,7 +27,7 @@ import pandas as pd
 from hvac import Quantity
 from hvac.sun import Location, ClimateType
 from hvac.heating_load_calc import ClimateDesignData
-from hvac.cooling_load_calc import (
+from hvac.cooling_load_calc_old import (
     WeatherData,
     wtcb,
     shelves,
@@ -445,7 +445,7 @@ class SomeSingleZoneBuilding:
         ]
 
         # Add the exterior building elements to the zone:
-        self.zone.add_ext_build_elem(ext_build_elems)
+        self.zone.add_ext_build_elem(*ext_build_elems)
 
         # Add the floor to the zone:
         # --> Note that the floor is represented as an `InteriorBuildingElement`

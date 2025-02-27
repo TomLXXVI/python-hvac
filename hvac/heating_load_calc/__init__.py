@@ -1,6 +1,6 @@
 from .core import *
 from .building import *
-from ..cooling_load_calc.core import (
+from ..cooling_load_calc_old.core import (
     Geometry,
     Material,
     HeatFlowDirection,
@@ -11,7 +11,7 @@ from ..cooling_load_calc.core import (
     ConstructionAssembly,
     WindowThermalProperties
 )
-from ..cooling_load_calc.shelves import (
+from ..cooling_load_calc_old.shelves import (
     MaterialShelf,
     ConstructionAssemblyShelf,
     WindowPropertiesShelf

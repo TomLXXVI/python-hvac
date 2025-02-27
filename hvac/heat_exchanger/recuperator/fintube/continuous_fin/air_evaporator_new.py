@@ -1106,13 +1106,13 @@ class PlainFinTubeCounterFlowAirEvaporator:
                     rtol=0.001,
                     maxiter=20
                 )
-            except ValueError as err:
+            except ValueError:
                 message = (
                     f"The required refrigerant mass flow rate to superheat "
-                    f"the refrigerant with {dT_sh.to('K'):~P.1f} could not be "
+                    f"refrigerant with {dT_sh.to('K'):~P.1f} could not be "
                     f"determined."
                 )
-                logger.error(f"{type(err).__name__}: {err}")
+                logger.error(message)
                 raise EvaporatorError(message) from None
             except (BoilingError, SuperheatingError) as err:
                 logger.error(f"{type(err).__name__}: {err}")
