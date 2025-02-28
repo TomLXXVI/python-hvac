@@ -31,10 +31,19 @@ procedures for designing air supply to a room which come from *Awbi, H. B. (2003
 VENTILATION OF BUILDINGS. Taylor & Francis. Chapter 6.*
 
 **cooling_load_calc**<br>
-A package for doing cooling load calculations of a building, based upon ASHRAE's
-Radiant-Times-Series (RTS) method. 
-It uses a lumped capacitance model to take the thermal inertia of flat, opaque 
-building components and the interior thermal mass of a zone into account. 
+A package for doing cooling (and heating) load calculations of thermal zones in
+a building, based upon ASHRAE's Radiant-Times-Series (RTS) method. 
+It uses a lumped capacitance model (thermal network model) to take the thermal 
+inertia of flat, opaque building components and the interior thermal mass of a 
+zone into account, as explained in Chapter 10 of *Mitchell, J. W., & Braun, 
+J. E. (2012). PRINCIPLES OF HEATING, VENTILATION, AND AIR CONDITIONING IN 
+BUILDINGS. John Wiley & Sons*.
+Using third-party package `python-control` ([Python Control Systems Library](https://github.com/python-control/python-control)),
+a state-space model is then derived from this thermal network model, which can
+be simulated in time. The state-space model of the thermal zone can then also be
+easily integrated in a temperature control feedback system.
+A series of notebooks in `docs/examples/cooling_load_calc` explains step by step
+how to use the `cooling_load_package` and what it can do.
 
 **sun**<br>
 This package is about solar radiation on surfaces. It implements a number of
