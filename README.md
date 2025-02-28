@@ -43,7 +43,7 @@ a state-space model is then derived from this thermal network model, which can
 be simulated in time. The state-space model of the thermal zone can then also be
 easily integrated in a temperature control feedback system.
 A series of notebooks in `docs/examples/cooling_load_calc` explains step by step
-how to use the `cooling_load_package` and what it can do.
+how to use the `cooling_load_calc` package and what it can do.
 
 **sun**<br>
 This package is about solar radiation on surfaces. It implements a number of
