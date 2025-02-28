@@ -608,10 +608,17 @@ class LinearThermalNetwork:
             output of the system. If `None`, the last node in the `nodes` list
             is taken to be the output node.
         reduced_order:
-            Desired order to which the system should be reduced. If `None` 
-            (default), the system will not be reduced. Otherwise, if the order
-            of the system is greater than `reduced_order`, the system is reduced
-            to the specified value of `reduced_order`.
+            The order to which the system should be reduced. If `None`, the 
+            order of the system won't be reduced.
+            As the system is build from a big number of temperature nodes, the
+            system order will also be high. However, without noticeable loss of 
+            accuracy, the order can normally be reduced to an order of 8 or 6
+            (but not below the number of system outputs; should `reduced_order`
+            be less than the number of system outputs, it will be limited to the
+            number of system outputs). 
+            Note that without system reduction, it may also happen that some 
+            internal mathematical operations raise an exception (e.g. 
+            `FloatingPointError`).
         
         Returns
         -------
