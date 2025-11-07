@@ -554,7 +554,7 @@ class SideWallSupply:
 
         If the side-wall supply hasn't been calculated yet, parameter `h_o` must
         be assigned an initial value for the effective height of the supply
-        opening. Otherwise this parameter can be left to `None`.
+        opening. Otherwise, this parameter can be left to `None`.
 
         Parameters
         ----------
@@ -630,6 +630,17 @@ def design_side_wall_supply(
     -------
     An instance of `SideWallSupply`. Get the design results through its
     `output` attribute (an instance of class `Output`).
+    
+    Notes
+    -----
+    The room Archimedes number is the ratio of thermal buoyancy force (caused by 
+    the temperature difference between room air and supply air) to the momentum 
+    of the supply air jet. If the room Archimedes number is less than the 
+    critical value, momentum forces dominate and the supply air jet mixes 
+    effectively with the room air. Otherwise, if the room Archimedes number is 
+    greater than the critical value, buoyancy forces dominate and the air may
+    prematurely rise or fall due to temperature differences, leading to poor
+    mixing or thermal discomfort.
     """
     sws_obj = SideWallSupply(room_info, d, K1, Ar_r_crit)
     sws_obj.design(h_o, v_r_minmax, L_th_frac)

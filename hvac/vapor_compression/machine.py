@@ -831,6 +831,7 @@ class SingleStageVaporCompressionMachine:
             raise ValueError(
                 "The speed range of the compressor has not been specified."
             )
+        return None
 
     def __fun_rate__(self, unknowns: np.ndarray, counter: list[int]) -> float:
         """
