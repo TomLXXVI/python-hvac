@@ -19,9 +19,9 @@ logger = ModuleLogger.get_logger(__name__)
 
 class CondensingUnit:
     """
-    Model class for a condensing unit that can be used to analyze the
-    steady-state performance of the condensing unit when the cooling capacity
-    or heat absorption rate at the evaporator is given.
+    Models a condensing unit that can be used to analyze the steady-state
+    performance of the condensing unit when the cooling capacity or heat
+    absorption rate at the evaporator is given.
     """
 
     def __init__(
@@ -41,7 +41,7 @@ class CondensingUnit:
         """
         self.compressor = compressor
         self.condenser = condenser
-        self.Rfg = compressor.refrigerant_type
+        self.Rfg = compressor.refrigerant
 
         self.T_evp: Quantity | None = None
         self.n_cmp: Quantity | None = None

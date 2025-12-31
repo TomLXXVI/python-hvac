@@ -131,14 +131,14 @@ condenser = Condenser(
 compressor = VariableSpeedCompressor(
     coeff_file=Path("./compressor_data/VTZ054-G_R134a.csv"),
     refrigerant=R134a,
-    units={'m_dot': 'kg / hr', 'speed': '1 / s'}
+    units={'n': 'rps'}
 )
 
 # Condensing unit model:
 condensing_unit = CondensingUnit(
     compressor=compressor,
     condenser=condenser,
-    n_cmp=Q_(3000, '1 / min'),
+    n_cmp=Q_(3000, 'rpm'),
     dT_sh=Q_(10, 'K'),
     air_in=HumidAir(Tdb=Q_(35, 'degC'), RH=Q_(30, 'pct')),
     m_dot_air=Q_(3000, 'kg / hr')

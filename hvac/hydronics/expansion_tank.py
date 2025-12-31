@@ -107,8 +107,8 @@ class ExpansionTank:
     def final_air_pressurization(self) -> Quantity:
         """
         Returns the maximum pressure available at the inlet of the expansion
-        tank based on the maximum allowable system pressure and any height
-        difference between the inlet of the expansion tank and the
+        tank based on the maximum allowable system pressure and the possible
+        height difference between the inlet of the expansion tank and the
         pressure-relief valve of the system.
         """
         rho = self.water_cold.rho.to('kg / m**3')

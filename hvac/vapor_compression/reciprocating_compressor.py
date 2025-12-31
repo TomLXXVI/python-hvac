@@ -1,10 +1,10 @@
-from typing import Type
 from .. import Quantity
 from ..fluids import Fluid, FluidState
 
 Q_ = Quantity
 
 
+# noinspection PyCallingNonCallable
 class ReciprocatingCompressor:
     """
     Model of an ideal reciprocating compressor.
@@ -13,7 +13,6 @@ class ReciprocatingCompressor:
     expansion processes are ideal and polytropic. These relations give an
     upper limit for the performance.
     """
-
     def __init__(
         self,
         V_dis: Quantity,
@@ -33,7 +32,7 @@ class ReciprocatingCompressor:
             Compressor speed.
         n: float
             Polytropic exponent.
-        refrigerant_type: Type[Refrigerant]
+        refrigerant_type: Fluid
             Type of refrigerant.
         """
         self.V_dis = V_dis
@@ -111,7 +110,10 @@ class ReciprocatingCompressor:
     @property
     def v_dis(self) -> Quantity:
         """Get specific volume of discharge gas at compressor outlet."""
-        v_dis = (self.Pe * (self.v_suc ** self.n) / self.Pc) ** (1 / self.n)
+        # v_dis = (self.Pe * (self.v_suc ** self.n) / self.Pc) ** (1 / self.n)
+        Pe = self.Pe.to('bar').m
+        Pc = self.Pc.to('bar').m
+        v_dis = (Pe / Pc) ** (1 / self.n) * self.v_suc
         return v_dis
 
     @property

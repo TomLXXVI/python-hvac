@@ -31,9 +31,9 @@ class FixedSpeedCorrelation:
         """Returns the polynomial coefficients for the given quantity indicated
         by `param` at instantiation of the `Correlation`-object.
         """
-        return self.df.loc[self.param].values
+        return self.df.loc[self.param].values.tolist()
 
-    def __call__(self, *args, **kwargs) -> float:
+    def __call__(self, *args, **kwargs) -> float | None:
         """Returns the value of quantity "X" at the given evaporation temperature
         `T_evp` and the given condensing temperature `T_cnd`.
         """
@@ -41,6 +41,7 @@ class FixedSpeedCorrelation:
         T_cnd = args[1] or kwargs.get('T_cnd', 0.0)
         if len(self.C) == 10:
             return self.correlationC10(T_evp, T_cnd)
+        return None
 
     def correlationC10(self, T_evp: float, T_cnd: float) -> float:
         X = self.C[0]
@@ -58,7 +59,7 @@ class FixedSpeedCorrelation:
 
 class VariableSpeedCorrelation(FixedSpeedCorrelation):
 
-    def __call__(self, *args, **kwargs) -> float:
+    def __call__(self, *args, **kwargs) -> float | None:
         """Returns the value of the quantity "X" at the given evaporation
         temperature `T_evp`, given condensing temperature `T_cnd`, and given
         compressor n `n`."""
@@ -69,6 +70,7 @@ class VariableSpeedCorrelation(FixedSpeedCorrelation):
             return self.correlationC20(T_evp, T_cnd, n)
         if len(self.C) == 30:
             return self.correlationC30(T_evp, T_cnd, n)
+        return None
 
     def correlationC20(self, T_evp: float, T_cnd: float, n: float) -> float:
         X = self.C[0]
@@ -141,8 +143,8 @@ class FixedSpeedCompressor:
         self,
         coeff_file: Path | str,
         refrigerant: Fluid,
-        dT_sh: Quantity = Q_(0, 'K'),
-        dT_sc: Quantity = Q_(0, 'K'),
+        dT_sh: Quantity = Q_(8, 'K'),
+        dT_sc: Quantity = Q_(2, 'K'),
         units: dict[str, str] | None = None
     ) -> None:
         """Creates a `FixedSpeedCompressor` model using the polynomial
@@ -177,7 +179,7 @@ class FixedSpeedCompressor:
         """
         self.dT_sh = dT_sh
         self.dT_sc = dT_sc
-        self.refrigerant_type = refrigerant
+        self.refrigerant = refrigerant
         self._T_evp: float = float('nan')
         self._T_cnd: float = float('nan')
         self._set_correlations(coeff_file)
@@ -215,12 +217,12 @@ class FixedSpeedCompressor:
     @property
     def P_evp(self) -> Quantity:
         """Evaporation pressure."""
-        return self.refrigerant_type(T=self.T_evp, x=Q_(1.0, 'frac')).P
+        return self.refrigerant(T=self.T_evp, x=Q_(1.0, 'frac')).P
 
     @property
     def P_cnd(self) -> Quantity:
         """Condensing pressure."""
-        return self.refrigerant_type(T=self.T_cnd, x=Q_(0.0, 'frac')).P
+        return self.refrigerant(T=self.T_cnd, x=Q_(0.0, 'frac')).P
 
     @property
     def Q_dot_evp(self) -> Quantity:
@@ -259,11 +261,11 @@ class FixedSpeedCompressor:
     def suction_gas(self) -> FluidState:
         """Suction gas at evaporator outlet."""
         if self.dT_sh.m == 0:
-            suction_gas = self.refrigerant_type(T=self.T_evp, x=Q_(100, 'pct'))
+            suction_gas = self.refrigerant(T=self.T_evp, x=Q_(100, 'pct'))
         else:
-            P_evp = self.refrigerant_type(T=self.T_evp, x=Q_(100, 'pct')).P
+            P_evp = self.refrigerant(T=self.T_evp, x=Q_(100, 'pct')).P
             T_suc = self.T_evp.to('K') + self.dT_sh.to('K')
-            suction_gas = self.refrigerant_type(T=T_suc, P=P_evp)
+            suction_gas = self.refrigerant(T=T_suc, P=P_evp)
         return suction_gas
 
     @property
@@ -272,34 +274,34 @@ class FixedSpeedCompressor:
         P_evp = self.suction_gas.P
         h_mix = self.liquid.h
         try:
-            mixture = self.refrigerant_type(P=P_evp, h=h_mix)
+            mixture = self.refrigerant(P=P_evp, h=h_mix)
         except CoolPropMixtureError:  
             # refrigerant is a blend
-            mixture = self.refrigerant_type(P=P_evp, h=h_mix, x=Q_(0, 'pct'))
+            mixture = self.refrigerant(P=P_evp, h=h_mix, x=Q_(0, 'pct'))
         return mixture
 
     @property
     def liquid(self) -> FluidState:
         """Liquid at condenser outlet."""
-        P_cnd = self.refrigerant_type(T=self.T_cnd, x=Q_(0, 'pct')).P
+        P_cnd = self.refrigerant(T=self.T_cnd, x=Q_(0, 'pct')).P
         T_liq = self.T_cnd.to('K') - self.dT_sc.to('K')
         if self.dT_sc == 0:
-            liquid = self.refrigerant_type(P=P_cnd, x=Q_(0, 'pct'))
+            liquid = self.refrigerant(P=P_cnd, x=Q_(0, 'pct'))
         else:
-            liquid = self.refrigerant_type(P=P_cnd, T=T_liq)
+            liquid = self.refrigerant(P=P_cnd, T=T_liq)
         return liquid
 
     @property
     def discharge_gas(self) -> FluidState:
         """Discharge gas at condenser inlet."""
-        P_cnd = self.refrigerant_type(T=self.T_cnd, x=Q_(100, 'pct')).P
+        P_cnd = self.refrigerant(T=self.T_cnd, x=Q_(100, 'pct')).P
         wc = self.W_dot / self.m_dot
         h_dis = self.suction_gas.h + wc
         try:
-            discharge_gas = self.refrigerant_type(P=P_cnd, h=h_dis)
+            discharge_gas = self.refrigerant(P=P_cnd, h=h_dis)
         except CoolPropMixtureError:  
             # refrigerant is a blend
-            discharge_gas = self.refrigerant_type(P=P_cnd, h=h_dis, T=self.T_cnd)
+            discharge_gas = self.refrigerant(P=P_cnd, h=h_dis, T=self.T_cnd)
         return discharge_gas
 
     @property
@@ -307,14 +309,14 @@ class FixedSpeedCompressor:
         """Isentropic compressor power at the set evaporation temperature and
         condensing temperature.
         """
-        P_cnd = self.refrigerant_type(T=self.T_cnd, x=Q_(0, 'pct')).P
+        P_cnd = self.refrigerant(T=self.T_cnd, x=Q_(0, 'pct')).P
         h_suc = self.suction_gas.h
         s_suc = self.suction_gas.s
         try:
-            h_is_dis = self.refrigerant_type(P=P_cnd, s=s_suc).h
+            h_is_dis = self.refrigerant(P=P_cnd, s=s_suc).h
         except CoolPropMixtureError:  
             # refrigerant is mixture
-            h_is_dis = self.refrigerant_type(P=P_cnd, s=s_suc, T=self.T_cnd).h
+            h_is_dis = self.refrigerant(P=P_cnd, s=s_suc, T=self.T_cnd).h
         Wis_dot = self.m_dot * (h_is_dis - h_suc)
         return Wis_dot
 
@@ -493,26 +495,27 @@ class VariableSpeedCompressor(FixedSpeedCompressor):
 
     def compressor_speed(
         self,
-        Q_dot_evp: Quantity | None = None,
+        evp_Q_dot: Quantity | None = None,
         m_dot: Quantity | None = None
-    ) -> Quantity:
+    ) -> Quantity | None:
         """Returns the compressor speed at which the cooling capacity or the
         refrigerant mass flow rate equals the value of `Q_dot_evp` or `m_dot`
         at the set evaporation temperature and condensing temperature.
         """
-        if Q_dot_evp is not None:
-            n = self.__solve1__(Q_dot_evp)
+        if evp_Q_dot is not None:
+            n = self.__solve1__(evp_Q_dot)
             return n
         if m_dot is not None:
             n = self.__solve2__(m_dot)
             return n
+        return None
 
-    def __solve1__(self, Q_dot_evp: Quantity) -> Quantity:
-        _Q_dot_evp = Q_dot_evp.to(self.units['Q_dot']).m
+    def __solve1__(self, evp_Q_dot: Quantity) -> Quantity:
+        _evp_Q_dot = evp_Q_dot.to(self.units['Q_dot']).m
 
         def eq(unknowns: np.ndarray) -> np.ndarray:
             n_ = unknowns[0]
-            lhs = _Q_dot_evp
+            lhs = _evp_Q_dot
             rhs = self.correlations['Q_dot_evp'](self._T_evp, self._T_cnd, n_)
             out = lhs - rhs
             return np.array([out])

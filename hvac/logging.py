@@ -19,7 +19,7 @@ class ModuleLogger:
 
     @classmethod
     def create_console_handler(cls, log_level: int | None = None) -> StreamHandler:
-        # create a log handler that logs records to the console
+        # Create a log handler that logs records to the console
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(cls.FORMATTER)
         console_handler.setLevel(log_level or cls.DEBUG)

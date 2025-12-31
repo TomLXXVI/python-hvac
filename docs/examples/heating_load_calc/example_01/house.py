@@ -10,7 +10,6 @@ from hvac.heating_load_calc import (
     VentilationZone,
     HeatedSpace,
     UnheatedSpace,
-    ConstructionAssemblyShelf,
     WindowPropertiesShelf,
     ConstructionAssembly,
     HeatFlowDirection,
@@ -25,10 +24,6 @@ import hvac.cooling_load_calc.construction_data.wtcb.floors as fl
 import hvac.cooling_load_calc.construction_data.wtcb.roofs as rf
 
 Q_ = Quantity
-
-ConstructionAssemblyShelf.path = "C:/Users/Tom/wtcb-database/wtcb-construction-assemblies.db"
-WindowPropertiesShelf.path = "C:/Users/Tom/wtcb-database/window-properties.db"
-MaterialShelf.path = "C:/Users/Tom/wtcb-database/wtcb-materials.db"
 
 
 class ConstructionAssemblies:

@@ -7,8 +7,7 @@ This correlation is known to over-predict the heat transfer coefficient for
 refrigerants that condense at high pressure (e.g. R125, R32, and R410a).
 
 The correlation was taken from:
-Nellis G. F., & Klein S. A. (2021)
-INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Nellis G.F., & Klein S.A. (2021) INTRODUCTION TO ENGINEERING HEAT TRANSFER.
 Cambridge University Press.
 """
 
@@ -138,6 +137,7 @@ class HorizontalTube:
         """Returns the mass flow rate of fluid through the tube."""
         if self._m_dot is not None:
             return Q_(self._m_dot, 'kg / s')
+        return None
 
     @m_dot.setter
     def m_dot(self, v: Quantity) -> None:
@@ -185,3 +185,4 @@ class HorizontalTube:
                 # annular turbulent flow
                 h = _h_annular_flow(self._D, k_f, Re_f, Pr_f, X_tt)
             return Q_(h, 'W / (m ** 2 * K)')
+        return None

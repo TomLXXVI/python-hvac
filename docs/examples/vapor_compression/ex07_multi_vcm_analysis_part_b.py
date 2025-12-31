@@ -8,7 +8,7 @@ input variables constant, i.e., the state of air entering the evaporator,
 the mass flow rate of air through the evaporator, the state of air entering
 the condenser, and the mass flow rate of air through the condenser.
 The outputs of the analysis were written to an Excel-file.
-In this script we read the Excel-file back into a Pandas DataFrame object and
+In this script we read the Excel-file back into a Pandas DataFrame object, and
 we make a plot of the dry-bulb temperature of the air leaving the evaporator
 as a function of compressor speed. Using Scipy's `curve_fit` function, we try
 to find a function that relates the leaving air temperature at the evaporator
@@ -29,7 +29,7 @@ path = Path(
 )
 
 df = pd.read_excel(path)
-
+df = df.dropna()
 
 # Define an estimation function for curve fitting:
 def _estimation_fun(x, a, b, c):

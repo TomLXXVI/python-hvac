@@ -1,4 +1,4 @@
-from math import pi as PI
+import math
 from abc import abstractmethod
 from dataclasses import dataclass
 from hvac import Quantity
@@ -6,6 +6,7 @@ from ..geometry import ExternalGeometry, StaggeredTubeBank, InlineTubeBank
 
 
 Q_ = Quantity
+PI = math.pi
 
 
 class ContinuousFinExternalGeometry(ExternalGeometry):

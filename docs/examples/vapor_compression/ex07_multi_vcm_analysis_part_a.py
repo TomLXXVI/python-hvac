@@ -16,8 +16,8 @@ machine model (see function `create_machine` below).
 
 The analysis will be made at different compressor speeds using multiprocessing
 (with `ProcessPoolExecutor`). The other operating conditions remain unchanged.
-Note: each child process created by the `ProcessPoolExecutor` will run this
-entire script.
+(Note: each child process created by the `ProcessPoolExecutor` will run this
+entire script.)
 
 The analysis or rating routine tries to find the evaporation and condensation
 temperature for which the mass flow rate of the refrigerant displaced by the
@@ -25,7 +25,7 @@ compressor equals the mass flow rate of the refrigerant let trough by the
 expansion device. Once the evaporation and condensation temperature are
 determined, the full operating state of the machine is known.
 The analysis starts with an initial guess for the evaporation and condensation
-temperature. Using a minimization algorithm, the evaporation and condensation
+temperature. Using a least-squares algorithm, the evaporation and condensation
 temperature are iteratively searched for until the deviation between the two
 mass flow rates becomes minimal.
 """
@@ -69,7 +69,7 @@ def create_machine() -> SingleStageVaporCompressionMachine:
     compressor = VariableSpeedCompressor(
         coeff_file=Path("./compressor_data/VTZ054-G_R134a.csv"),
         refrigerant=R134a,
-        units={'m_dot': 'kg / hr', 'speed': '1 / s'}
+        units={'n': 'rps'}
     )
 
     # Create the evaporator model:
@@ -103,8 +103,9 @@ def create_machine() -> SingleStageVaporCompressionMachine:
         evaporator,
         condenser,
         compressor,
-        R134a,
-        dT_sh=Q_(10, 'K')  # degree of refrigerant superheating set on the expansion device
+        dT_sh=Q_(5, 'K'),
+        n_cmp_min=Q_(2100, 'rpm'),
+        n_cmp_max=Q_(5400, 'rpm')
     )
     return machine
 
@@ -130,7 +131,7 @@ def analyze_performance(n_cmp: Quantity) -> Output:
 
     # Run rating routine to determine steady-state machine performance:
     logger.info(
-        f"Rating @ n_cmp = {n_cmp.to('1 / min'):~P.0f}"
+        f"Rating @ n_cmp = {n_cmp.to('rpm'):~P.0f}"
     )
 
     output = machine.rate(
@@ -168,7 +169,7 @@ def main():
     # multiple processes with `ProcessPoolExecutor`. Before a process is
     # started, it is first initialized by calling function `_init_worker`,
     # passing the `log_file_path` to it to write any log messages to this file:
-    n_cmp_rng = [Q_(n, '1 / min') for n in range(2100, 5700, 300)]
+    n_cmp_rng = [Q_(n, 'rpm') for n in range(2100, 5700, 300)]
     outputs = []
     with ProcessPoolExecutor(
         initializer=init_worker,

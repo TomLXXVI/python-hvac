@@ -5,8 +5,8 @@ For window properties, see ASHRAE Fundamentals 2017, Ch. 15, table 4 and 10.
 import pandas as pd
 
 from hvac import Quantity
-from hvac.cooling_load_calc import WindowThermalProperties
-from hvac.cooling_load_calc.construction_data.wtcb.setup import WindowPropertiesShelf, db_path
+from ....cooling_load_calc import WindowThermalProperties
+from .setup import WindowPropertiesShelf, db_path
 
 
 Q_ = Quantity

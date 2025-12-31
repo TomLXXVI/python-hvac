@@ -273,7 +273,7 @@ class Fluid(ABC):
 
     # noinspection PyTypeChecker
     @staticmethod
-    def _get_phase(phase: str | None = None) -> int:
+    def _get_phase(phase: str | None = None) -> int | None:
         match phase:
             case 'liquid':
                 return CoolProp.iphase_liquid
@@ -289,6 +289,7 @@ class Fluid(ABC):
                 return CoolProp.iphase_supercritical
             case None:
                 return CoolProp.iphase_not_imposed
+        return None
     
     @abstractmethod
     def __call__(self, **input_params: Quantity) -> FluidState:

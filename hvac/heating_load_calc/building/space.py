@@ -653,6 +653,7 @@ class HeatedSpace(UnheatedSpace):
             return self.H_Tiae * dT_d
         elif x == 'ground':
             return self.H_Tig * dT_d
+        return None
 
     def get_additional_heating_up_power(self) -> Quantity:
         """Returns the additional heating-up power for the heated space."""

@@ -1,14 +1,49 @@
-from math import pi as PI
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from hvac import Quantity
 
 
 Q_ = Quantity
+PI = math.pi
 
 
 @dataclass
 class TubeBank(ABC):
+    """
+    Models a general tube bank.
+
+    Attributes
+    ----------
+    width: Quantity
+        Frontal area width.
+    height: Quantity
+        Frontal area height.
+    num_rows: int | None
+        Number of rows.
+    pitch_trv: Quantity
+        Vertical spacing between tubes in one row (transversal pitch).
+    pitch_lon: Quantity
+        Horizontal spacing between the tubes in two adjacent rows (longitudinal
+        pitch).
+    d_o: Quantity
+        Tube external diameter.
+    d_i: Quantity
+        Tube internal diameter.
+    t_fin: Quantity
+        Fin thickness.
+    fin_density: Quantity
+        Number of fins per unit length of tube (= inverse of fin spacing).
+    k_fin: Quantity, default Q_(237, 'W / (m * K)')
+        Thermal conductivity of fin material. Default value applies to aluminum.
+    d_r: Quantity | None = None
+        TODO: add description.
+
+    internal: InternalGeometry
+        Represents the internal side of the heat exchanging surface.
+    external: ExternalGeometry | None = None.
+        Represents the external side of the heat exchanging surface.
+    """
     width: Quantity
     height: Quantity
     num_rows: int | None
@@ -33,10 +68,15 @@ class TubeBank(ABC):
     @property
     @abstractmethod
     def num_tubes(self) -> float:
+        """Returns the number of straight tube pieces in the tube bank."""
         ...
 
     @property
     def num_tubes_1st_row(self) -> float:
+        """
+        Returns the number of straight tube pieces in the first row of the
+        tube bank.
+        """
         h = self.height.to('m').m
         p_t = self.pitch_trv.to('m').m
         n_1r = h / p_t
@@ -44,6 +84,7 @@ class TubeBank(ABC):
 
     @property
     def volume(self) -> Quantity:
+        """Returns the volume taken in by the tube bank."""
         w = self.width.to('m')
         h = self.height.to('m')
         l = self.length.to('m')
@@ -52,12 +93,20 @@ class TubeBank(ABC):
 
     @property
     def length(self) -> Quantity:
+        """
+        Returns the length of the tube bank (number of rows x
+        longitudinal pitch).
+        """
         return self._length
 
     @length.setter
     def length(self, v: Quantity) -> None:
+        """
+        Sets the length of the tube bank and determines the number of rows
+        based on the longitudinal pitch.
+        """
         self._length = v
-        self.num_rows = self._length / self.pitch_lon
+        self.num_rows = self._length.to('mm').m / self.pitch_lon.to('mm').m
 
 
 @dataclass
@@ -89,10 +138,15 @@ class InlineTubeBank(TubeBank):
 
 @dataclass
 class InternalGeometry:
+    """
+    Represents the internal side of the heat exchanging surface of the tube
+    bank.
+    """
     parent: TubeBank
 
     @property
     def A_tot(self) -> Quantity:
+        """Returns the total area of the internal heat exchanging surface."""
         n_t = self.parent.num_tubes
         d_i = self.parent.d_i.to('m')
         w = self.parent.width.to('m')
@@ -101,6 +155,10 @@ class InternalGeometry:
 
     @property
     def A_min(self) -> Quantity:
+        """
+        Returns the total cross-sectional area of the tubes in the tube bank
+        (cross-sectional area of one tube x number of tubes).
+        """
         d_i = self.parent.d_i.to('m')
         A_tube = PI * d_i ** 2 / 4
         A = A_tube * self.parent.num_tubes
@@ -108,18 +166,27 @@ class InternalGeometry:
 
     @property
     def A_face(self) -> Quantity:
-        l = self.parent.length.to('m').m
-        h = self.parent.height.to('m').m
+        """
+        Returns the internal side face area of the tube bank (i.e. tube bank
+        length x tube bank height -> perpendicular to the tubes).
+        """
+        l = self.parent.length.to('m')
+        h = self.parent.height.to('m')
         A = l * h
         return A
 
     @property
     def d_h(self) -> Quantity:
+        """
+        Returns the hydraulic diameter = inside diameter of the tubes.
+        """
         return self.parent.d_i.to('m')
 
     @property
     def sigma(self) -> float:
-        """Ratio of minimum free flow area to frontal area."""
+        """
+        Ratio of the minimum free flow area to frontal area.
+        """
         d_i = self.parent.d_i.to('m').m
         p_t = self.parent.pitch_trv.to('m').m
         p_l = self.parent.pitch_lon.to('m').m
@@ -131,7 +198,7 @@ class InternalGeometry:
     @property
     def alpha(self) -> Quantity:
         """
-        Ratio of the total heat transfer area to the volume of the heat
+        Ratio of the total inside heat transfer area to the volume of the heat
         exchanger core.
         """
         return self.A_tot / self.parent.volume
@@ -139,30 +206,42 @@ class InternalGeometry:
 
 @dataclass
 class ExternalGeometry(ABC):
+    """
+    Represents the external side of the heat exchanging surface of the tube
+    bank.
+    """
     parent: TubeBank
 
     @property
     @abstractmethod
     def A_pri(self) -> Quantity:
+        """Returns the primary surface area, i.e. without the fins."""
         ...
 
     @property
     @abstractmethod
     def A_fin(self) -> Quantity:
+        """
+        Returns the finned surface area, excluding the primary surface
+        area.
+        """
         ...
 
     @property
     @abstractmethod
     def A_tot(self) -> Quantity:
-        pass
+        """Returns the total surface area (primary + finned surface area)."""
+        ...
 
     @property
     @abstractmethod
     def A_min(self) -> Quantity:
-        pass
+        """Returns the minimum free flow area."""
+        ...
 
     @property
     def A_face(self) -> Quantity:
+        """Returns the face area (width of tube bank x height of tube bank)."""
         w = self.parent.width.to('m')
         h = self.parent.height.to('m')
         A = w * h
@@ -170,6 +249,7 @@ class ExternalGeometry(ABC):
 
     @property
     def d_h(self) -> Quantity:
+        """Returns the hydraulic diameter of the external surface."""
         d_h = 4 * self.sigma / self.alpha
         return d_h
 

@@ -11,7 +11,7 @@ from scipy import optimize
 
 from hvac import Quantity
 from hvac.logging import ModuleLogger
-from hvac.fluids import HumidAir, Fluid, FluidState
+from hvac.fluids import HumidAir, FluidState
 from hvac.vapor_compression import VariableSpeedCompressor, FixedSpeedCompressor
 from hvac.heat_exchanger.recuperator.fintube.continuous_fin import (
     PlainFinTubeCounterFlowAirEvaporator,
@@ -355,13 +355,13 @@ class SingleStageVaporCompressionMachine:
         evaporator: Evaporator,
         condenser: Condenser,
         compressor: Compressor,
-        refrigerant: Fluid,
-        dT_sh: Quantity,
+        dT_sh: Quantity | None = None,
         n_cmp_min: Quantity | None = None,
         n_cmp_max: Quantity | None = None,
         suction_line: SuctionLine | None = None,
         discharge_line: DischargeLine | None = None,
-        liquid_line: LiquidLine | None = None
+        liquid_line: LiquidLine | None = None,
+        solver: str = "least_squares"
     ) -> None:
         """
         Creates a `SingleStageVaporCompressionMachine` object.
@@ -374,11 +374,10 @@ class SingleStageVaporCompressionMachine:
             A model instance of the condenser.
         compressor:
             A model instance of the compressor.
-        refrigerant:
-            The type of refrigerant in the machine.
-        dT_sh:
+        dT_sh: optional
             The setting on the expansion device of the degree of refrigerant
-            superheating.
+            superheating. If `None`, the same setting as on the compressor is
+            taken.
         n_cmp_min: optional
             The minimum speed that can be set on the compressor if it is a
             variable speed compressor.
@@ -391,12 +390,16 @@ class SingleStageVaporCompressionMachine:
             Discharge line between compressor and condenser.
         liquid_line: optional
             Liquid line between condenser and expansion device.
+        solver: str, {"minimize", "least_squares" (default)}
+            Indicates the solving technique used in method `rate()`: either
+            Scipy `minimize()` or Scipy `least_squares()`, which is the default
+            and fastest solving technique.
         """
         self.evaporator = evaporator
         self.condenser = condenser
         self.compressor = compressor
-        self.refrigerant = refrigerant
-        self.dT_sh = dT_sh
+        self.refrigerant = compressor.refrigerant
+        self.dT_sh = dT_sh if dT_sh is not None else compressor.dT_sh
         self.n_cmp_min = n_cmp_min
         self.n_cmp_max = n_cmp_max
 
@@ -414,6 +417,10 @@ class SingleStageVaporCompressionMachine:
         self.n_cmp: Quantity | None = None
 
         self.output: Output | None = None
+
+        if solver not in {"least_squares", "minimize"}:
+            raise ValueError("solver must be 'least_squares' or 'minimize'")
+        self._solver = solver
 
     @staticmethod
     def time_it(fun):
@@ -456,9 +463,7 @@ class SingleStageVaporCompressionMachine:
         n_cmp: Quantity | None = None,
         T_evp_ini: Quantity | None = None,
         T_cnd_ini: Quantity | None = None,
-        xa_tol: float | None = 0.1,
-        fa_tol: float | None = 0.05,
-        i_max: int = 50,
+        solver_options: dict | None = None
     ) -> Output:
         """
         Determines the steady-state performance of the single-stage vapor
@@ -466,32 +471,33 @@ class SingleStageVaporCompressionMachine:
 
         Parameters
         ----------
-        evp_air_in:
+        evp_air_in: HumidAir
             State of air entering evaporator.
-        evp_air_m_dot:
+        evp_air_m_dot: Quantity
             Mass flow rate of air through evaporator.
-        cnd_air_in:
+        cnd_air_in: HumidAir
             State of air entering condenser.
-        cnd_air_m_dot:
+        cnd_air_m_dot: Quantity
             Mass flow rate of air through condenser.
-        n_cmp: optional
+        n_cmp: Quantity, optional
             Current compressor speed (only to be used with a variable speed
             compressor).
-        T_evp_ini:
-            Optional, initial guess for the evaporation temperature.
-        T_cnd_ini:
-            Optional, initial guess for the condensation temperature.
-        xa_tol:
-            Absolute tolerance for the change in evaporation and condensation
-            temperature used in the minimization algorithm (see parameter
-            `xatol` in `scipy.optimize.minimize` with Nelder-Mead method).
-        fa_tol:
-            Absolute tolerance for the change in the function value used in the
-            minimization algorithm (see parameter `fatol` in
-            `scipy.optimize.minimize` with Nelder-Mead method).
-        i_max:
-            Maximum number of iterations and function evaluations used in the
-            minimization algorithm.
+        T_evp_ini: Quantity, optional
+            Initial guess for the evaporation temperature.
+        T_cnd_ini: Quantity, optional
+            Initial guess for the condensation temperature.
+        solver_options: dict[str, int | float], default dict(maxiter=50, maxfev=50, xatol=0.1, fatol=0.05)
+            xa_tol:
+                Absolute tolerance for the change in evaporation and condensation
+                temperature used in the minimization algorithm (see parameter
+                `xatol` in `scipy.optimize.minimize` with Nelder-Mead method).
+            fa_tol:
+                Absolute tolerance for the change in the function value used in the
+                minimization algorithm (see parameter `fatol` in
+                `scipy.optimize.minimize` with Nelder-Mead method).
+            maxiter, maxfev:
+                Maximum number of iterations and function evaluations used in the
+                minimization algorithm.
 
         Returns
         -------
@@ -566,29 +572,44 @@ class SingleStageVaporCompressionMachine:
             f"{evp_air_in.RH.to('pct'):~P.0f}"
         )
         logger.info(
-            f"evp_air_m_dot: {evp_air_m_dot:~P.2f}"
+            f"evp_air_m_dot: {evp_air_m_dot.to('kg / hr'):~P.2f}"
         )
         logger.info(
             f"cnd_air_in: {cnd_air_in.Tdb.to('degC'):~P.2f}, "
             f"{cnd_air_in.RH.to('pct'):~P.0f}"
         )
         logger.info(
-            f"cnd_air_m_dot: {cnd_air_m_dot:~P.2f}"
+            f"cnd_air_m_dot: {cnd_air_m_dot.to('kg / hr'):~P.2f}"
         )
         try:
-            res = optimize.minimize(
-                self.__fun_rate__,
-                args=(counter,),
-                x0=np.array([T_evp_ini, T_cnd_ini]),
-                method='Nelder-Mead',
-                bounds=bounds,
-                options=dict(
-                    maxiter=i_max,
-                    maxfev=i_max,
-                    xatol=xa_tol,
-                    fatol=fa_tol
+            if self._solver == "minimize":
+                if solver_options is None:
+                    dict(
+                        maxiter=50,
+                        maxfev=50,
+                        xatol=0.1,
+                        fatol=0.05
+                    )
+                res = optimize.minimize(
+                    self.__fun_rate__,
+                    args=(counter,),
+                    x0=np.array([T_evp_ini, T_cnd_ini]),
+                    method='Nelder-Mead',
+                    bounds=bounds,
+                    options=solver_options
                 )
-            )
+            else:
+                res = optimize.least_squares(
+                    self.__residuals__,
+                    x0=np.array([T_evp_ini, T_cnd_ini]),
+                    args=(counter,),
+                    bounds=bounds,
+                    method="trf",
+                    xtol=1e-2,
+                    diff_step=np.array([5e-2, 5e-2]),  # 0.05 °C
+                    ftol=1e-8,
+                    gtol=1e-8
+                )
         except Exception as err:
             logger.error(
                 f'Analysis failed due to "{type(err).__name__}: {err}".'
@@ -661,6 +682,72 @@ class SingleStageVaporCompressionMachine:
                 self.output.success = True
                 return self.output
 
+    def __fun_rate__(self, unknowns: np.ndarray, counter: list[int]) -> float:
+        """
+        Calculates the deviation between the refrigerant mass flow rate let
+        through by the expansion device to maintain the set degree of
+        refrigerant superheating, and the refrigerant mass flow rate generated
+        by the compressor at the given evaporation temperature and condensing
+        temperature.
+
+        Parameters
+        ----------
+        unknowns:
+            Numpy array with two floats: the evaporation temperature, and the
+            condensing temperature.
+        counter:
+            List of a single int to count the number of calls to `__fun__`.
+
+        Notes
+        -----
+        This function should only be used internally in method `rate`.
+        """
+        i = counter[0]
+        T_evp = Q_(unknowns[0], 'degC')
+        T_cnd = Q_(unknowns[1], 'degC')
+
+        logger.info(
+            f"Iteration {i + 1}: "
+            f"Try with: T_evp = {T_evp:~P.3f}, T_cnd = {T_cnd:~P.3f}"
+        )
+
+        self.compressor.T_evp = T_evp  # saturation temperature at compressor inlet
+        self.compressor.T_cnd = T_cnd  # saturation temperature at compressor outlet
+        cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
+        dev = self._get_deviation(cmp_rfg_m_dot, i)
+        counter[0] += 1
+        return abs(dev)
+
+    def __residuals__(self, unknowns: np.ndarray, counter: list[int]) -> np.ndarray:
+        i = counter[0]
+        T_evp = Q_(unknowns[0], 'degC')
+        T_cnd = Q_(unknowns[1], 'degC')
+
+        logger.info(
+            f"Iteration {i + 1}: "
+            f"Try with: T_evp = {T_evp:~P.3f}, T_cnd = {T_cnd:~P.3f}"
+        )
+
+        self.compressor.T_evp = T_evp  # saturation temperature at compressor inlet
+        self.compressor.T_cnd = T_cnd  # saturation temperature at compressor outlet
+        cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
+
+        dm = self._get_deviation(cmp_rfg_m_dot, i)  # deviation on mass balance
+        try:
+            de = (                                      # deviation on energy balance
+                self.evaporator.Q_dot.to('kW').m
+                + self.compressor.W_dot.to('kW').m
+                - self.condenser.Q_dot.to('kW').m
+            )
+        except:
+            de = float('inf')
+
+        dm_scale = 1.0   # kg/hr
+        de_scale = 0.05  # kW
+
+        counter[0] += 1
+        return np.array([dm/dm_scale, de/de_scale], dtype=float)
+
     @time_it
     def balance_by_speed(
         self,
@@ -669,17 +756,14 @@ class SingleStageVaporCompressionMachine:
         cnd_air_in: HumidAir,
         cnd_air_m_dot: Quantity,
         T_evp: Quantity,
-        T_cnd: Quantity,
-        x_tol: float | None = 0.1,
-        r_tol: float | None = None,
-        i_max: int = 20
+        T_cnd: Quantity
     ) -> Output:
         """
-        Finds the compressor speed for which the mass flow rate of refrigerant
-        displaced by the compressor balances the mass flow rate of refrigerant
-        let through by the expansion device, while maintaining the set degree of
-        refrigerant superheating at the given evaporation and condensing
-        temperature.
+        Determines the compressor speed for which the mass flow rate of
+        refrigerant displaced by the compressor balances the mass flow rate of
+        refrigerant let through by the expansion device, while maintaining the
+        set degree of refrigerant superheating at the given evaporation and
+        condensing temperature.
 
         Parameters
         ----------
@@ -697,13 +781,6 @@ class SingleStageVaporCompressionMachine:
         T_cnd:
             Condensing temperature at which the mass flow rates must be
             balanced.
-        x_tol: optional
-            Absolute tolerance for root-finding algorithm
-            (`scipy.optimize.root_scalar` with 'brentq' method).
-        r_tol: optional
-            Relative tolerance for root-finding algorithm.
-        i_max: optional
-            Maximum number of iterations for root-finding algorithm
 
         Notes
         -----
@@ -752,17 +829,16 @@ class SingleStageVaporCompressionMachine:
             n_cmp_min = self.n_cmp_min.to('rpm').m
             n_cmp_max = self.n_cmp_max.to('rpm').m
             counter = [0]
+            f_cont, f_int = self._make_obj(counter, self.__fun_balance__)
             try:
-                res = optimize.root_scalar(
-                    self.__fun_balance__,
-                    args=(counter,),
-                    method='brentq',
-                    bracket=(n_cmp_min, n_cmp_max),
-                    xtol=x_tol,
-                    rtol=r_tol,
-                    maxiter=i_max
+                res = optimize.minimize_scalar(
+                    f_cont,
+                    bounds=(n_cmp_min, n_cmp_max),
+                    method="bounded",
+                    options={"xatol": 1.0}
                 )
-                self.n_cmp = Q_(res.root, 'rpm')
+                best_rpm = int(round(res.x))
+                self.n_cmp = Q_(best_rpm, 'rpm')
             except Exception as err:
                 if isinstance(err, ValueError):
                     logger.error(
@@ -790,8 +866,11 @@ class SingleStageVaporCompressionMachine:
             else:
                 logger.info(
                     f"Speed balancing finished after {counter[0]} iterations with "
-                    f"message: {res.flag}"
+                    f"message: {res.message}"
                 )
+
+                f_int(best_rpm)
+
                 self.output = Output(
                     evp_air_m_dot=self.evp_air_m_dot,
                     cnd_air_m_dot=self.cnd_air_m_dot,
@@ -833,42 +912,6 @@ class SingleStageVaporCompressionMachine:
             )
         return None
 
-    def __fun_rate__(self, unknowns: np.ndarray, counter: list[int]) -> float:
-        """
-        Calculates the deviation between the refrigerant mass flow rate let
-        through by the expansion device to maintain the set degree of
-        refrigerant superheating, and the refrigerant mass flow rate generated
-        by the compressor at the given evaporation temperature and condensing
-        temperature.
-
-        Parameters
-        ----------
-        unknowns:
-            Numpy array with two floats: the evaporation temperature, and the
-            condensing temperature.
-        counter:
-            List of a single int to count the number of calls to `__fun__`.
-
-        Notes
-        -----
-        This function should only be used internally in method `rate`.
-        """
-        i = counter[0]
-        T_evp = Q_(unknowns[0], 'degC')
-        T_cnd = Q_(unknowns[1], 'degC')
-
-        logger.info(
-            f"Iteration {i + 1}: "
-            f"Try with: T_evp = {T_evp:~P.3f}, T_cnd = {T_cnd:~P.3f}"
-        )
-
-        self.compressor.T_evp = T_evp  # saturation temperature at compressor inlet
-        self.compressor.T_cnd = T_cnd  # saturation temperature at compressor outlet
-        cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
-        dev = self._get_deviation(cmp_rfg_m_dot, i)
-        counter[0] += 1
-        return abs(dev)
-
     def __fun_balance__(self, n_cmp: float, counter: list[int]) -> float:
         """
         Calculates the deviation between the refrigerant mass flow rate let
@@ -898,7 +941,19 @@ class SingleStageVaporCompressionMachine:
         cmp_rfg_m_dot = self.compressor.m_dot.to('kg / hr')
         dev = self._get_deviation(cmp_rfg_m_dot, i)
         counter[0] += 1
-        return dev
+        return abs(dev)
+
+    @staticmethod
+    def _make_obj(counter, fun_balance):
+        @functools.lru_cache(maxsize=None)
+        def f_int(rpm_int: int) -> float:
+            return fun_balance(rpm_int, counter)
+
+        def f_cont(rpm: float) -> float:
+            rpm_i = int(round(rpm))
+            return f_int(rpm_i)
+
+        return f_cont, f_int
 
     def _init(
         self,

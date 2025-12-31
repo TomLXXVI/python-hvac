@@ -25,6 +25,8 @@ openpyxl = ">=3.1.2"
 numdifftools = ">=0.9.41"
 control = "^0.10.1"
 matplotlib = "^3.10.0"
+scipy-stubs = "~=1.15.2"
+pandas-stubs = "~=2.2.3"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = ">=1.0.0"

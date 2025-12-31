@@ -24,11 +24,12 @@ class FluidState:
             setattr(self, k, v)
 
     @staticmethod
-    def _get_phase_description(phase_index: Quantity) -> str:
+    def _get_phase_description(phase_index: Quantity) -> str | None:
         if phase_index is not None:
             phase_index = phase_index.m
         else:
             phase_index = CoolProp.iphase_unknown
+
         match phase_index:
             case CoolProp.iphase_liquid:
                 return 'sub-critical liquid'
@@ -49,6 +50,8 @@ class FluidState:
             case CoolProp.iphase_not_imposed:
                 return 'not imposed'
 
+        return None
+
     @property
     def fluid(self) -> 'Fluid':
         # workaround for the fact that a `Fluid` object cannot be pickled
@@ -67,7 +70,7 @@ class Fluid:
         'cv': (CoolProp.iCvmass, 'J / kg / K'),
         'x': (CoolProp.iQ, 'frac'),
         'k': (CoolProp.iconductivity, 'W / m / K'),
-        'mu': (CoolProp.iviscosity, 'Pa * s'),
+        'mu': (CoolProp.iviscosity, 'Pa * s'),  # dynamic or absolute viscosity
         'beta': (CoolProp.iisobaric_expansion_coefficient, '1 / K'),
         'sigma': (CoolProp.isurface_tension, 'N / m'),
         'phase': (CoolProp.iPhase, ''),
@@ -150,7 +153,7 @@ class Fluid:
         return False
 
     @staticmethod
-    def _get_phase(phase: str | None = None) -> int:
+    def _get_phase(phase: str | None = None) -> int | None:
         match phase:
             case 'liquid':
                 return CoolProp.iphase_liquid
@@ -166,6 +169,7 @@ class Fluid:
                 return CoolProp.iphase_supercritical
             case None:
                 return CoolProp.iphase_not_imposed
+        return None
 
     def _update(self, phase: str | None = None, **input_qties: Quantity) -> None:
         """Updates the state object of the `Fluid`-instance based on the

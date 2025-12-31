@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TypeVar
 from abc import ABC, abstractmethod
 from hvac import Quantity
-from hvac.cooling_load_calc_old.core import (
+from hvac.cooling_load_calc.building import (
     ConstructionAssembly, 
     WindowThermalProperties
 )

@@ -232,6 +232,7 @@ class AbstractHeatExchanger(ABC):
             # solving sizing problem
             eps = (self.Q / self.Q_max).to('W / W').m
             return self.__NTU__(self.C_r, eps)
+        return float('nan')
 
     @property
     def eps(self) -> float:
@@ -331,6 +332,8 @@ class CrossFlowHeatExchanger(AbstractHeatExchanger):
                 return self.__eps_03__(C_r, NTU)
             case self.Type.C_min_MIXED_C_max_UNMIXED:
                 return self.__eps_04__(C_r, NTU)
+            case _:
+                return float('nan')
     
     @staticmethod
     def __eps_01__(C_r: float, NTU: float) -> float:
@@ -371,6 +374,8 @@ class CrossFlowHeatExchanger(AbstractHeatExchanger):
                 return self.__NTU_03__(C_r, eps)
             case self.Type.C_min_MIXED_C_max_UNMIXED:
                 return self.__NTU_04__(C_r, eps)
+            case _:
+                return float('nan')
 
     @staticmethod
     def __NTU_01__() -> float:

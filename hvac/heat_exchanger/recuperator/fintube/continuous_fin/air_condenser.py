@@ -50,16 +50,14 @@ class HeatExchangerCore:
         k_fin: Quantity = Q_(237, 'W / (m * K)'),
         d_r: Quantity | None = None,
         condensing: bool = False,
-        A_min_tot: Quantity | None = None,
-        N_rows_tot: int | None = None
+        num_circuits: int | None = None
     ) -> None:
-        self.A_min_tot = A_min_tot
-        self.N_rows_tot = N_rows_tot
         self.geometry = ContinuousFinStaggeredTubeBank(
             width, height, num_rows, pitch_trv,
             pitch_lon, d_o, d_i, t_fin, fin_density,
             k_fin, d_r
         )
+        self.num_circuits = num_circuits
         if condensing:
             self.internal = CondensingPhaseInternalSurface(self)
         else:
@@ -146,16 +144,14 @@ class InternalSurface(ABC):
         self.parent = parent
         self.rfg: FluidState | None = None
         self.m_dot: Quantity | None = None
+        self.tube = None
 
-    def _m_dot_tube(self) -> Quantity:
-        # Here it is assumed that every tube in the first row is connected to
-        # the supply header.
-        A_min = self.parent.A_min_tot
-        n_r = self.parent.N_rows_tot
-        d_i = self.parent.geometry.d_i
-        G = self.m_dot / (A_min / n_r)
-        A_tube = math.pi * d_i ** 2 / 4
-        m_dot_tube = G * A_tube
+    def _get_m_dot_tube(self) -> Quantity:
+        if self.parent.num_circuits is None:
+            n = self.parent.geometry.num_tubes_1st_row
+        else:
+            n = self.parent.num_circuits
+        m_dot_tube = self.m_dot / n
         return m_dot_tube
 
     def thermal_resistance(self, h: Quantity) -> Quantity:
@@ -171,13 +167,13 @@ class InternalSurface(ABC):
 class SinglePhaseInternalSurface(InternalSurface):
 
     def heat_transfer_coeff(self, *args, **kwargs) -> Quantity:
-        tube = single_phase_flow.CircularTube(
+        self.tube = single_phase_flow.CircularTube(
             Di=self.parent.geometry.d_i,
             L=self.parent.geometry.width,
             fluid=self.rfg
         )
-        tube.m_dot = self._m_dot_tube()
-        h = tube.avg_heat_transfer_coefficient()
+        self.tube.m_dot = self._get_m_dot_tube()
+        h = self.tube.avg_heat_transfer_coefficient()
         if isinstance(h, tuple):
             h = h[0]  # if laminar flow, assume constant heat flux
         return h.to('W / (m ** 2 * K)')
@@ -186,12 +182,12 @@ class SinglePhaseInternalSurface(InternalSurface):
 class CondensingPhaseInternalSurface(InternalSurface):
 
     def heat_transfer_coeff(self, T_wall: Quantity) -> Quantity:
-        tube = condensing_flow.HorizontalTube(
+        self.tube = condensing_flow.HorizontalTube(
             D=self.parent.geometry.internal.d_h,
             fluid=self.rfg.fluid
         )
-        tube.m_dot = self._m_dot_tube()
-        h = tube.heat_trf_coeff(
+        self.tube.m_dot = self._get_m_dot_tube()
+        h = self.tube.heat_trf_coeff(
             x=self.rfg.x,
             T_sat=self.rfg.T,
             T_surf=T_wall
@@ -229,31 +225,21 @@ class DesuperheatingRegion:
 
     def __init__(
         self,
-        W_fro: Quantity,
-        H_fro: Quantity,
-        S_trv: Quantity,
-        S_lon: Quantity,
-        D_int: Quantity,
-        D_ext: Quantity,
-        t_fin: Quantity,
-        N_fin: Quantity,
-        k_fin: Quantity,
-        A_min_tot: Quantity,
-        N_rows_tot: int
+        geometry: ContinuousFinStaggeredTubeBank,
+        num_circuits: int | None = None
     ) -> None:
         self.core = HeatExchangerCore(
-            width=W_fro,
-            height=H_fro,
+            width=geometry.width,
+            height=geometry.height,
             num_rows=0,
-            pitch_trv=S_trv,
-            pitch_lon=S_lon,
-            d_i=D_int,
-            d_o=D_ext,
-            t_fin=t_fin,
-            fin_density=N_fin,
-            k_fin=k_fin,
-            A_min_tot=A_min_tot,
-            N_rows_tot=N_rows_tot
+            pitch_trv=geometry.pitch_trv,
+            pitch_lon=geometry.pitch_lon,
+            d_i=geometry.d_i,
+            d_o=geometry.d_o,
+            t_fin=geometry.t_fin,
+            fin_density=geometry.fin_density,
+            k_fin=geometry.k_fin,
+            num_circuits=num_circuits
         )
         # Known parameters:
         self.rfg_in: FluidState | None = None   # discharge gas from compressor
@@ -436,32 +422,22 @@ class CondensingRegion:
 
     def __init__(
         self,
-        W_fro: Quantity,
-        H_fro: Quantity,
-        S_trv: Quantity,
-        S_lon: Quantity,
-        D_int: Quantity,
-        D_ext: Quantity,
-        t_fin: Quantity,
-        N_fin: Quantity,
-        k_fin: Quantity,
-        A_min_tot: Quantity,
-        N_rows_tot: int
+        geometry: ContinuousFinStaggeredTubeBank,
+        num_circuits: int | None = None
     ) -> None:
         self.core = HeatExchangerCore(
-            width=W_fro,
-            height=H_fro,
+            width=geometry.width,
+            height=geometry.height,
             num_rows=0,
-            pitch_trv=S_trv,
-            pitch_lon=S_lon,
-            d_i=D_int,
-            d_o=D_ext,
-            t_fin=t_fin,
-            fin_density=N_fin,
-            k_fin=k_fin,
+            pitch_trv=geometry.pitch_trv,
+            pitch_lon=geometry.pitch_lon,
+            d_i=geometry.d_i,
+            d_o=geometry.d_o,
+            t_fin=geometry.t_fin,
+            fin_density=geometry.fin_density,
+            k_fin=geometry.k_fin,
             condensing=True,
-            A_min_tot=A_min_tot,
-            N_rows_tot=N_rows_tot
+            num_circuits=num_circuits
         )
         # Known parameters:
         self.rfg_in: FluidState | None = None   # saturated vapor
@@ -623,37 +599,29 @@ class SubcoolingRegion:
 
     def __init__(
         self,
-        W_fro: Quantity,
-        H_fro: Quantity,
-        S_trv: Quantity,
-        S_lon: Quantity,
-        D_int: Quantity,
-        D_ext: Quantity,
-        t_fin: Quantity,
-        N_fin: Quantity,
-        k_fin: Quantity,
-        A_min_tot: Quantity,
-        N_rows_tot: int
+        geometry: ContinuousFinStaggeredTubeBank,
+        num_circuits: int | None = None
     ) -> None:
         self.core = HeatExchangerCore(
-            width=W_fro,
-            height=H_fro,
+            width=geometry.width,
+            height=geometry.height,
             num_rows=0,
-            pitch_trv=S_trv,
-            pitch_lon=S_lon,
-            d_i=D_int,
-            d_o=D_ext,
-            t_fin=t_fin,
-            fin_density=N_fin,
-            k_fin=k_fin,
-            A_min_tot=A_min_tot,
-            N_rows_tot=N_rows_tot
+            pitch_trv=geometry.pitch_trv,
+            pitch_lon=geometry.pitch_lon,
+            d_i=geometry.d_i,
+            d_o=geometry.d_o,
+            t_fin=geometry.t_fin,
+            fin_density=geometry.fin_density,
+            k_fin=geometry.k_fin,
+            num_circuits=num_circuits
         )
         # Known parameters:
         self.rfg_in: FluidState | None = None  # saturated liquid
         self.rfg_m_dot: Quantity | None = None
         self.air_in: HumidAir | None = None
         self.air_m_dot: Quantity | None = None
+
+        self.dT_sc: Quantity | None = None
 
         # Unknown parameters to be solved:
         self.rfg_out: FluidState | None = None
@@ -769,6 +737,88 @@ class SubcoolingRegion:
                 f"could not be determined after {i_max} iterations."
             ) from None
 
+    def __fun_design__(
+        self,
+        L_flow: float,
+        air_mean: HumidAir,
+        rfg_mean: FluidState,
+        counter: list[int]
+    ) -> float:
+        """
+        Calculates the heat transfer rate through the heat exchanger core of the
+        subcooling region and returns the deviation between this value and the
+        heat rate that the refrigerant must reject to turn from saturated vapor
+        into saturated liquid.
+        """
+        L_flow = Q_(L_flow, 'mm')
+        self.core.geometry.length = L_flow
+        self.core.hex_properties(
+            air_mean=air_mean,
+            air_in=self.air_in,
+            air_out=self.air_out,
+            rfg_mean=rfg_mean,
+            air_m_dot=self.air_m_dot,
+            rfg_m_dot=self.rfg_m_dot
+        )
+        cnt_flw_hex = CounterFlowHeatExchanger(
+            C_cold=self.air_m_dot * air_mean.cp,
+            C_hot=self.rfg_m_dot * rfg_mean.cp,
+            T_cold_in=self.air_in.Tdb,
+            T_hot_in=self.rfg_in.T,
+            UA=self.core.UA
+        )
+        Q_dot = cnt_flw_hex.Q
+        dev = (Q_dot - self.Q_dot).to('W')
+        i = counter[0]
+        logger.debug(
+            f"{i + 1}. Subcooling region. "
+            f"Flow length = {L_flow:~P.3f} -> "
+            f"heat transfer rate = {Q_dot.to('W'):~P.3f} "
+            f"(deviation = {dev:~P.3f})."
+        )
+        counter[0] += 1
+        return dev.m
+
+    def solve_design(
+        self,
+        L_flow_max: Quantity,
+        x_tol: float = 0.001,
+        r_tol: float = 0.01,
+        i_max: int = 20
+    ) -> Quantity:
+        # Determine the heat rejection rate of the refrigerant in the subcooling
+        # region.
+        self.Q_dot = self.rfg_m_dot * (self.rfg_in.h - self.rfg_out.h)
+        # Determine the state of air leaving the subcooling region.
+        h_air_out = self.air_in.h + self.Q_dot / self.air_m_dot
+        self.air_out = HumidAir(h=h_air_out, W=self.air_in.W)
+        # Determine the mean states of air and refrigerant in the subcooling
+        # region.
+        air_mean, rfg_mean = self._get_fluid_mean_states(self.air_out, self.rfg_out)
+        # Initialize iteration counter.
+        counter = [0]
+        # Within the given bracket, find the flow length of the subcooling
+        # region for which function `__fun_design__` returns a deviation near
+        # zero.
+        try:
+            sol = optimize.root_scalar(
+                self.__fun_design__,
+                args=(air_mean, rfg_mean, counter),
+                method='brentq',
+                bracket=(1.0, L_flow_max.to('mm').m),
+                xtol=x_tol,
+                rtol=r_tol,
+                maxiter=i_max
+            )
+        except ValueError:
+            raise SubcoolingError(
+                f"Refrigerant cannot be subcooled with {self.dT_sc.to('K'):~P.0f} "
+                "under current operating conditions."
+            ) from None
+        self.L_flow = Q_(sol.root, 'mm')
+        self.core.geometry.length = self.L_flow
+        return self.L_flow
+
     def _get_fluid_mean_states(
         self,
         air_out: HumidAir,
@@ -858,7 +908,8 @@ class PlainFinTubeCounterFlowAirCondenser:
         D_ext: Quantity,
         t_fin: Quantity,
         N_fin: Quantity,
-        k_fin: Quantity = Q_(237, 'W / (m * K)')
+        k_fin: Quantity = Q_(237, 'W / (m * K)'),
+        num_circuits: int | None = None
     ) -> None:
         """
         Creates the plain fin-tube counter-flow air condenser.
@@ -887,35 +938,28 @@ class PlainFinTubeCounterFlowAirCondenser:
         k_fin:
             Thermal conductivity of the fin material. The default value applies
             to aluminum.
+        num_circuits: int | None, default None
+            Number of refrigerant circuits. If None, the number of circuits
+            is set equal to the number of tubes in the first row.
         """
-        # Create the geometry of the whole condenser to determine `A_min` of
-        # the whole condenser; we need this, together with the number of rows
-        # of the whole condenser, to determine the mass flow rate of
-        # refrigerant in 1 tube (see class `InternalSurface`, method
-        # `_m_dot_tube()`).
+        # Create the heat exchanger geometry of the condenser.
         self.geometry = ContinuousFinStaggeredTubeBank(
             W_fro, H_fro, N_rows, S_trv, S_lon,
             D_ext, D_int, t_fin, N_fin, k_fin
         )
-        A_min_tot = self.geometry.internal.A_min
-        # Create the geometry of the desuperheating region, the condensing
+        # Create the heat exchanger of the desuperheating region, the condensing
         # region, and the subcooling region:
         self.desuperheating_region = DesuperheatingRegion(
-            W_fro, H_fro, S_trv, S_lon, D_int, D_ext,
-            t_fin, N_fin, k_fin,
-            A_min_tot, N_rows
+            self.geometry, num_circuits
         )
         self.condensing_region = CondensingRegion(
-            W_fro, H_fro, S_trv, S_lon, D_int, D_ext,
-            t_fin, N_fin, k_fin,
-            A_min_tot, N_rows
+            self.geometry, num_circuits
         )
         self.subcooling_region = SubcoolingRegion(
-            W_fro, H_fro, S_trv, S_lon, D_int, D_ext,
-            t_fin, N_fin, k_fin,
-            A_min_tot, N_rows
+            self.geometry, num_circuits
         )
-        self.L_flow = N_rows * S_lon
+        # Determine total flow length of the condenser.
+        self.L_flow = N_rows * self.geometry.pitch_lon
 
         # Known parameters:
         self.rfg_in: FluidState | None = None   # discharge gas from compressor
@@ -933,11 +977,79 @@ class PlainFinTubeCounterFlowAirCondenser:
         self.eps: Quantity | None = None
         self.dT_sc: Quantity | None = None
         self.air_dP: Quantity | None = None
-        
-    def __fun__(self, L_flow_sub: float, counter: list[int]) -> float:
+
+    def solve(
+        self,
+        air_in: HumidAir,
+        air_m_dot: Quantity,
+        rfg_in: FluidState,
+        rfg_m_dot: Quantity,
+        dT_sc: Quantity | None = None
+    ) -> tuple[HumidAir, FluidState] | tuple[Quantity, int]:
+        """
+        Function `solve(...)` can have two different applications:
+
+        1.  Analysis:
+            Under the given operating conditions, determines the operating state
+            of the condenser of which the flow length/number of rows was
+            specified at instantiation of the
+            `PlainFinTubeCounterFlowAirCondenser`.
+
+        2.  Design (sizing):
+            Under the given operating conditions, determines the total flow
+            length of the condenser needed so that refrigerant leaves the
+            condenser with the required degree of subcooling.
+
+        Parameters
+        ----------
+        air_in: HumidAir
+            State of the air entering the condenser.
+        air_m_dot: Quantity
+            Mass flow rate of air through the condenser.
+        rfg_in: FluidState
+            State of the refrigerant entering the condenser.
+        rfg_m_dot: Quantity
+            Mass flow rate of refrigerant through the condenser.
+        dT_sc: Quantity, optional
+            Required degree of refrigerant subcooling. If specified, the design
+            problem is solved. If `None`, the analysis problem is solved.
+
+        Returns
+        -------
+        tuple[HumidAir, FluidState] | tuple[Quantity, int]
+            If parameter `dT_sc` is None, the analysis problem is solved.
+                air_out: HumidAir
+                    State of air leaving the condenser in the desuperheating
+                    region.
+                rfg_out: FluidState
+                    State of refrigerant leaving the condenser in the subcooled
+                    region.
+            If parameter `dT_sc` is specified, the design problem is solved.
+                L_flow: Quantity
+                    Total flow length of the condenser.
+                N_rows: int
+                    Number of rows of the condenser.
+        """
+        if dT_sc is None:
+            return self.solve_analysis(
+                air_in, air_m_dot,
+                rfg_in, rfg_m_dot,
+            )
+        else:
+            return self.solve_design(
+                air_in, air_m_dot,
+                rfg_in, rfg_m_dot,
+                dT_sc
+            )
+
+    def __fun_analysis__(
+        self,
+        L_flow_sub: float,
+        counter: list[int]
+    ) -> float:
         """
         Calculates the deviation between the calculated total flow length of the
-        condenser and its actual total flow length, starting from a given
+        condenser and its actual total flow length, starting with a given
         flow length for the subcooling region only.
         """
         L_flow_sub = Q_(L_flow_sub, 'mm')
@@ -985,7 +1097,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         counter[0] += 1
         return dev.m
 
-    def solve(
+    def solve_analysis(
         self,
         air_in: HumidAir,
         air_m_dot: Quantity,
@@ -997,33 +1109,34 @@ class PlainFinTubeCounterFlowAirCondenser:
         i_max: int = 20
     ) -> tuple[HumidAir, FluidState]:
         """
-        Under the given operating conditions, solves for the full operating 
-        state of the condenser. This operating state is determined once the 
-        states of the air and refrigerant leaving the condenser are determined.
+        Under the given operating conditions, determines the operating state of
+        the condenser of which the flow length/number of rows was specified at
+        instantiation of the `PlainFinTubeCounterFlowAirCondenser`.
 
         Parameters
         ----------
-        air_in:
+        air_in: HumidAir
             State of the air entering the condenser.
-        air_m_dot:
+        air_m_dot: Quantity
             Mass flow rate of air through the condenser.
-        rfg_in:
+        rfg_in: FluidState
             State of the refrigerant entering the condenser.
-        rfg_m_dot:
+        rfg_m_dot: Quantity
             Mass flow rate of refrigerant through the condenser.
-        L_flow_sub_min: optional
+        L_flow_sub_min: Quantity, optional
             The smallest subcooling flow length to try with. By default, 0.1 mm.
-        x_tol: optional
+        x_tol: float, optional
             Absolute tolerance for root-finding algorithm
             (`scipy.optimize.root_scalar` with 'brentq' method).
-        r_tol: optional
+        r_tol: float, optional
             Relative tolerance for root-finding algorithm.
-        i_max: optional
+        i_max: int, optional
             Maximum number of iterations for root-finding algorithm
         
         Returns
         -------
-        The states of air and refrigerant leaving the condenser.
+        tuple[HumidAir, FluidState]
+            The state of air and the state of refrigerant leaving the condenser.
 
         Raises
         ------
@@ -1049,40 +1162,43 @@ class PlainFinTubeCounterFlowAirCondenser:
         Notes
         -----
         The condenser has three regions. First, the refrigerant is desuperheated
-        to become saturated vapor. Next, the refrigerant condenses into 
+        and becomes saturated vapor. Next, the refrigerant condenses into
         saturated liquid. Finally, the refrigerant is subcooled before it leaves
         the condenser.
-        We know already the mass flow rate of refrigerant and the mass flow rate
-        of air, we also know the state of air entering the subcooled region and
+
+        We know the mass flow rate of refrigerant and the mass flow rate
+        of air. We also know the state of air entering the subcooled region and
         the state of refrigerant entering the desuperheating region.
-        Now we can choose a subcooling flow length and solve for the state of 
+
+        We can choose a subcooling flow length and solve for the state of
         air leaving the subcooling region and entering the condensing region.
-        The refrigerant state at the entrance of the desuperheating region, at
-        the entrance of the condensing region (saturated vapor), and at the 
-        entrance of the subcooling region (saturated liquid) are known from the
-        start. Since we also know the refrigerant mass flow rate, we can 
-        determine the required heat rate the refrigerant must release in the 
-        condensing and in the desuperheating region. From this, we can determine 
-        the required flow length of the condensing region and of the 
-        desuperheating region.
-        The sum of the chosen subcooling flow length and the calculated flow 
-        lengths of the condensing and the desuperheating region must ultimately
-        be equal to the actual total flow length of the condenser.
+
+        The refrigerant state at the entrance of the desuperheating region, the
+        entrance of the condensing region (saturated vapor), and the entrance of
+        the subcooling region (saturated liquid) are known from the start.
+        Since we also know the refrigerant mass flow rate, we can determine the
+        heat rate the refrigerant must reject in the condensing and in the
+        desuperheating region. From this, we can determine the required flow
+        length of the condensing region and of the desuperheating region.
+
+        A solution is found when the sum of the chosen subcooling flow length
+        and the calculated flow lengths of the condensing and the desuperheating
+        region equals the actual total flow length of the condenser.
         """
-        # Assign/calculate what is known or can be calculated directly:
+        # Assign/calculate what is known or can be calculated directly.
         self._set_air_in(air_in)
         self._set_air_m_dot(air_m_dot)
         self._set_rfg_in(rfg_in)
         self._set_rfg_m_dot(rfg_m_dot)
         # Find the flow length of the subcooling region so that the sum of the
         # flow lengths of the subcooling, condensing, and desuperheating region
-        # equals the actual, total flow length of the condenser:
+        # equals the actual, total flow length of the condenser.
         L_flow_sub_min = L_flow_sub_min.to('mm').m
         L_flow_sub_max = self.L_flow.to('mm').m
         counter = [0]
         try:
             sol = optimize.root_scalar(
-                self.__fun__,
+                self.__fun_analysis__,
                 args=(counter,),
                 method='brentq',
                 bracket=(L_flow_sub_min, L_flow_sub_max),
@@ -1126,6 +1242,154 @@ class PlainFinTubeCounterFlowAirCondenser:
             )
             return self.air_out, self.rfg_out
 
+    def _calc_flow_length(self) -> Quantity:
+        """
+        Returns the required total flow length of the condenser needed to
+        desuperheat, condense and subcool the refrigerant to the required
+        degree.
+        """
+        # Subcooling region: determine the required flow length to subcool
+        # the refrigerant from saturated liquid to subcooled liquid having the
+        # required degree of subcooling.
+        L_flow_subcool = None
+        for k in range(4):
+            L_flow_max = (5 ** k) * self.L_flow
+            try:
+                L_flow_subcool = self.subcooling_region.solve_design(
+                    L_flow_max=L_flow_max,
+                )
+            except SubcoolingError:
+                logger.debug('Try again...')
+                continue
+            else:
+                break
+        if L_flow_subcool is None:
+            raise SubcoolingError(
+                "Required flow length of subcooling region "
+                "could not be determined."
+            ) from None
+        logger.debug(
+            f"Required subcooling flow length = "
+            f"{L_flow_subcool.to('mm'):~P.3f}"
+        )
+        # Condensing region: determine the required flow length to completely
+        # condense the refrigerant from saturated vapor to saturated liquid.
+        L_flow_cond = None
+        self.condensing_region.air_in = self.subcooling_region.air_out
+        for k in range(4):
+            L_flow_max = (5 ** k) * self.L_flow
+            try:
+                L_flow_cond = self.condensing_region.solve(
+                    L_flow_max=L_flow_max
+                )
+            except CondensingError:
+                logger.debug('Try again...')
+                continue
+            else:
+                break
+        if L_flow_cond is None:
+            raise CondensingError(
+                "Required flow length of condensing region "
+                "could not be determined"
+            ) from None
+        logger.debug(
+            f"Required condensing flow length = "
+            f"{L_flow_cond.to('mm'):~P.3f}"
+        )
+        # Desuperheating region: determine the required flow length to
+        # desuperheat the refrigerant from superheated vapor to saturated
+        # liquid.
+        L_flow_desuper = None
+        self.desuperheating_region.air_in = self.condensing_region.air_out
+        for k in range(4):
+            L_flow_max = (5 ** k) * self.L_flow
+            try:
+                L_flow_desuper = self.desuperheating_region.solve(
+                    L_flow_max=L_flow_max
+                )
+            except DesuperheatingError:
+                logger.debug('Try again...')
+                continue
+            else:
+                break
+        if L_flow_desuper is None:
+            raise DesuperheatingError(
+                "Required flow length of desuperheating region "
+                "could not be determined"
+            ) from None
+        logger.debug(
+            f"Required desuperheating flow length = "
+            f"{L_flow_desuper.to('mm'):~P.3f}"
+        )
+        L_flow = L_flow_subcool + L_flow_cond + L_flow_desuper
+        return L_flow
+
+    def solve_design(
+        self,
+        air_in: HumidAir,
+        air_m_dot: Quantity,
+        rfg_in: FluidState,
+        rfg_m_dot: Quantity,
+        dT_sc: Quantity
+    ) -> tuple[Quantity, int]:
+        """
+        Under the given operating conditions, determines the total flow length
+        of the condenser so that refrigerant leaves the condenser with the
+        required degree of subcooling.
+
+        Parameters
+        ----------
+        air_in: HumidAir
+            State of the air entering the condenser.
+        air_m_dot: Quantity
+            Mass flow rate of air through the condenser.
+        rfg_in: FluidState
+            State of the refrigerant entering the condenser.
+        rfg_m_dot: Quantity
+            Mass flow rate of refrigerant through the condenser.
+        dT_sc: Quantity
+            Required degree of refrigerant subcooling.
+
+        Returns
+        -------
+        L_flow: Quantity
+            Total flow length of the condenser.
+        N_rows: int
+            Number of rows of the condenser.
+        """
+        # Assign/calculate what is known or can be calculated directly:
+        self._set_air_in(air_in)
+        self._set_air_m_dot(air_m_dot)
+        self._set_rfg_in(rfg_in, dT_sc)
+        self._set_rfg_m_dot(rfg_m_dot)
+        # Find the flow lengths of the subcooling, condensing, and
+        # desuperheating region so that refrigerant leaves the condenser with
+        # the given degree of subcooling.
+        L_flow = self._calc_flow_length()
+        N_rows = int(round(
+            L_flow.to('mm').m / self.geometry.pitch_lon.to('mm').m
+        ))
+        self._set_flow_length(N_rows)
+        self.air_out = self.desuperheating_region.air_out
+        self.Q_dot = (
+            self.desuperheating_region.Q_dot
+            + self.condensing_region.Q_dot
+            + self.subcooling_region.Q_dot
+        )
+        self.Q_dot_max = (
+            self.desuperheating_region.Q_dot_max
+            + self.condensing_region.Q_dot_max
+            + self.subcooling_region.Q_dot_max
+        )
+        self.eps = self.Q_dot / self.Q_dot_max
+        self.dT_sc = self.T_cnd - self.rfg_out.T
+        self.air_dP = (
+            self.desuperheating_region.dP_air
+            + self.condensing_region.dP_air
+            + self.subcooling_region.dP_air
+        )
+        return L_flow, N_rows
+
     def _set_air_in(self, air_in: HumidAir) -> None:
         self.air_in = air_in
         self.subcooling_region.air_in = air_in
@@ -1136,7 +1400,11 @@ class PlainFinTubeCounterFlowAirCondenser:
         self.condensing_region.air_m_dot = air_m_dot
         self.desuperheating_region.air_m_dot = air_m_dot
 
-    def _set_rfg_in(self, rfg_in: FluidState) -> None:
+    def _set_rfg_in(
+        self,
+        rfg_in: FluidState,
+        dT_sc: Quantity | None = None
+    ) -> None:
         self.rfg_in = rfg_in
         self.desuperheating_region.rfg_in = rfg_in
         self.P_cnd = self.rfg_in.P
@@ -1146,9 +1414,25 @@ class PlainFinTubeCounterFlowAirCondenser:
         self.condensing_region.rfg_out = Rfg(P=self.P_cnd, x=Q_(0, 'frac'))
         self.T_cnd = self.condensing_region.rfg_out.T
         self.subcooling_region.rfg_in = self.condensing_region.rfg_out
+        if isinstance(dT_sc, Quantity):
+            self.dT_sc = dT_sc
+            self.subcooling_region.dT_sc = dT_sc
+            self.subcooling_region.rfg_out = Rfg(
+                P=self.P_cnd,
+                T=self.T_cnd - dT_sc.to('K')
+            )
+            self.rfg_out = self.subcooling_region.rfg_out
 
     def _set_rfg_m_dot(self, rfg_m_dot: Quantity) -> None:
         self.rfg_m_dot = rfg_m_dot
         self.desuperheating_region.rfg_m_dot = rfg_m_dot
         self.condensing_region.rfg_m_dot = rfg_m_dot
         self.subcooling_region.rfg_m_dot = rfg_m_dot
+
+    def _set_flow_length(self, N_rows: int) -> None:
+        self.L_flow = N_rows * self.geometry.pitch_lon
+        self.geometry.length = self.L_flow
+
+    @property
+    def N_rows(self) -> int:
+        return self.geometry.num_rows

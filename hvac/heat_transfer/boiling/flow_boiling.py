@@ -8,11 +8,9 @@ liquid (x = 0) to the liquid-deficient and dry-out regimes that occur at
 qualities of 0.8 or higher.
 
 The correlation was taken from:
-Nellis G. F., & Klein S. A. (2021)
-INTRODUCTION TO ENGINEERING HEAT TRANSFER.
+Nellis G.F., & Klein S.A. (2021) INTRODUCTION TO ENGINEERING HEAT TRANSFER.
 Cambridge University Press.
 """
-
 import numpy as np
 from scipy.interpolate import interp1d
 from hvac import Quantity
@@ -51,6 +49,7 @@ def N(Co: float, Fr: float, tube_orient: str) -> float:
         return Co
     if tube_orient == 'horizontal' and Fr <= 0.04:
         return 0.38 * Co * (Fr ** -0.3)
+    return None
 
 
 def h_tilde_cb(N: float) -> float:
@@ -147,12 +146,14 @@ class Tube:
         self.tube_orient = tube_orient
         self._m_dot: float | None = None
         self._G: float | None = None
+        self.Re = None
 
     @property
     def m_dot(self) -> Quantity:
         """Returns the mass flow rate of fluid through the tube."""
         if self._m_dot is not None:
             return Q_(self._m_dot, 'kg / s')
+        return None
 
     @m_dot.setter
     def m_dot(self, v: Quantity) -> None:
@@ -267,8 +268,8 @@ class Tube:
         x_min = 1.0e-12
         if x == 0.0: x = x_min
         sat_liq = self.fluid(T=T_sat, x=Q_(0.0, 'frac'))
-        Re = reynolds_number(self._G, x, self.Dh, sat_liq.mu.to('Pa * s').m)
-        if Re <= 2300:
+        self.Re = reynolds_number(self._G, x, self.Dh, sat_liq.mu.to('Pa * s').m)
+        if self.Re <= 2300:
             # calculate the vapor quality that corresponds with Re = 2300
             x_2300 = max(x_min, 1 - 2300 * sat_liq.mu.to('Pa * s').m / (self._G * self.Dh))
             h_2300 = self._heat_trf_coeff_Shah(x_2300, T_sat, q_s, g)
