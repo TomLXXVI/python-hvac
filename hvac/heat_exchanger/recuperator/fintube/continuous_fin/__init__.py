@@ -1,7 +1,7 @@
 from .air_to_water import (
     PlainFinTubeAirToWaterCounterFlowHeatExchanger
 )
-from .air_evaporator_new import (
+from .air_evaporator import (
     PlainFinTubeCounterFlowAirEvaporator, 
     EvaporatorError
 )

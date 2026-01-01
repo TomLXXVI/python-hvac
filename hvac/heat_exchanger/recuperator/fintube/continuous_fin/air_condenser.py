@@ -1,5 +1,7 @@
 import math
 from abc import ABC, abstractmethod
+
+import numpy as np
 from scipy import optimize
 from hvac import Quantity
 from hvac.logging import ModuleLogger
@@ -371,21 +373,6 @@ class DesuperheatingRegion:
                 rfg_avg = Rfg(T=T_rfg_avg, P=P_cnd)
                 return air_avg, rfg_avg
 
-    def _get_flow_length(self, A_int: Quantity) -> Quantity:
-        """
-        Calculates the flow length that corresponds with the interior heat
-        transfer surface area `A_int`.
-        """
-        D_i = self.core.geometry.d_i
-        L1 = self.core.geometry.width
-        L3 = self.core.geometry.height
-        S_trv = self.core.geometry.pitch_trv
-        S_lon = self.core.geometry.pitch_lon
-        num = A_int / (math.pi * D_i * L1) - 0.5
-        den = L3 / (S_trv * S_lon) - 1 / (2 * S_lon)
-        L2 = num / den
-        return L2.to('mm')
-
     @property
     def Q_dot(self) -> Quantity:
         """
@@ -558,21 +545,6 @@ class CondensingRegion:
         """
         Q_dot = self.rfg_m_dot * (self.rfg_in.h - self.rfg_out.h)
         return Q_dot
-
-    def _get_flow_length(self, A_int: Quantity) -> Quantity:
-        """
-        Calculates the flow length that corresponds with the interior heat
-        transfer surface area `A_int`.
-        """
-        D_i = self.core.geometry.d_i
-        L1 = self.core.geometry.width
-        L3 = self.core.geometry.height
-        S_trv = self.core.geometry.pitch_trv
-        S_lon = self.core.geometry.pitch_lon
-        num = A_int / (math.pi * D_i * L1) - 0.5
-        den = L3 / (S_trv * S_lon) - 1 / (2 * S_lon)
-        L2 = num / den
-        return L2.to('mm')
 
     @property
     def Q_dot_max(self) -> Quantity:
@@ -1082,7 +1054,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         self.desuperheating_region.air_in = self.condensing_region.air_out
         L_flow_dsh = self.desuperheating_region.solve(self.L_flow)
         logger.debug(
-            f"Superheating region. "
+            f"Desuperheating region. "
             f"Required flow length = {L_flow_dsh.to('mm'):~P.3f}."
         )
         # Determine the deviation between the currently calculated total flow
@@ -1242,12 +1214,45 @@ class PlainFinTubeCounterFlowAirCondenser:
             )
             return self.air_out, self.rfg_out
 
-    def _calc_flow_length(self) -> Quantity:
+    def solve_design(
+        self,
+        air_in: HumidAir,
+        air_m_dot: Quantity,
+        rfg_in: FluidState,
+        rfg_m_dot: Quantity,
+        dT_sc: Quantity
+    ) -> tuple[Quantity, int]:
         """
-        Returns the required total flow length of the condenser needed to
-        desuperheat, condense and subcool the refrigerant to the required
-        degree.
+        Under the given operating conditions, determines the total flow length
+        of the condenser so that refrigerant leaves the condenser with the
+        desired degree of subcooling.
+
+        Parameters
+        ----------
+        air_in: HumidAir
+            State of the air entering the condenser.
+        air_m_dot: Quantity
+            Mass flow rate of air through the condenser.
+        rfg_in: FluidState
+            State of the refrigerant entering the condenser.
+        rfg_m_dot: Quantity
+            Mass flow rate of refrigerant through the condenser.
+        dT_sc: Quantity
+            Desired degree of refrigerant subcooling.
+
+        Returns
+        -------
+        L_flow: Quantity
+            Total flow length of the condenser.
+        N_rows: int
+            Number of rows of the condenser.
         """
+        # Assign/calculate what is known or can be calculated directly:
+        self._set_air_in(air_in)
+        self._set_air_m_dot(air_m_dot)
+        self._set_rfg_in(rfg_in, dT_sc)
+        self._set_rfg_m_dot(rfg_m_dot)
+
         # Subcooling region: determine the required flow length to subcool
         # the refrigerant from saturated liquid to subcooled liquid having the
         # required degree of subcooling.
@@ -1322,54 +1327,11 @@ class PlainFinTubeCounterFlowAirCondenser:
             f"{L_flow_desuper.to('mm'):~P.3f}"
         )
         L_flow = L_flow_subcool + L_flow_cond + L_flow_desuper
-        return L_flow
-
-    def solve_design(
-        self,
-        air_in: HumidAir,
-        air_m_dot: Quantity,
-        rfg_in: FluidState,
-        rfg_m_dot: Quantity,
-        dT_sc: Quantity
-    ) -> tuple[Quantity, int]:
-        """
-        Under the given operating conditions, determines the total flow length
-        of the condenser so that refrigerant leaves the condenser with the
-        required degree of subcooling.
-
-        Parameters
-        ----------
-        air_in: HumidAir
-            State of the air entering the condenser.
-        air_m_dot: Quantity
-            Mass flow rate of air through the condenser.
-        rfg_in: FluidState
-            State of the refrigerant entering the condenser.
-        rfg_m_dot: Quantity
-            Mass flow rate of refrigerant through the condenser.
-        dT_sc: Quantity
-            Required degree of refrigerant subcooling.
-
-        Returns
-        -------
-        L_flow: Quantity
-            Total flow length of the condenser.
-        N_rows: int
-            Number of rows of the condenser.
-        """
-        # Assign/calculate what is known or can be calculated directly:
-        self._set_air_in(air_in)
-        self._set_air_m_dot(air_m_dot)
-        self._set_rfg_in(rfg_in, dT_sc)
-        self._set_rfg_m_dot(rfg_m_dot)
-        # Find the flow lengths of the subcooling, condensing, and
-        # desuperheating region so that refrigerant leaves the condenser with
-        # the given degree of subcooling.
-        L_flow = self._calc_flow_length()
-        N_rows = int(round(
+        N_rows = int(np.ceil(
             L_flow.to('mm').m / self.geometry.pitch_lon.to('mm').m
         ))
         self._set_flow_length(N_rows)
+
         self.air_out = self.desuperheating_region.air_out
         self.Q_dot = (
             self.desuperheating_region.Q_dot
