@@ -314,8 +314,6 @@ class BoilingPhaseInternalSurface(InternalSurface):
             T_sat=self.rfg.T,
             q_s=Q_dot / A_tot
         )
-        # if isinstance(h, tuple):
-        #     h = h[0]  # if laminar flow, assume constant heat flux
         return h.to('W / (m ** 2 * K)')
 
 
