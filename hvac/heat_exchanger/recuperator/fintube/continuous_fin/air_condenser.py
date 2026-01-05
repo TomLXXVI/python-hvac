@@ -324,7 +324,7 @@ class DesuperheatingRegion:
                 self.__fun__,
                 args=(air_mean, rfg_mean, counter),
                 method='brentq',
-                bracket=(1.0, L_flow_max.to('mm').m),
+                bracket=(1e-1, L_flow_max.to('mm').m),
                 xtol=x_tol,
                 rtol=r_tol,
                 maxiter=i_max
@@ -507,7 +507,7 @@ class CondensingRegion:
                 self.__fun__,
                 args=(air_mean, rfg_mean, counter),
                 method='brentq',
-                bracket=(1.0, L_flow_max.to('mm').m),
+                bracket=(1e-1, L_flow_max.to('mm').m),
                 xtol=x_tol,
                 rtol=r_tol,
                 maxiter=i_max
@@ -612,7 +612,7 @@ class SubcoolingRegion:
             rfg_out = Rfg(P=P_cnd, x=Q_(0, 'frac'))
         return rfg_out
 
-    def __fun__(
+    def __fun_analysis__(
         self,
         T_rfg_out: Quantity,
         L_flow: Quantity,
@@ -670,7 +670,7 @@ class SubcoolingRegion:
         counter[0] += 1
         return dev, rfg_out_new.T
 
-    def solve(
+    def solve_analysis(
         self,
         L_flow: Quantity,
         tol: Quantity = Q_(0.1, 'K'),
@@ -693,7 +693,7 @@ class SubcoolingRegion:
             # Repeat these calculations until the temperature of the leaving
             # refrigerant becomes nearly constant (or until the maximum number 
             # of loop iterations has been reached).
-            dev, T_rfg_out_new = self.__fun__(T_rfg_out, L_flow, counter)
+            dev, T_rfg_out_new = self.__fun_analysis__(T_rfg_out, L_flow, counter)
             if abs(dev) < tol:
                 Rfg = self.rfg_in.fluid
                 P_cnd = self.rfg_in.P
@@ -777,7 +777,7 @@ class SubcoolingRegion:
                 self.__fun_design__,
                 args=(air_mean, rfg_mean, counter),
                 method='brentq',
-                bracket=(1.0, L_flow_max.to('mm').m),
+                bracket=(1e-1, L_flow_max.to('mm').m),
                 xtol=x_tol,
                 rtol=r_tol,
                 maxiter=i_max
@@ -1034,7 +1034,7 @@ class PlainFinTubeCounterFlowAirCondenser:
         )
         # Solve the subcooling region with the given subcooling flow length for
         # the state of air leaving the subcooling region:
-        air_out = self.subcooling_region.solve(L_flow_sub)
+        air_out = self.subcooling_region.solve_analysis(L_flow_sub)
         logger.debug(
             f"Subcooling region. "
             f"Leaving air temperature = {air_out.Tdb.to('degC'):~P.3f}."

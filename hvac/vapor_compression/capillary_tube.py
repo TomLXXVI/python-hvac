@@ -54,7 +54,7 @@ def velocity(m_dot: Quantity, d_i: Quantity, fluid_state: FluidState) -> Quantit
 def m_dot_to_A(m_dot: Quantity, d_i: Quantity) -> Quantity:
     """
     Returns the ratio of the refrigerant mass flow rate to the cross-sectional
-    area of the tube.
+    area of the tube (= mass velocity).
     """
     m_dot = m_dot.to('kg / s')
     d_i = d_i.to('m')
